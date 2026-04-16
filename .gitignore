@@ -1,0 +1,46 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/.turbo/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Generated data — rebuilt by ToplineBuilder / CalculatedLayerBuilder / ingest scripts
+backend/data/filing_data/
+backend/data/earnings_releases/
+backend/data/earnings_fragments/
+backend/data/insights/
+backend/data/fragment_debug/
+backend/data/Broker_report/
+
+# Keep the config directory (ticker_groups.json etc.)
+!backend/data/config/
+
+# Audio recordings (large .wav files)
+tools/audio_recorder/recordings/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+NUL
+
+# Misc
+*.log

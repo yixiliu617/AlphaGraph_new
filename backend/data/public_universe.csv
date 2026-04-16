@@ -1,0 +1,13 @@
+ticker,name,gics_sector,gics_subsector,gics_subindustry
+NVDA,NVIDIA Corporation,Information Technology,Semiconductors,Semiconductors
+AAPL,Apple Inc.,Information Technology,Technology Hardware Storage & Peripherals,Technology Hardware Storage & Peripherals
+MSFT,Microsoft Corporation,Information Technology,Software,Systems Software
+TSM,Taiwan Semiconductor Manufacturing Company,Information Technology,Semiconductors,Semiconductors
+ASML,ASML Holding N.V.,Information Technology,Semiconductors,Semiconductor Equipment
+AMAT,Applied Materials Inc.,Information Technology,Semiconductors,Semiconductor Equipment
+MU,Micron Technology Inc.,Information Technology,Semiconductors,Semiconductors
+ANF,Abercrombie & Fitch Co.,Consumer Discretionary,Specialty Retail,Apparel Retail
+AS,ASOS plc,Consumer Discretionary,Internet & Direct Marketing Retail,Internet & Direct Marketing Retail
+GOOGL,Alphabet Inc.,Communication Services,Interactive Media & Services,Interactive Media & Services
+AMZN,Amazon.com Inc.,Consumer Discretionary,Internet & Direct Marketing Retail,Internet & Direct Marketing Retail
+META,Meta Platforms Inc.,Communication Services,Interactive Media & Services,Interactive Media & Services

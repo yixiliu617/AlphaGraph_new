@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "_comment": "Ticker group definitions for the Sector Heatmap in the Data Explorer. Each group_definition partitions the universe into named buckets. Users can add new group_definitions or new groups inside an existing definition without schema changes.",
+  "group_definitions": {
+    "GICS_industry": {
+      "label": "GICS Industry",
+      "groups": {
+        "Semiconductors": ["NVDA", "AVGO", "INTC", "MU", "QCOM", "MRVL"],
+        "Semiconductor Equipment": ["AMAT", "LRCX", "KLAC", "TER"],
+        "Software": ["MSFT", "ORCL", "CDNS", "SNPS"],
+        "Technology Hardware & Equipment": ["AAPL", "DELL", "LITE"],
+        "Internet & Direct Marketing": ["AMZN"]
+      }
+    },
+    "GICS_subindustry": {
+      "label": "GICS Sub-Industry",
+      "groups": {
+        "Semiconductors (Compute/AI)": ["NVDA", "AVGO", "INTC"],
+        "Semiconductors (Memory)": ["MU"],
+        "Semiconductors (Mobile/Connectivity)": ["QCOM", "MRVL"],
+        "Semiconductor Equipment (Wafer Fab)": ["AMAT", "LRCX"],
+        "Semiconductor Equipment (Metrology)": ["KLAC"],
+        "Semiconductor Equipment (ATE)": ["TER"],
+        "Systems Software": ["MSFT", "ORCL"],
+        "EDA Software": ["CDNS", "SNPS"],
+        "Consumer Electronics": ["AAPL"],
+        "Enterprise Hardware": ["DELL"],
+        "Optical Networking": ["LITE"],
+        "Internet Retail": ["AMZN"]
+      }
+    },
+    "supplychain": {
+      "label": "AI Supply Chain",
+      "groups": {
+        "AI Chip Designers": ["NVDA", "AVGO", "MRVL"],
+        "Memory for AI": ["MU"],
+        "AI CPUs / Foundry": ["INTC"],
+        "Semi Equipment (Fabs enabling AI)": ["AMAT", "LRCX", "KLAC", "TER"],
+        "EDA (chip design enablers)": ["CDNS", "SNPS"],
+        "Hyperscalers / Cloud": ["MSFT", "ORCL", "AMZN"],
+        "AI Server Hardware": ["DELL"],
+        "Optical Interconnect": ["LITE"],
+        "Consumer AI Platforms": ["AAPL", "QCOM"]
+      }
+    },
+    "user_defined1": {
+      "label": "User-Defined (High Beta vs Defensive)",
+      "groups": {
+        "High Beta / Cyclical": ["NVDA", "AMAT", "LRCX", "KLAC", "MU", "AVGO", "LITE", "MRVL", "TER"],
+        "Defensive / Mega Cap": ["AAPL", "MSFT", "ORCL", "AMZN"],
+        "Turnaround / Special Situation": ["INTC", "DELL"],
+        "Platform / Stable Growth": ["CDNS", "SNPS", "QCOM"]
+      }
+    },
+    "user_defined2": {
+      "label": "User-Defined (Capital Intensity)",
+      "groups": {
+        "Capex Heavy (Fab/Infra)": ["INTC", "MU", "TSMC"],
+        "Capex Light (Fabless/IP)": ["NVDA", "AVGO", "QCOM", "MRVL", "CDNS", "SNPS", "AAPL"],
+        "Tooling Vendors": ["AMAT", "LRCX", "KLAC", "TER"],
+        "Cloud-Driven Capex": ["MSFT", "ORCL", "AMZN", "DELL"],
+        "Optical": ["LITE"]
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+# Audio capture
+sounddevice>=0.4.6
+numpy>=1.21.0
+scipy>=1.7.0
+
+# Live transcription (Deepgram)
+deepgram-sdk>=3.0.0
+python-dotenv>=1.0.0
+
+# Post-meeting transcription (Whisper)
+faster-whisper>=0.10.0
