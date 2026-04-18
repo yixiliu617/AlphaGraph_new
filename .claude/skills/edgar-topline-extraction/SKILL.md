@@ -78,7 +78,7 @@ period_map = self._augment_period_map_from_filings(period_map, filings)
 
 **Critical rules baked into `_build_period_map`:**
 
-- **Reject rolling-TTM `fp=FY` periods**: a period with `fp=FY` whose start_date is not a real fiscal year start is a 12-month rolling TTM, not an actual annual. AMZN files these at every mid-year quarter end.
+- **Handle AMZN-like rolling TTM `fp=FY` periods**: when a standalone quarter (Q1-Q3, ~90 days) and a rolling TTM (fp=FY, ~365 days) coexist at the same mid-year end_date, prefer the standalone. The column value from `to_dataframe()` is the standalone/YTD value, not the TTM. Do NOT use a generic FY-rejection filter — it breaks filers whose fiscal year crosses calendar year boundaries (CDNS, etc.).
 - **Identify real fiscal year starts** by grouping FY candidates by calendar year of end_date and keeping only the entry with the latest end_date per calendar year.
 - **80-100 day `fp=None` entries are Q1 standalone, not YTD**. The first quarter of a fiscal year IS its own YTD baseline. AVGO's `2024-02-04` had only a 97-day `fp=None` entry; the old code mis-labeled it as "Q2 with is_ytd=True" and the calculator dropped it. The fix splits by duration: 80-100 → Q1, 160-200 → Q2 YTD, 250-290 → Q3 YTD.
 - **YTD detection by duration, not label**. `is_ytd = ytd_entry exists AND ytd_entry.days > value_entry.days`. We do NOT gate on `fp ∈ (Q2, Q3)` because edgartools mis-labels DELL's Q3 as "Q4" and the gating broke.
@@ -262,13 +262,14 @@ Real edge cases observed in this universe. When a new ticker behaves badly, chec
 - **EBITDA**: not in EDGAR; computed via `COMPUTED_METRICS` as `operating_income + abs(depreciation)`.
 - Otherwise NVDA is the canonical "well-behaved" filer — fiscal calendar Feb→Jan, all quarter labels correct.
 
-### DELL (off-by-one fiscal_year + missing comparative columns)
+### DELL (off-by-one fiscal_year + missing comparatives + VMware spinoff)
 
 - **Fiscal calendar**: Feb→Jan (FY2026 = Feb 2025 → Jan 2026).
 - **Off-by-one fiscal_year**: edgartools labels `2025-01-31` as `FY2026-Q4` (filing year), but it's actually the end of FY2025. Fixed by `_reanchor_period_labels`.
 - **Off-by-one fiscal_quarter**: edgartools labels DELL's Q3 periods (~Nov end) as `Q4`. Cascades through all standalone quarters. Fixed by reanchor.
 - **Missing FY2024 Q1/Q2/Q3 comparative columns**: `XBRLS.from_filings().to_dataframe()` drops `2023-05-05`, `2023-08-04`, `2023-11-03` from the consolidated output. They exist in individual 10-Q comparative columns. Fixed by `_gap_fill_raw_dataframe`.
 - **Q3 reported as 9M YTD**: when a 10-Q's Q3 comparative is the only entry edgartools provides, it's `fp=None days=272`. The `_ytd_to_standalone` step subtracts the H1 YTD baseline; if the baseline is also missing, the row stays `is_ytd=True` and is filtered.
+- **VMware spinoff artifact (FY2022-Q4 = -8.2% gross margin)**: VMware was spun off Nov 1 2021 (mid-Q3 FY2022). DELL's FY2022 10-K was **restated** on a "continuing operations" basis, but the 9M cumulative from Q1+Q2+Q3 10-Qs includes pre-spinoff VMware figures. The `_derive_q4 = Annual - 9M` subtraction produces a Q4 where cost_of_revenue ($24B) exceeds revenue ($22B) = -8.2% gross margin. **This is a derivation artifact, not real negative margins.** DELL's actual Q4 FY2022 had ~30% gross margins. UNFIXABLE from EDGAR data — DELL 10-Ks have only annual columns, no standalone Q4. Caught by sanity check #4 (soft: gross_profit < 0). Document and live with it. Any mid-year M&A or spinoff for any filer will produce the same class of artifact in the derived Q4.
 
 ### AAPL (off-by-one + Apple's Sept fiscal year)
 
@@ -277,11 +278,24 @@ Real edge cases observed in this universe. When a new ticker behaves badly, chec
 - **Some historical rows mis-labeled by one quarter**: similar to DELL, fixed by reanchor.
 - All EPS / net_income concepts use standard NetIncomeLoss / EarningsPerShare* — no special handling needed.
 
-### LITE (NeoPhotonics acquisition reshuffled fiscal calendar)
+### LITE (NeoPhotonics acquisition + missing quarters + is_ytd misclassification)
 
-- Around mid-2023, Lumentum integrated NeoPhotonics and the fiscal periods shifted. Several quarters in 2023 have YoY/QoQ NaN because the prior-year comparative quarters don't align cleanly to the new calendar.
-- Recent quarters are clean; older ones have legitimate gaps where no equivalent prior period exists.
+- **NeoPhotonics acquisition** (closed June 2022): post-acquisition quarters include NeoPhotonics revenue. YoY comparisons across the acquisition boundary are non-comparable.
+- **Missing quarters**: 3 quarters are affected. `2021-10-02` and `2022-04-02` are in the topline but marked `is_ytd=True` — the calculator filters them. `2023-01` is not in any filing at all. These produce cascading YoY NaN for the quarters a year later.
+- **is_ytd misclassification**: `_build_period_map` marks some LITE rows as YTD when their values are actually standalone, because a longer-duration YTD entry exists at the same end_date. The `_ytd_to_standalone` step can't convert them (missing baseline) so they stay is_ytd=True and get dropped.
+- Recent quarters (FY2025+) are clean; older ones around 2021-2023 have legitimate gaps.
 - Capex line uses `"Purchases of test, manufacturing and other equipment"` (label fallback path).
+
+### CDNS (Unknown fiscal_quarter for Q4 FY2021)
+
+- **Fiscal calendar**: Calendar year (Jan → Dec).
+- **Missing Q4 FY2021 (2022-01-01)**: the period exists in the topline but was labeled `fiscal_quarter = "Unknown"` because `_build_period_map` had no entry for this end_date. **Fix**: `_reanchor_period_labels` now includes "Unknown" rows in the step-back sequence, so they get proper Q1-Q4 labels from their position in the end_date ordering.
+- Without this fix, the row was dropped by the calculator's `fiscal_quarter.isin(["Q1","Q2","Q3","Q4"])` filter, and the quarter a year later (FY2022-Q4) lost its YoY match.
+
+### TER (genuine Q2 2020 data gap)
+
+- **Fiscal calendar**: Calendar year (Jan → Dec).
+- **Missing Q2 2020**: this quarter is NOT in any EDGAR filing (10-K or 10-Q) for Teradyne. Not recoverable. Produces 1 YoY NaN at FY2021-Q2. Legitimate blank — document and accept.
 
 ### AVGO (custom Q1, ProfitLoss net income, generic EPS labels)
 
@@ -292,12 +306,14 @@ This is the most-affected ticker in the universe. Three independent issues:
 3. **EPS labels are just `"Basic"` / `"Diluted"`**, not `"basic (in usd per share)"`. `standard_concept=NaN`. **Fix**: added `_INCOME_CONCEPT_FALLBACK` matching raw concept `us-gaap_EarningsPerShareBasic`/`Diluted`.
 - **VMware acquisition (Q3 FY2024)**: caused a -$1.88B net loss that quarter. Real, not a bug.
 
-### AMZN (rolling TTM `fp=FY` entries at every mid-year end)
+### AMZN (rolling TTM `fp=FY` entries at every mid-year quarter end)
 
 - Calendar fiscal year (Jan → Dec).
-- Edgartools provides extra `fp=FY days=364` entries at every mid-year quarter end (e.g. `2025-06-30 start=2024-07-01 days=364`). These are rolling 12-month TTM disclosures, not real annual periods.
-- Old code picked them as the canonical annual label, so every quarter showed up as "Annual".
-- **Fix**: in `_build_period_map`, reject any `fp=FY` entry whose start_date isn't in `real_fy_starts`. Real fiscal year starts are derived by grouping FY candidates by calendar year of end_date and keeping only the entry with the latest end_date per calendar year (so AMZN's Dec-31 wins over rolling Mar/Jun/Sep starts).
+- Edgartools provides `fp=FY days=364` entries at **every** quarter end_date (Mar 31, Jun 30, Sep 30, Dec 31), not just the fiscal year end. These are trailing-twelve-month comparative disclosures filed alongside the actual quarterly data.
+- Each mid-year end_date has BOTH a standalone quarter entry (Q1 ~90 days) AND a rolling TTM entry (FY ~364 days) in `all_standalone`.
+- **Key insight**: edgartools' `to_dataframe()` puts the STANDALONE/YTD value in the column, NOT the TTM. So the column value at 2025-03-31 is Q1 standalone ($155B), not the TTM ($620B). The TTM entries are phantom metadata that don't affect column values.
+- **Fix**: NO FY-TTM rejection filter. Instead, when both a standalone quarter (~90 days) and an Annual/TTM (~365 days) exist at the same end_date, the period_map prefers the standalone quarter (since that matches the column value). The Annual entry is only used at the fiscal year end, where the column value IS the annual total and `_derive_q4` subtracts 9M to get Q4.
+- **Previous broken approach**: a generic FY-TTM rejection filter that checked `start_date ∈ real_fy_starts`. This accidentally broke CDNS (whose FY2021 annual crosses the calendar year boundary) and any other filer with a non-December year-end. **NEVER use a generic FY-rejection filter** — handle AMZN's TTMs by preferring standalone entries at the value-selection level, not by rejecting period_map entries.
 
 ### MU (Memory cycle volatility, large negative YoY)
 
@@ -377,6 +393,38 @@ After `_reanchor_period_labels` runs, no two standalone quarterly rows should sh
 Every reanchor mismatch is recorded in the build report under `ticker_report["is_reanchor_mismatches"]` and `ticker_report["cf_reanchor_mismatches"]`. Review these after every build. A growing list per ticker is normal (these are honest disagreements with edgartools' historical labels). A SUDDEN spike is a regression signal.
 
 ## 7. Investigation playbook — when a check fails
+
+### Step 0 — Heatmap scan (run FIRST, before any ticker-level investigation)
+
+When the user reports missing data or wrong values in the heatmap or quarterly table, **scan the heatmap endpoint for ALL tickers in one shot** to identify every blank and anomaly. Do not investigate one ticker at a time.
+
+```python
+import sys; sys.path.insert(0, '..')
+from backend.app.api.routers.v1 import data as dr
+import importlib; importlib.reload(dr)
+
+for metric in ['revenue_yoy_pct', 'gross_margin_pct', 'gross_margin_pct_diff_yoy']:
+    result = dr.sector_heatmap(group_definition='GICS_industry', quarters=20, metric=metric)
+    print(f'=== {metric} ===')
+    for g in result['groups']:
+        for r in g['rows']:
+            pts = r['points']
+            blanks = [(i, pts[i]['label']) for i in range(len(pts)) if pts[i]['value'] is None]
+            anomalies = [(i, pts[i]['label'], pts[i]['value']) for i in range(len(pts))
+                         if pts[i]['value'] is not None and (
+                             (metric.endswith('_pct') and abs(pts[i]['value']) > 500) or
+                             (pts[i]['value'] < 0 and 'margin_pct' in metric and 'diff' not in metric)
+                         )]
+            if blanks or anomalies:
+                print(f'  {r["ticker"]:5} blanks={blanks[:5]} anomalies={anomalies[:5]}')
+```
+
+This gives a universe-wide view of what's broken. THEN investigate each finding per the steps below.
+
+**Known categories of blanks that are NOT bugs** (document but don't chase):
+- Boundary blanks: the oldest 1-4 rows of a ticker's series have no prior year for YoY%. Normal.
+- M&A period blanks: quarters around major acquisitions/spinoffs where the entity changed (LITE NeoPhotonics FY2023, DELL VMware FY2022). YoY is meaningless across entity changes.
+- Derived Q4 anomalies: negative gross_profit in a Q4 row where Q4 was derived as `Annual - 9M` and a mid-year corporate action made the subtraction inaccurate. Flag with soft warning, don't try to fix.
 
 When a coverage check fires for a ticker, follow this sequence. **Do not skip to "rebuild and pray"**.
 
@@ -570,7 +618,25 @@ These are non-negotiable. Violating them will produce wrong data that ships sile
 6. **Never ship a build without running the coverage checks**. The "revenue present but YoY is NaN" warning is a hard failure signal.
 7. **Always update this skill file when a new edge case is discovered**. The institutional memory lives here, not in your head.
 
-## 11. Files that implement this skill
+## 11. Heatmap calendar-view edge cases
+
+### Nearest-quarter-end bucketing (the INTC blank fix)
+
+When displaying the calendar-view heatmap, each ticker's `end_date` must be bucketed into a calendar quarter. **Never use strict month-based bucketing** (`Math.floor(month / 3) + 1`). Some filers end quarters on Saturdays that land on April 1-2, July 1-2, or October 1 — strict bucketing puts these in the NEXT calendar quarter, creating blanks in the intended column.
+
+**Fix**: use "nearest calendar quarter end" — for each `end_date`, find the closest of Mar 31, Jun 30, Sep 30, Dec 31 (across current + adjacent years). April 2 is 1 day from Mar 31 → Q1. July 2 is 2 days from Jun 30 → Q2. Implemented in `_nearestCalendarQ()` in `DataExplorerView.tsx`.
+
+**Tickers affected**: INTC (ends on Saturdays, regularly lands on April 1-2), AAPL (ends on last Saturday of quarter, occasionally hits the boundary), any filer with a Saturday fiscal period convention.
+
+### M&A / spinoff annotations
+
+Quarters affected by M&A events (DELL VMware spinoff, LITE NeoPhotonics, AVGO VMware, MSFT Activision) produce anomalies in the heatmap (negative margins, extreme YoY jumps, or blanks). These are flagged via:
+
+1. **`backend/data/config/corporate_events.json`** — structured catalog of M&A events per ticker with deal dates, types, impacted quarters, and related companies.
+2. **Heatmap tooltip** — tickers with known events show "..." below the name. Hover reveals a popup with event details so the user understands why a quarter looks unusual.
+3. **Sanity checks** — soft warnings for negative gross_profit (check #4) and QoQ revenue cliffs (check #15) catch M&A artifacts even when the event isn't in the catalog.
+
+## 12. Files that implement this skill
 
 | File | Owns |
 |---|---|

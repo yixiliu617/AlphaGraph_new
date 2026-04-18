@@ -308,6 +308,12 @@ class ToplineBuilder:
                     # Q4 MUST be derived before YTD conversion: Q4 = Annual - Nine Months YTD (original)
                     # If YTD is converted to standalone first, the subtraction gives wrong Q4 values.
                     is_wide = self._derive_q4(is_wide, "income_statement")
+                    # Raw-facts fallback: resolve standalone vs YTD AFTER _derive_q4
+                    # (so 9M YTD is still available for Q4 derivation) but BEFORE
+                    # _ytd_to_standalone (so wrong subtractions don't happen).
+                    # Fixes SWKS Q2 FY2020 where to_dataframe() picked standalone
+                    # (766) but is_ytd=True caused subtraction → revenue=-130.
+                    is_wide = self._resolve_ytd_with_raw_facts(is_wide, filings, _INCOME_MAP)
                     is_wide = self._ytd_to_standalone(is_wide, "income_statement")
                     # Derive gross_profit from revenue - cost_of_revenue for filers
                     # who don't report a GrossProfit subtotal (e.g. ORCL). Only
@@ -367,6 +373,170 @@ class ToplineBuilder:
 
         _BUILD_REPORT.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
         return report
+
+    # ------------------------------------------------------------------
+    # Raw-facts fallback: resolve standalone vs YTD ambiguity
+    #
+    # When _process_statement marks a row is_ytd=True (because a longer-
+    # duration period entry exists at the same end_date), the column
+    # VALUE might be either YTD or standalone — to_dataframe() picks
+    # unpredictably. This method checks the raw XBRL facts from each
+    # filing to find the QTD (standalone, ~90 day) value for each
+    # is_ytd=True row. If found, replaces the column value with the
+    # standalone and sets is_ytd=False, preventing _ytd_to_standalone
+    # from corrupting it with a wrong subtraction.
+    #
+    # Context: SWKS Q2 FY2020 had column value=766 (standalone) but
+    # is_ytd=True. _ytd_to_standalone subtracted Q1(896), producing
+    # revenue=-130. The raw facts have context "FD2020Q2QTD" (90d)=766
+    # and "FD2020Q2YTD" (181d)=1662. This method picks the 90d value.
+    # ------------------------------------------------------------------
+
+    def _resolve_ytd_with_raw_facts(
+        self,
+        df: pd.DataFrame,
+        filings,
+        concept_map: dict[str, str],
+    ) -> pd.DataFrame:
+        """
+        For each is_ytd=True row, look up the raw XBRL facts from
+        individual filings to find the standalone (QTD, ~80-100 day)
+        value. If found, replace the row's metric values with the
+        standalone values and set is_ytd=False.
+
+        Only touches is_ytd=True rows. Clean rows are never modified.
+        """
+        from edgar.xbrl import XBRL
+
+        if df.empty:
+            return df
+
+        ytd_mask = df["is_ytd"].astype(bool)
+        if not ytd_mask.any():
+            return df
+
+        df = df.copy()
+
+        # Invert concept_map: metric_name → list of standard_concept keys
+        # so we know which concepts to look for in the raw facts
+        std_to_metric: dict[str, str] = {}
+        for std_concept, metric_name in concept_map.items():
+            std_to_metric[std_concept] = metric_name
+
+        # Build a mapping: end_date → filing, so we know which filing
+        # to parse for each YTD row
+        filing_by_period: dict[str, object] = {}
+        for f in filings:
+            por = str(getattr(f, "period_of_report", "") or "")
+            if por:
+                filing_by_period[por] = f
+
+        ytd_indices = df[ytd_mask].index.tolist()
+        resolved_count = 0
+
+        for idx in ytd_indices:
+            row = df.loc[idx]
+            end_date = row["period_end"]
+            end_str = end_date.strftime("%Y-%m-%d") if hasattr(end_date, "strftime") else str(end_date)[:10]
+
+            # Find the filing closest to this end_date
+            filing = filing_by_period.get(end_str)
+            if filing is None:
+                # Try nearest match within 7 days
+                for por, f in filing_by_period.items():
+                    try:
+                        delta = abs((pd.Timestamp(por) - pd.Timestamp(end_str)).days)
+                        if delta <= 7:
+                            filing = f
+                            break
+                    except Exception:
+                        continue
+            if filing is None:
+                continue
+
+            # Parse the filing's raw facts
+            try:
+                xbrl = XBRL.from_filing(filing)
+                facts_df = xbrl.facts.to_dataframe()
+            except Exception:
+                continue
+
+            # For each metric, find the QTD (standalone, 80-100 day) fact
+            # at this end_date
+            any_resolved = False
+            for _, fact_row in facts_df.iterrows():
+                concept = str(fact_row.get("concept", ""))
+                # Strip the namespace prefix to match standard_concept
+                # e.g. "us-gaap:RevenueFromContract..." → check if any
+                # standard_concept key maps from it
+                fact_end = str(fact_row.get("period_end", ""))[:10]
+                fact_start = str(fact_row.get("period_start", ""))[:10]
+
+                if fact_end != end_str:
+                    continue
+
+                # Check if this fact is dimensioned (we only want consolidated)
+                is_dim = fact_row.get("is_dimensioned", False)
+                if is_dim:
+                    continue
+
+                # Compute duration
+                try:
+                    duration = (pd.Timestamp(fact_end) - pd.Timestamp(fact_start)).days
+                except Exception:
+                    continue
+
+                # We want the QTD (standalone, ~80-100 days)
+                if duration < 80 or duration > 100:
+                    continue
+
+                val = fact_row.get("numeric_value") or fact_row.get("value")
+                if val is None:
+                    continue
+                try:
+                    val = float(val)
+                except (TypeError, ValueError):
+                    continue
+                if pd.isna(val):
+                    continue
+
+                # Find which metric this concept maps to
+                # Try matching by standard_concept from the concept_map
+                std_concept = str(fact_row.get("standard_concept", "") or "")
+                # Also check the fiscal_period in the fact
+                metric = None
+                if std_concept and std_concept in concept_map:
+                    metric = concept_map[std_concept]
+                else:
+                    # Try matching by raw concept against known patterns
+                    for std_key, metric_name in concept_map.items():
+                        if std_key.lower() in concept.lower():
+                            metric = metric_name
+                            break
+
+                if metric is None:
+                    continue
+                if metric not in df.columns:
+                    continue
+
+                # Scale to millions (same as _process_statement)
+                if metric not in _NO_SCALE:
+                    val = round(val / 1_000_000, 4)
+                else:
+                    val = round(val, 6)
+
+                # Replace the value
+                df.at[idx, metric] = val
+                any_resolved = True
+
+            if any_resolved:
+                df.at[idx, "is_ytd"] = False
+                resolved_count += 1
+
+        if resolved_count > 0:
+            log.info("  raw-facts fallback resolved %d YTD rows to standalone", resolved_count)
+
+        return df
 
     # ------------------------------------------------------------------
     # Per-filing gap fill
@@ -549,6 +719,12 @@ class ToplineBuilder:
                 return None
 
         # ---- Standalone quarters ----
+        # Do NOT include "Unknown" fiscal_quarter rows here. An "Unknown"
+        # row is typically an annual-scale value that the period_map couldn't
+        # classify (e.g. CDNS 2022-01-01 = full-year $2988M disguised as a
+        # column). Including it would assign a Q label to an annual value
+        # and produce fake +293% YoY numbers. Let "Unknown" rows stay
+        # unclassified — the calculator drops them, which is correct.
         q_mask = df["fiscal_quarter"].isin(["Q1", "Q2", "Q3", "Q4"]) & (
             ~df["is_ytd"].astype(bool)
         )
@@ -879,20 +1055,16 @@ class ToplineBuilder:
             fy    = p.get("fiscal_year")
             start = p.get("start_date")
 
-            if fp == "FY" and real_fy_starts and start not in real_fy_starts:
-                # Rolling TTM period mislabeled as FY — not a real annual period
-                # for this filer. Drop it entirely.
-                continue
+            # NO FY-TTM rejection filter. We used to reject fp=FY entries
+            # whose start_date wasn't in "real_fy_starts" to handle AMZN's
+            # rolling TTM disclosures. That filter accidentally broke CDNS
+            # (whose FY2021 annual crosses the calendar year boundary) and
+            # any other filer with a non-December year-end. AMZN's rolling
+            # TTMs are now handled below by preferring standalone-quarter
+            # entries over Annual/TTM entries at the same end_date.
 
             if fp != "N/A":
                 label = "Annual" if fp == "FY" else fp
-                # Narrow override: only re-infer when the label is CLEARLY
-                # wrong. "Annual" on a 90-day period means edgartools assigned
-                # an FY fiscal_period to a standalone quarter (AMZN case) —
-                # override it. Q_ labels that are already correct for most
-                # filers (NVDA, LRCX, AAPL, etc.) are left alone because our
-                # inference is strictly date-based and would regress filers
-                # whose Q1 starts don't align with the calendar heuristic.
                 if label == "Annual" and 80 <= days <= 100:
                     inferred = _infer_fp(start, days)
                     if inferred is not None:
@@ -918,11 +1090,37 @@ class ToplineBuilder:
         for end, entries in all_standalone.items():
             # Sort ascending by days: shortest = Q4 standalone, longest = Annual
             entries_sorted = sorted(entries, key=lambda x: x["days"])
-            # to_dataframe() returns the LARGEST-duration value → label from that entry
-            value_entry = entries_sorted[-1]
+
+            # Determine which entry matches what to_dataframe() actually put
+            # in the column. The general rule is "largest duration wins" —
+            # EXCEPT when a standalone quarter (~90 days) and an Annual/TTM
+            # (~365 days) coexist at a MID-YEAR end_date. In that case
+            # (seen with AMZN's rolling TTMs), edgartools puts the
+            # standalone/YTD value in the column, not the TTM. So we prefer
+            # the standalone quarter when one exists alongside an Annual.
+            #
+            # At the FISCAL YEAR END (where Q4 and Annual share the same
+            # end_date), there's no standalone-quarter that's also ~90 days
+            # with a DIFFERENT label than Q4 — the Q4 entry IS the
+            # standalone, and the Annual IS the larger. _derive_q4 handles
+            # the subtraction (Q4 = Annual − 9M).
+            quarter_entries = [e for e in entries_sorted if e["fp"] in ("Q1","Q2","Q3","Q4") and e["days"] <= 100]
+            annual_entries  = [e for e in entries_sorted if e["fp"] == "Annual"]
+
+            if quarter_entries and annual_entries:
+                # Both exist at same end_date (AMZN-like TTM or Q4/Annual at year-end).
+                # If the quarter is NOT Q4, it's a mid-year standalone + rolling TTM.
+                # Prefer the standalone because that's what the column value is.
+                # If it IS Q4, prefer the Annual (column value is annual for year-end).
+                if quarter_entries[0]["fp"] != "Q4":
+                    value_entry = quarter_entries[0]
+                else:
+                    value_entry = annual_entries[-1]  # longest Annual
+            else:
+                value_entry = entries_sorted[-1]  # default: largest duration
+
             # fiscal_year from the SHORTEST entry: Q4 standalone always carries the
-            # correct fiscal_year, while Annual comparison columns get the filing year
-            # (e.g. NVDA FY2021 Annual inside the FY2022 10-K gets fiscal_year=2022).
+            # correct fiscal_year, while Annual comparison columns get the filing year.
             fy_entry    = entries_sorted[0]
 
             fp        = value_entry["fp"]

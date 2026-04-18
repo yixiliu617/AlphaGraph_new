@@ -123,9 +123,9 @@ def transcribe_folder(folder_path, model_size="medium"):
     """Transcribe all audio files in a folder."""
     folder = Path(folder_path)
 
-    # Find all supported audio files
+    # Find all supported audio/video files (Whisper handles video natively via ffmpeg)
     audio_files = []
-    for ext in ['*.opus', '*.wav', '*.mp3', '*.m4a', '*.ogg']:
+    for ext in ['*.opus', '*.wav', '*.mp3', '*.m4a', '*.ogg', '*.mp4', '*.mov', '*.mkv']:
         audio_files.extend(folder.glob(ext))
 
     if not audio_files:

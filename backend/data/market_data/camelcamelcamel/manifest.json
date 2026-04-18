@@ -1,0 +1,26 @@
+[
+  {
+    "asin": "B08176KLZT",
+    "product_name": "G.SKILL Trident Z RGB Series DDR4 RAM (XMP) 32GB (2x16GB) 3600MT/s CL18-22-22-42 1.35V Intel AMD Desktop Computer Memory U-DIMM (F4-3600C18D-32GTZR)",
+    "chart_url": "https://charts.camelcamelcamel.com/us/B08176KLZT/new.png?force=1&zero=0&w=735&h=385.5&desired=false&legend=1&ilt=1&tp=all&fo=0&lang=en",
+    "local_path": "backend/data/market_data/camelcamelcamel/images/B08176KLZT.png"
+  },
+  {
+    "asin": "B08C4X9VR5",
+    "product_name": "Crucial 32GB DDR4 RAM Kit (2x16GB), 3200MHz (PC4-25600) CL22 Laptop Memory, SODIMM 260-Pin, Downclockable to 2933/2666MHz, Compatible with 13th Gen Intel Core and AMD Ryzen 7000 - CT2K16G4SFRA32A",
+    "chart_url": "https://charts.camelcamelcamel.com/us/B08C4X9VR5/amazon.png?force=1&zero=0&w=735&h=385.5&desired=false&legend=1&ilt=1&tp=all&fo=0&lang=en",
+    "local_path": "backend/data/market_data/camelcamelcamel/images/B08C4X9VR5.png"
+  },
+  {
+    "asin": "B07RS1G6XW",
+    "product_name": "CORSAIR Vengeance LPX DDR4 RAM 16GB (2x8GB) 3200MHz CL16-20-20-38 1.35V Intel AMD Desktop Computer Memory - Black (CMK16GX4M2E3200C16)",
+    "chart_url": "https://charts.camelcamelcamel.com/us/B07RS1G6XW/amazon.png?force=1&zero=0&w=735&h=385.5&desired=false&legend=1&ilt=1&tp=all&fo=0&lang=en",
+    "local_path": "backend/data/market_data/camelcamelcamel/images/B07RS1G6XW.png"
+  },
+  {
+    "asin": "B07RW6Z692",
+    "product_name": "CORSAIR Vengeance LPX DDR4 RAM 32GB (2x16GB) 3200MHz CL16-20-20-38 1.35V Intel AMD Desktop Computer Memory - Black (CMK32GX4M2E3200C16)",
+    "chart_url": "https://charts.camelcamelcamel.com/us/B07RW6Z692/amazon.png?force=1&zero=0&w=735&h=385.5&desired=false&legend=1&ilt=1&tp=all&fo=0&lang=en",
+    "local_path": "backend/data/market_data/camelcamelcamel/images/B07RW6Z692.png"
+  }
+]

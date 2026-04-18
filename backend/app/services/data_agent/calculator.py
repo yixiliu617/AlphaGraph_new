@@ -409,6 +409,14 @@ SELECT end_date, start_date, concept, value FROM deduped ORDER BY end_date
                     axis=1,
                 )
 
+        # Note: we previously had a "cumulative-YTD leak guard" here that
+        # dropped rows with revenue > Nx median or neighbors. It was REMOVED
+        # because it kept breaking legitimate quarters for growing companies
+        # (NVDA's revenue went from $7B to $68B; LITE from $300M to $666M).
+        # Cumulative leaks should be fixed at the TOPLINE LAYER (period_map
+        # classification + is_ytd flag), not by post-hoc revenue magnitude
+        # checks in the calculator. See skill: edgar-topline-extraction.
+
         # Step 2: YoY and QoQ for GROWTH_BASE_METRICS
         # free_cash_flow is a computed metric but we grow it too
         growth_candidates = [m for m in GROWTH_BASE_METRICS if m in df.columns]

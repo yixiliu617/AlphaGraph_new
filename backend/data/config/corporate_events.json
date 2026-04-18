@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "_comment": "Corporate events (M&A, spinoffs, restructuring) that affect quarterly data comparability. Used by the sector heatmap to annotate tickers with known data anomalies. Add new events here when a ticker shows unexpected blanks, negative margins, or extreme YoY jumps.",
+  "events": [
+    {
+      "ticker": "DELL",
+      "event_type": "spinoff",
+      "event_date": "2021-11-01",
+      "deal_name": "VMware Spinoff",
+      "details": "Dell completed the spin-off of its ~81% equity ownership in VMware. Post-spinoff, Dell's financials were restated on a continuing-operations basis, but Q1-Q3 FY2022 10-Qs include pre-spinoff VMware figures. This makes the derived Q4 FY2022 (Annual minus 9M) produce artificially negative gross margins (-8.2%).",
+      "related_companies": ["VMW"],
+      "impacted_quarters": ["FY2022-Q3", "FY2022-Q4"],
+      "impact_type": "Restated financials — Q4 derivation artifact"
+    },
+    {
+      "ticker": "LITE",
+      "event_type": "acquisition",
+      "event_date": "2022-06-07",
+      "deal_name": "NeoPhotonics Acquisition",
+      "details": "Lumentum acquired NeoPhotonics Corporation for ~$918M. Post-acquisition quarters include NeoPhotonics revenue and costs, making YoY comparisons to pre-acquisition quarters non-comparable. Fiscal calendar was unaffected but entity composition changed.",
+      "related_companies": ["NPTN"],
+      "impacted_quarters": ["FY2023-Q2", "FY2023-Q3", "FY2024-Q1", "FY2024-Q2"],
+      "impact_type": "Entity change — YoY non-comparable across acquisition"
+    },
+    {
+      "ticker": "AVGO",
+      "event_type": "acquisition",
+      "event_date": "2023-11-22",
+      "deal_name": "VMware Acquisition",
+      "details": "Broadcom completed the acquisition of VMware for ~$69B. VMware revenue consolidated into AVGO starting Q1 FY2024 (ending Feb 2024). Pre-acquisition quarters show organic Broadcom only; post-acquisition includes VMware. Q3 FY2024 had a -$1.88B net loss from integration charges.",
+      "related_companies": ["VMW"],
+      "impacted_quarters": ["FY2024-Q1", "FY2024-Q2", "FY2024-Q3"],
+      "impact_type": "Revenue step-up + integration charges — YoY non-comparable"
+    },
+    {
+      "ticker": "MSFT",
+      "event_type": "acquisition",
+      "event_date": "2023-10-13",
+      "deal_name": "Activision Blizzard Acquisition",
+      "details": "Microsoft completed the acquisition of Activision Blizzard for ~$69B. Gaming segment revenue increased significantly post-close. Minimal impact on overall margins due to Microsoft's scale, but Gaming segment YoY comparisons are non-comparable.",
+      "related_companies": ["ATVI"],
+      "impacted_quarters": ["FY2024-Q2", "FY2024-Q3", "FY2024-Q4"],
+      "impact_type": "Gaming segment revenue step-up"
+    },
+    {
+      "ticker": "AMZN",
+      "event_type": "acquisition",
+      "event_date": "2022-03-17",
+      "deal_name": "MGM Acquisition",
+      "details": "Amazon completed the acquisition of MGM Studios for ~$8.5B. Relatively small impact on Amazon's overall financials given Amazon's scale (~$500B+ revenue).",
+      "related_companies": ["MGM"],
+      "impacted_quarters": ["FY2022-Q1", "FY2022-Q2"],
+      "impact_type": "Minor — small relative to Amazon's scale"
+    },
+    {
+      "ticker": "INTC",
+      "event_type": "restructuring",
+      "event_date": "2024-08-01",
+      "deal_name": "Major Restructuring Plan",
+      "details": "Intel announced a restructuring plan including ~15,000 job cuts, Dresden fab closure, and $10B annualized cost reduction target by 2025. Resulted in significant impairment and restructuring charges across multiple quarters.",
+      "related_companies": [],
+      "impacted_quarters": ["FY2024-Q3", "FY2024-Q4", "FY2025-Q1"],
+      "impact_type": "Impairment charges — net income significantly affected"
+    },
+    {
+      "ticker": "MRVL",
+      "event_type": "acquisition",
+      "event_date": "2021-04-20",
+      "deal_name": "Inphi Acquisition",
+      "details": "Marvell completed the acquisition of Inphi Corporation for ~$10B. Inphi's high-speed interconnect products were consolidated into Marvell's Data Center segment. Pre-acquisition quarters are Marvell-only.",
+      "related_companies": ["IPHI"],
+      "impacted_quarters": ["FY2022-Q1", "FY2022-Q2"],
+      "impact_type": "Revenue step-up — YoY non-comparable"
+    }
+  ]
+}

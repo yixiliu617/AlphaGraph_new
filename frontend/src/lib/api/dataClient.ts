@@ -181,7 +181,13 @@ export type SectorHeatmapMetric =
   | "revenue"
   | "net_income"
   | "net_income_yoy_pct"
-  | "net_income_qoq_pct";
+  | "net_income_qoq_pct"
+  | "gross_margin_pct"
+  | "operating_margin_pct"
+  | "net_margin_pct"
+  | "gross_margin_pct_diff_yoy"
+  | "operating_margin_pct_diff_yoy"
+  | "net_margin_pct_diff_yoy";
 
 export interface SectorHeatmapPoint {
   label:       string | null;   // stepped-back label: "FY2026-Q4", "FY2026-Q3", ...
@@ -199,12 +205,24 @@ export interface SectorHeatmapMismatch {
   edgar:    string;
 }
 
+export interface CorporateEvent {
+  ticker:             string;
+  event_type:         string;   // "acquisition" | "spinoff" | "restructuring"
+  event_date:         string;   // YYYY-MM-DD
+  deal_name:          string;
+  details:            string;
+  related_companies:  string[];
+  impacted_quarters:  string[];
+  impact_type:        string;
+}
+
 export interface SectorHeatmapRow {
-  ticker:           string;
-  latest_label:     string | null;
-  latest_end_date:  string | null;
-  points:           SectorHeatmapPoint[];
-  mismatches:       SectorHeatmapMismatch[];
+  ticker:             string;
+  latest_label:       string | null;
+  latest_end_date:    string | null;
+  points:             SectorHeatmapPoint[];
+  mismatches:         SectorHeatmapMismatch[];
+  corporate_events:   CorporateEvent[];
 }
 
 export interface SectorHeatmapGroup {

@@ -386,9 +386,10 @@ async def topline_refresh(
 # Sector heatmap — revenue YoY % matrix grouped by ticker_groups.json
 # ---------------------------------------------------------------------------
 
-_CONFIG_DIR       = Path(__file__).resolve().parents[4] / "data" / "config"
-_TICKER_GROUPS_FP = _CONFIG_DIR / "ticker_groups.json"
-_CALC_DIR         = Path(__file__).resolve().parents[4] / "data" / "filing_data" / "calculated"
+_CONFIG_DIR         = Path(__file__).resolve().parents[4] / "data" / "config"
+_TICKER_GROUPS_FP   = _CONFIG_DIR / "ticker_groups.json"
+_CORP_EVENTS_FP     = _CONFIG_DIR / "corporate_events.json"
+_CALC_DIR           = Path(__file__).resolve().parents[4] / "data" / "filing_data" / "calculated"
 
 
 def _load_ticker_groups() -> dict:
@@ -398,6 +399,23 @@ def _load_ticker_groups() -> dict:
         return json.loads(_TICKER_GROUPS_FP.read_text(encoding="utf-8"))
     except Exception:
         return {"group_definitions": {}}
+
+
+def _load_corporate_events() -> dict[str, list[dict]]:
+    """Load corporate events keyed by ticker for quick lookup."""
+    if not _CORP_EVENTS_FP.exists():
+        return {}
+    try:
+        raw = json.loads(_CORP_EVENTS_FP.read_text(encoding="utf-8"))
+        by_ticker: dict[str, list[dict]] = {}
+        for ev in raw.get("events", []):
+            t = ev.get("ticker", "")
+            if t not in by_ticker:
+                by_ticker[t] = []
+            by_ticker[t].append(ev)
+        return by_ticker
+    except Exception:
+        return {}
 
 
 @router.get("/sector-heatmap/definitions")
@@ -419,12 +437,20 @@ def sector_heatmap_definitions() -> dict:
 
 
 _HEATMAP_METRICS: dict[str, dict] = {
-    "revenue_yoy_pct":    {"col": "revenue_yoy_pct",    "label": "Revenue YoY %", "fmt": "%"},
-    "revenue_qoq_pct":    {"col": "revenue_qoq_pct",    "label": "Revenue QoQ %", "fmt": "%"},
-    "revenue":            {"col": "revenue",            "label": "Revenue ($M)",  "fmt": "$M"},
-    "net_income":         {"col": "net_income",         "label": "Net Income ($M)", "fmt": "$M"},
-    "net_income_yoy_pct": {"col": "net_income_yoy_pct", "label": "Net Income YoY %", "fmt": "%"},
-    "net_income_qoq_pct": {"col": "net_income_qoq_pct", "label": "Net Income QoQ %", "fmt": "%"},
+    "revenue_yoy_pct":    {"col": "revenue_yoy_pct",    "label": "Revenue YoY %",       "fmt": "%"},
+    "revenue_qoq_pct":    {"col": "revenue_qoq_pct",    "label": "Revenue QoQ %",       "fmt": "%"},
+    "revenue":            {"col": "revenue",            "label": "Revenue ($M)",         "fmt": "$M"},
+    "net_income":         {"col": "net_income",         "label": "Net Income ($M)",      "fmt": "$M"},
+    "net_income_yoy_pct": {"col": "net_income_yoy_pct", "label": "Net Income YoY %",    "fmt": "%"},
+    "net_income_qoq_pct": {"col": "net_income_qoq_pct", "label": "Net Income QoQ %",    "fmt": "%"},
+    # Margins
+    "gross_margin_pct":              {"col": "gross_margin_pct",              "label": "Gross Margin %",          "fmt": "%"},
+    "operating_margin_pct":          {"col": "operating_margin_pct",          "label": "Op Margin %",             "fmt": "%"},
+    "net_margin_pct":                {"col": "net_margin_pct",                "label": "Net Margin %",            "fmt": "%"},
+    # Margin deltas (percentage-point YoY difference)
+    "gross_margin_pct_diff_yoy":     {"col": "gross_margin_pct_diff_yoy",     "label": "Gross Margin Diff YoY (pp)",  "fmt": "%"},
+    "operating_margin_pct_diff_yoy": {"col": "operating_margin_pct_diff_yoy", "label": "Op Margin Diff YoY (pp)",     "fmt": "%"},
+    "net_margin_pct_diff_yoy":       {"col": "net_margin_pct_diff_yoy",       "label": "Net Margin Diff YoY (pp)",    "fmt": "%"},
 }
 
 
@@ -617,6 +643,9 @@ def sector_heatmap(
             "mismatches":      mismatches,
         }
 
+    # Load corporate events and attach to each ticker's row
+    corp_events = _load_corporate_events()
+
     # Cache per-ticker row in case the same ticker appears in multiple groups
     ticker_cache: dict[str, dict] = {}
     for ticker_list in groups_cfg.values():
@@ -624,6 +653,7 @@ def sector_heatmap(
             if t not in ticker_cache:
                 row = _build_row(t)
                 if row is not None:
+                    row["corporate_events"] = corp_events.get(t, [])
                     ticker_cache[t] = row
 
     groups_out: list[dict] = []

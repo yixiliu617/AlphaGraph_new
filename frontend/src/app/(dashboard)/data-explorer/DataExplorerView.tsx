@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
 import { BarChart2, Plus, Download, TrendingUp, X, AlertTriangle, Loader2, ExternalLink, FileText, ArrowUpRight, ArrowDownRight, Info, RefreshCw, ChevronRight, ChevronDown, Pencil, Check, Trash2, Undo2, PlusCircle } from "lucide-react";
 import type { MarginInsights, MarginNarrative, Factor, FactorStatus, CurrentState, MarginType, MarginEditRequest, EditSection, Direction } from "@/lib/api/insightsClient";
 import {
@@ -16,7 +17,9 @@ import {
   type SectorHeatmapMetric,
   type SectorHeatmapRow,
   type SectorHeatmapPoint,
+  type CorporateEvent,
 } from "@/lib/api/dataClient";
+import SemiPricingPanel from "./SemiPricingPanel";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -1939,13 +1942,108 @@ function _formatCellValue(value: number | null, isPct: boolean): string {
   return neg ? `(${body})` : body;
 }
 
-const HEATMAP_METRIC_OPTIONS: { key: SectorHeatmapMetric; label: string }[] = [
-  { key: "revenue_yoy_pct",    label: "Revenue YoY %" },
-  { key: "revenue_qoq_pct",    label: "Revenue QoQ %" },
-  { key: "revenue",            label: "Revenue ($M)" },
-  { key: "net_income",         label: "Net Income ($M)" },
-  { key: "net_income_yoy_pct", label: "Net Income YoY %" },
-  { key: "net_income_qoq_pct", label: "Net Income QoQ %" },
+// M&A event indicator + hover popup for the heatmap ticker cell.
+// Uses ReactDOM.createPortal to render the popup at document.body level
+// so it escapes the table's overflow:hidden / sticky-column z-index stack.
+function CorporateEventBadge({ events }: { events: CorporateEvent[] }) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = React.useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  if (events.length === 0) return null;
+
+  const handleEnter = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 4, left: rect.left });
+    }
+    setOpen(true);
+  };
+  const handleLeave = () => setOpen(false);
+
+  return (
+    <>
+      <span
+        ref={triggerRef}
+        className="text-[9px] text-amber-600 cursor-pointer hover:text-amber-800 font-bold"
+        onMouseEnter={handleEnter}
+        onMouseLeave={handleLeave}
+      >
+        {" "}...
+      </span>
+      {open && pos && ReactDOM.createPortal(
+        <div
+          className="fixed bg-white border border-slate-200 rounded-xl shadow-2xl p-4 w-[340px] text-left"
+          style={{ top: pos.top, left: pos.left, zIndex: 9999 }}
+          onMouseEnter={() => setOpen(true)}
+          onMouseLeave={handleLeave}
+        >
+          <div className="text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-2.5 pb-1.5 border-b border-slate-100">
+            Corporate Events
+          </div>
+          <div className="space-y-3 max-h-72 overflow-y-auto">
+            {events.map((ev, i) => (
+              <div key={i} className="border-b border-slate-100 pb-2.5 last:border-0 last:pb-0">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className={`px-1.5 py-0.5 text-[8px] font-bold uppercase rounded border ${
+                    ev.event_type === "acquisition" ? "text-blue-700 bg-blue-50 border-blue-200" :
+                    ev.event_type === "spinoff"     ? "text-purple-700 bg-purple-50 border-purple-200" :
+                                                     "text-amber-700 bg-amber-50 border-amber-200"
+                  }`}>
+                    {ev.event_type}
+                  </span>
+                  <span className="text-[11px] font-semibold text-slate-800">{ev.deal_name}</span>
+                </div>
+                <div className="text-[10px] text-slate-600 space-y-1 pl-0.5">
+                  <div className="flex gap-2">
+                    <span className="text-slate-400 shrink-0 w-16">Date</span>
+                    <span className="font-mono">{ev.event_date}</span>
+                  </div>
+                  {ev.related_companies.length > 0 && (
+                    <div className="flex gap-2">
+                      <span className="text-slate-400 shrink-0 w-16">Related</span>
+                      <span className="font-mono">{ev.related_companies.join(", ")}</span>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <span className="text-slate-400 shrink-0 w-16">Impact</span>
+                    <span>{ev.impact_type}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-slate-400 shrink-0 w-16">Affected</span>
+                    <span className="font-mono text-[9px]">{ev.impacted_quarters.join(", ")}</span>
+                  </div>
+                  <div className="text-[9px] text-slate-500 mt-1.5 leading-relaxed bg-slate-50 rounded p-2">
+                    {ev.details}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
+
+const HEATMAP_METRIC_OPTIONS: { key: SectorHeatmapMetric; label: string; group?: string }[] = [
+  // Revenue
+  { key: "revenue_yoy_pct",    label: "Revenue YoY %",        group: "Revenue" },
+  { key: "revenue_qoq_pct",    label: "Revenue QoQ %",        group: "Revenue" },
+  { key: "revenue",            label: "Revenue ($M)",          group: "Revenue" },
+  // Net Income
+  { key: "net_income",         label: "Net Income ($M)",       group: "Net Income" },
+  { key: "net_income_yoy_pct", label: "Net Income YoY %",     group: "Net Income" },
+  { key: "net_income_qoq_pct", label: "Net Income QoQ %",     group: "Net Income" },
+  // Margins
+  { key: "gross_margin_pct",              label: "Gross Margin %",           group: "Margins" },
+  { key: "operating_margin_pct",          label: "Op Margin %",              group: "Margins" },
+  { key: "net_margin_pct",                label: "Net Margin %",             group: "Margins" },
+  // Margin deltas
+  { key: "gross_margin_pct_diff_yoy",     label: "Gross Margin Δ YoY (pp)",  group: "Margin Δ" },
+  { key: "operating_margin_pct_diff_yoy", label: "Op Margin Δ YoY (pp)",     group: "Margin Δ" },
+  { key: "net_margin_pct_diff_yoy",       label: "Net Margin Δ YoY (pp)",    group: "Margin Δ" },
 ];
 
 function SectorHeatmapPanel({
@@ -2040,10 +2138,29 @@ function SectorHeatmapPanel({
   });
 
   // ── Calendar view ────────────────────────────────────────────────
-  // Bucket every point's end_date into a calendar quarter (Q1 = Jan-Mar,
-  // etc.). Build the unified column list by union across all tickers,
-  // sorted newest first. For each row, build a key→point map so the
-  // renderer can look up by calendar bucket key.
+  // Bucket every point's end_date into a calendar quarter by NEAREST
+  // quarter-end date (Mar 31, Jun 30, Sep 30, Dec 31). This handles
+  // filers whose quarter end_date lands on April 1-2 or July 1-2 (e.g.
+  // INTC ends on Saturdays) — strict month-based bucketing would put
+  // April 2 into Q2 instead of Q1, creating blanks.
+  function _nearestCalendarQ(d: Date): { year: number; q: number } {
+    const quarterEnds = [
+      { year: d.getFullYear() - 1, q: 4, ref: new Date(d.getFullYear() - 1, 11, 31) },
+      { year: d.getFullYear(),     q: 1, ref: new Date(d.getFullYear(), 2, 31) },
+      { year: d.getFullYear(),     q: 2, ref: new Date(d.getFullYear(), 5, 30) },
+      { year: d.getFullYear(),     q: 3, ref: new Date(d.getFullYear(), 8, 30) },
+      { year: d.getFullYear(),     q: 4, ref: new Date(d.getFullYear(), 11, 31) },
+      { year: d.getFullYear() + 1, q: 1, ref: new Date(d.getFullYear() + 1, 2, 31) },
+    ];
+    let best = quarterEnds[0];
+    let bestDist = Math.abs(d.getTime() - best.ref.getTime());
+    for (const qe of quarterEnds) {
+      const dist = Math.abs(d.getTime() - qe.ref.getTime());
+      if (dist < bestDist) { best = qe; bestDist = dist; }
+    }
+    return { year: best.year, q: best.q };
+  }
+
   type CalCol = { key: string; label: string; range: string; sortDate: number };
   const calendarCols: CalCol[] = (() => {
     if (!heatmap) return [];
@@ -2054,13 +2171,12 @@ function SectorHeatmapPanel({
           if (!p.end_date) continue;
           const d = new Date(p.end_date);
           if (Number.isNaN(d.getTime())) continue;
-          const yr  = d.getFullYear();
-          const q   = Math.floor(d.getMonth() / 3) + 1;
+          const { year: yr, q } = _nearestCalendarQ(d);
           const key = `${yr}-Q${q}`;
           if (seen.has(key)) continue;
           const startMonth = (q - 1) * 3 + 1;
           const endMonth   = q * 3;
-          const endDay     = [31, 30, 30, 31][q - 1];   // Mar/Jun/Sep/Dec
+          const endDay     = [31, 30, 30, 31][q - 1];
           const pad = (n: number) => String(n).padStart(2, "0");
           seen.set(key, {
             key,
@@ -2081,8 +2197,7 @@ function SectorHeatmapPanel({
       if (!p.end_date) continue;
       const d = new Date(p.end_date);
       if (Number.isNaN(d.getTime())) continue;
-      const yr  = d.getFullYear();
-      const q   = Math.floor(d.getMonth() / 3) + 1;
+      const { year: yr, q } = _nearestCalendarQ(d);
       m.set(`${yr}-Q${q}`, p);
     }
     return m;
@@ -2157,9 +2272,23 @@ function SectorHeatmapPanel({
               onChange={(e) => onMetricChange(e.target.value as SectorHeatmapMetric)}
               className="h-7 px-2 rounded-md border border-slate-200 bg-slate-50 text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-700"
             >
-              {HEATMAP_METRIC_OPTIONS.map((opt) => (
-                <option key={opt.key} value={opt.key}>{opt.label}</option>
-              ))}
+              {(() => {
+                const groups = new Map<string, typeof HEATMAP_METRIC_OPTIONS>();
+                for (const opt of HEATMAP_METRIC_OPTIONS) {
+                  const g = opt.group ?? "";
+                  if (!groups.has(g)) groups.set(g, []);
+                  groups.get(g)!.push(opt);
+                }
+                return [...groups.entries()].map(([groupLabel, opts]) =>
+                  groupLabel ? (
+                    <optgroup key={groupLabel} label={groupLabel}>
+                      {opts.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+                    </optgroup>
+                  ) : (
+                    opts.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)
+                  )
+                );
+              })()}
             </select>
           </div>
 
@@ -2225,7 +2354,10 @@ function SectorHeatmapPanel({
                   {group.rows.map((row) => (
                     <tr key={`${group.name}-${row.ticker}`} className="border-b border-slate-100 last:border-0">
                       <td className="sticky left-0 bg-white z-10 px-4 py-1.5 font-mono text-slate-700 min-w-[130px]">
-                        <div className="font-bold">{row.ticker}</div>
+                        <div className="font-bold">
+                          {row.ticker}
+                          <CorporateEventBadge events={row.corporate_events ?? []} />
+                        </div>
                         <div className="text-[9px] text-slate-400">
                           {row.latest_label ?? "—"}
                           {row.latest_end_date && ` · ${row.latest_end_date}`}
@@ -2333,6 +2465,7 @@ function SectorHeatmapPanel({
                       <tr key={`${group.name}-${row.ticker}`} className="border-b border-slate-100 last:border-0">
                         <td className="sticky left-0 bg-white z-10 px-4 py-1.5 font-mono font-bold text-slate-800 min-w-[80px]">
                           {row.ticker}
+                          <CorporateEventBadge events={row.corporate_events ?? []} />
                         </td>
                         <td
                           className="sticky bg-white z-10 px-3 py-1.5 font-mono text-slate-600 min-w-[110px] border-r border-slate-200"
@@ -2557,6 +2690,8 @@ export default function DataExplorerView({
 
   const hasData = rows.length > 0;
 
+  const [viewMode, setViewMode] = useState<"financials" | "semi-pricing">("financials");
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
 
@@ -2571,6 +2706,29 @@ export default function DataExplorerView({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* ── Top-level view tabs ── */}
+          <div className="flex items-center bg-slate-100 rounded-lg p-0.5 mr-2">
+            <button
+              onClick={() => setViewMode("financials")}
+              className={`h-7 px-3 rounded-md text-xs font-semibold transition-colors ${
+                viewMode === "financials"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              Financials
+            </button>
+            <button
+              onClick={() => setViewMode("semi-pricing")}
+              className={`h-7 px-3 rounded-md text-xs font-semibold transition-colors ${
+                viewMode === "semi-pricing"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              Semi Pricing
+            </button>
+          </div>
           <button className="flex items-center gap-1.5 h-8 px-3 text-xs font-medium border border-slate-200 rounded-md text-slate-600 hover:bg-slate-50 transition-colors">
             <Download size={13} /> One Sheet
           </button>
@@ -2580,7 +2738,15 @@ export default function DataExplorerView({
         </div>
       </div>
 
-      {/* ── Ticker tabs ── */}
+      {/* ── Semi Pricing view ── */}
+      {viewMode === "semi-pricing" && (
+        <div className="flex-1 overflow-y-auto px-8 py-6 bg-slate-50">
+          <SemiPricingPanel />
+        </div>
+      )}
+
+      {/* ── Financials: Ticker tabs ── */}
+      {viewMode === "financials" && (<>
       <div className="flex items-center gap-1 px-8 py-2 bg-white border-b border-slate-100 shrink-0 flex-wrap">
         {loadedTickers.map((ticker) => (
           <div key={ticker} className="flex items-center">
@@ -3080,6 +3246,8 @@ export default function DataExplorerView({
 
       {/* Drill-down modal — renders only when a cell has been clicked */}
       <CellSourceModal request={cellRequest} onClose={() => setCellRequest(null)} />
+      </>
+      )}
     </div>
   );
 }
