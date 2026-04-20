@@ -1,0 +1,35 @@
+{
+  "subreddits": [
+    "hardware",
+    "buildapc",
+    "nvidia",
+    "amd",
+    "intel",
+    "sysadmin",
+    "homelab",
+    "pcmasterrace",
+    "stocks",
+    "wallstreetbets"
+  ],
+  "keywords": [
+    "DDR5 price",
+    "DDR4 price",
+    "DRAM price",
+    "GPU shortage",
+    "GPU price",
+    "NAND price",
+    "SSD price",
+    "supply chain",
+    "tariff semiconductor",
+    "out of stock GPU",
+    "price increase memory",
+    "NVDA",
+    "AMD earnings",
+    "Micron",
+    "SK Hynix",
+    "Samsung semiconductor"
+  ],
+  "posts_per_sub": 50,
+  "search_results_per_keyword": 25,
+  "scrape_delay_seconds": 6
+}

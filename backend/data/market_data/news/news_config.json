@@ -1,0 +1,141 @@
+{
+  "feeds": {
+    "ai_models": {
+      "label": "AI Models & Updates",
+      "query": "\"AI model\" OR \"foundation model\" OR \"large language model\" OR \"open source AI\" OR GPT OR Claude OR Gemini OR Llama OR Mistral OR \"AI benchmark\" OR \"model release\" OR \"AI agent\" OR OpenClaw OR \"AI reasoning\"",
+      "region": "US"
+    },
+    "ai_products": {
+      "label": "AI Products & Applications",
+      "query": "\"AI tool\" OR \"AI feature\" OR \"AI-powered\" OR \"generative AI\" enterprise OR Canva AI OR Adobe AI OR Atlassian AI OR Salesforce AI OR Microsoft Copilot OR \"Apple Intelligence\" OR Siri AI OR \"AI SaaS\" OR \"agentic\" software OR \"AI security\" OR \"AI healthcare\" OR \"AI coding\" OR Cursor OR Windsurf",
+      "region": "US"
+    },
+    "ai_startup_funding": {
+      "label": "AI Funding / VC / IPO / M&A",
+      "query": "\"AI startup\" OR \"AI company\" funding OR raised OR acquisition OR merger OR IPO OR SPAC OR valuation OR \"Series A\" OR \"Series B\" OR \"venture capital\" AI OR \"AI unicorn\"",
+      "region": "US"
+    },
+    "ai_startup_revenue": {
+      "label": "AI Startup Revenue & ARR",
+      "query": "\"AI startup\" OR \"AI company\" ARR OR revenue OR growth OR customers OR \"annual recurring\" OR adoption OR market share OR churn",
+      "region": "US"
+    },
+    "datacenter_neocloud": {
+      "label": "Neocloud & CSP",
+      "query": "CoreWeave OR Lambda OR \"Crusoe Energy\" OR \"Applied Digital\" OR \"neocloud\" OR \"GPU cloud\" OR Nebius OR \"cloud GPU\" OR AWS OR Azure OR \"Google Cloud\" OR Oracle Cloud deal OR contract OR expansion",
+      "region": "US"
+    },
+    "datacenter_deals": {
+      "label": "Datacenter Deals & Capex",
+      "query": "\"data center\" deal OR investment OR billion OR lease OR hyperscaler OR campus OR construction OR capex OpenAI OR Anthropic OR xAI OR Meta OR Microsoft OR Google OR Oracle",
+      "region": "US"
+    },
+    "datacenter_power": {
+      "label": "Datacenter Power & Energy",
+      "query": "\"data center\" power OR energy OR electricity OR nuclear OR \"grid capacity\" OR \"power constraint\" OR \"energy demand\" AI OR gigawatt OR \"natural gas\" datacenter",
+      "region": "US"
+    },
+    "supply_gpu_asic": {
+      "label": "Supply Chain: GPU & ASIC",
+      "query": "\"GPU supply\" OR \"GPU shortage\" OR \"AI chip\" supply OR allocation OR \"lead time\" OR \"ASIC\" AI OR \"custom silicon\" OR \"GPU price\" OR \"RTX 5090\" OR \"RTX 5080\" OR \"Radeon RX 9070\"",
+      "region": "US"
+    },
+    "supply_memory": {
+      "label": "Supply Chain: Memory (DRAM/HBM/NAND)",
+      "query": "\"DRAM price\" OR \"NAND price\" OR \"HBM\" supply OR shortage OR \"memory price\" OR \"DDR5 price\" OR \"HBM4\" OR \"HBM3e\" OR Samsung DRAM OR \"SK Hynix\" HBM",
+      "region": "US"
+    },
+    "supply_interconnect": {
+      "label": "Supply Chain: Interconnect & Optical",
+      "query": "\"optical interconnect\" OR \"silicon photonics\" OR \"co-packaged optics\" OR CXL OR \"AI networking\" OR InfiniBand OR \"800G\" OR \"1.6T\" OR Broadcom networking OR Arista",
+      "region": "US"
+    },
+    "supply_packaging": {
+      "label": "Supply Chain: Advanced Packaging",
+      "query": "CoWoS OR \"advanced packaging\" OR \"chip packaging\" OR \"2.5D\" OR \"3D packaging\" OR \"chiplet\" OR \"interposer\" OR TSMC packaging OR ASE OR \"fan-out\"",
+      "region": "US"
+    },
+    "supply_equipment": {
+      "label": "Supply Chain: Semi Equipment",
+      "query": "ASML OR \"Tokyo Electron\" OR \"Applied Materials\" OR \"Lam Research\" OR \"KLA Corporation\" OR \"SCREEN Holdings\" OR \"Disco Corporation\" OR \"EUV lithography\" OR \"semiconductor equipment\"",
+      "region": "US"
+    },
+    "supply_materials": {
+      "label": "Supply Chain: Materials & Chemicals",
+      "query": "\"rare earth\" semiconductor OR \"neon gas\" OR photoresist OR \"JSR\" OR \"Shin-Etsu\" OR \"SUMCO\" OR \"silicon wafer\" supply OR \"specialty chemical\" chip OR \"semiconductor material\"",
+      "region": "US"
+    },
+    "supply_foundry": {
+      "label": "Supply Chain: Foundry & Fab",
+      "query": "TSMC OR Samsung foundry OR Intel foundry OR \"fab capacity\" OR \"chip manufacturing\" OR \"2nm\" OR \"3nm\" OR \"wafer start\" OR \"process node\" OR \"chip shortage\"",
+      "region": "US"
+    },
+    "supply_labor": {
+      "label": "Supply Chain: Labor & Construction",
+      "query": "\"data center\" electrician OR construction OR labor shortage OR \"semiconductor workforce\" OR \"chip engineer\" OR \"fab construction\" OR \"skilled worker\" semiconductor",
+      "region": "US"
+    },
+    "semi_earnings": {
+      "label": "Semi Company Earnings",
+      "query": "NVIDIA OR AMD OR Micron OR \"SK Hynix\" OR Samsung OR Intel OR TSMC OR Broadcom OR Qualcomm OR \"Texas Instruments\" earnings OR revenue OR guidance OR \"beat estimates\"",
+      "region": "US"
+    },
+    "taiwan_semi_en": {
+      "label": "Taiwan Semi (English)",
+      "query": "TSMC OR UMC OR ASE OR MediaTek OR \"Taiwan semiconductor\" OR CoWoS",
+      "region": "US"
+    },
+    "taiwan_semi_tw": {
+      "label": "Taiwan Semi (Chinese)",
+      "query": "台積電 OR 聯發科 OR 日月光 OR 聯電 OR 半導體 OR 先進封裝",
+      "region": "CN"
+    },
+    "japan_semi_en": {
+      "label": "Japan Semi (English)",
+      "query": "Rapidus OR \"Tokyo Electron\" OR Renesas OR Kioxia OR \"Japan semiconductor\" OR \"Disco Corporation\" OR \"Screen Holdings\"",
+      "region": "US"
+    },
+    "japan_semi_jp": {
+      "label": "Japan Semi (Japanese)",
+      "query": "ラピダス OR 東京エレクトロン OR ルネサス OR キオクシア OR 半導体 OR ディスコ",
+      "region": "JP"
+    },
+    "korea_semi_en": {
+      "label": "Korea Semi (English)",
+      "query": "Samsung OR \"SK Hynix\" semiconductor OR DRAM OR NAND OR HBM OR foundry",
+      "region": "US"
+    },
+    "korea_semi_kr": {
+      "label": "Korea Semi (Korean)",
+      "query": "삼성전자 반도체 OR SK하이닉스 OR DRAM OR HBM OR 파운드리",
+      "region": "KR"
+    },
+    "regulation_tariff": {
+      "label": "Regulation: Tariffs & Trade",
+      "query": "tariff semiconductor OR chip OR \"trade war\" OR \"export control\" OR CHIPS Act OR Trump tariff OR \"trade policy\" China technology",
+      "region": "US"
+    },
+    "regulation_ai": {
+      "label": "Regulation: AI Policy",
+      "query": "\"AI regulation\" OR \"AI policy\" OR \"AI safety\" legislation OR \"executive order\" AI OR \"EU AI Act\" OR \"AI governance\" OR \"AI ethics\" law",
+      "region": "US"
+    },
+    "regulation_healthcare": {
+      "label": "Regulation: Healthcare & Biotech",
+      "query": "FDA AI OR \"healthcare regulation\" OR \"drug pricing\" OR \"biotech regulation\" OR \"medical device\" AI OR \"clinical trial\" AI OR \"digital health\" regulation",
+      "region": "US"
+    },
+    "macro_geopolitics": {
+      "label": "Macro: Geopolitics & Trade",
+      "query": "\"US China\" technology OR trade OR \"Middle East\" oil OR Iran sanctions OR \"Taiwan strait\" OR \"chip war\" geopolitics OR BRICS semiconductor",
+      "region": "US"
+    },
+    "macro_economy": {
+      "label": "Macro: Economy & Markets",
+      "query": "CPI OR inflation OR \"interest rate\" Fed OR \"oil price\" OR recession OR \"economic outlook\" OR \"market crash\" OR \"bond yield\" OR \"dollar\" currency OR \"GDP growth\"",
+      "region": "US"
+    }
+  },
+  "scrape_delay_seconds": 2,
+  "max_items_per_feed": 100
+}

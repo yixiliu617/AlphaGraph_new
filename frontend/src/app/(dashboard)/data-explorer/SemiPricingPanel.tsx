@@ -18,6 +18,8 @@ import {
   type PricingCategory,
   type CamelProduct,
   type CamelRow,
+  type GpuPriceRow,
+  type GpuHistoryRow,
 } from "@/lib/api/pricingClient";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -448,6 +450,7 @@ export default function SemiPricingPanel() {
       </p>
 
       {/* ── CamelCamelCamel section ── */}
+      <GpuPricingSection />
       <CamelSection />
     </div>
   );
@@ -455,6 +458,142 @@ export default function SemiPricingPanel() {
 
 // ---------------------------------------------------------------------------
 // CamelCamelCamel — individual Amazon product price history
+// ---------------------------------------------------------------------------
+// Cloud GPU Pricing — live rental prices from Vast.ai, RunPod, Tensordock
+// ---------------------------------------------------------------------------
+
+const GPU_TIERS = [
+  { label: "Datacenter", gpus: ["H200 NVL", "H100 SXM", "A100 SXM4", "A100 PCIE", "L40S", "L40", "A40"] },
+  { label: "Consumer High-End", gpus: ["RTX 5090", "RTX 5080", "RTX 4090", "RTX 4080S", "RTX 4080"] },
+  { label: "Consumer Mid", gpus: ["RTX 5070 Ti", "RTX 5070", "RTX 4070 Ti", "RTX 3090", "RTX 3080"] },
+  { label: "Professional", gpus: ["RTX A6000", "RTX 6000Ada", "RTX 5880Ada"] },
+];
+
+const HISTORY_GPUS = ["H100 SXM", "A100 SXM4", "L40S", "RTX 4090", "RTX 5090"];
+const HISTORY_COLORS = ["#e11d48", "#2563eb", "#16a34a", "#f59e0b", "#8b5cf6"];
+
+function GpuPricingSection() {
+  const [gpuData, setGpuData] = useState<GpuPriceRow[]>([]);
+  const [historyData, setHistoryData] = useState<GpuHistoryRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      pricingClient.getGpuLatest(),
+      pricingClient.getGpuHistory(),
+    ])
+      .then(([latest, history]) => {
+        setGpuData(latest);
+        setHistoryData(history);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="flex items-center gap-2 py-4 justify-center"><Loader2 size={14} className="animate-spin text-slate-400" /><span className="text-xs text-slate-500">Loading GPU prices...</span></div>;
+  if (gpuData.length === 0) return null;
+
+  const ts = gpuData[0]?.timestamp?.slice(0, 16) ?? "";
+
+  const getPrice = (gpu: string, market: string) =>
+    gpuData.find((r) => r.gpu_name === gpu && r.market_type === market);
+
+  const priceCell = (row: GpuPriceRow | undefined) => {
+    if (!row) return <td className="px-2 py-1 text-right text-[10px] text-slate-300">-</td>;
+    return (
+      <td className="px-2 py-1 text-right text-[11px] font-mono">
+        <span className="text-green-700 font-semibold">${row.min_price.toFixed(2)}</span>
+        <span className="text-slate-400"> - </span>
+        <span className="text-slate-600">${row.max_price.toFixed(2)}</span>
+        <span className="text-[9px] text-slate-400 ml-1">({row.num_offers})</span>
+      </td>
+    );
+  };
+
+  return (
+    <div className="border-t border-slate-200 pt-4 mt-2">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-bold text-slate-800">Cloud GPU Rental Prices</h2>
+        <span className="text-[10px] text-slate-400">Last updated: {ts} | Vast.ai + RunPod</span>
+      </div>
+
+      {/* History chart */}
+      {historyData.length > 1 && (() => {
+        const filteredHistory = historyData.filter((r) => HISTORY_GPUS.includes(r.gpu_name));
+        const timestamps = [...new Set(filteredHistory.map((r) => `${r.date} ${r.hour}`))].sort();
+        const chartData = timestamps.map((ts) => {
+          const point: Record<string, number | string> = { time: ts.slice(5) };
+          for (const gpu of HISTORY_GPUS) {
+            const row = filteredHistory.find((r) => `${r.date} ${r.hour}` === ts && r.gpu_name === gpu);
+            if (row) point[gpu] = row.median_price;
+          }
+          return point;
+        });
+
+        return (
+          <div className="bg-white rounded-lg border border-slate-200 p-4 mb-3">
+            <h3 className="text-xs font-semibold text-slate-600 mb-2">GPU Rental Price History (On-Demand Median $/hr)</h3>
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="time" tick={{ fontSize: 9 }} />
+                <YAxis tick={{ fontSize: 10 }} tickFormatter={(v: number) => `$${v.toFixed(2)}`} width={55} />
+                <Tooltip formatter={(v: number, name: string) => [`$${v.toFixed(3)}/hr`, name]} contentStyle={{ fontSize: 11 }} />
+                <Legend wrapperStyle={{ fontSize: 10 }} iconSize={8} />
+                {HISTORY_GPUS.map((gpu, i) => (
+                  <Line key={gpu} type="monotone" dataKey={gpu} stroke={HISTORY_COLORS[i]} strokeWidth={2}
+                    dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        );
+      })()}
+
+      <div className="grid grid-cols-2 gap-3">
+        {GPU_TIERS.map((tier) => {
+          const hasData = tier.gpus.some((g) => gpuData.some((r) => r.gpu_name === g));
+          if (!hasData) return null;
+          return (
+            <div key={tier.label} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+              <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100">
+                <span className="text-[10px] font-bold text-slate-600 uppercase">{tier.label}</span>
+              </div>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    <th className="text-left px-2 py-1 text-[10px] font-semibold text-slate-500">GPU</th>
+                    <th className="text-right px-2 py-1 text-[10px] font-semibold text-slate-500">On-Demand $/hr</th>
+                    <th className="text-right px-2 py-1 text-[10px] font-semibold text-slate-500">Spot $/hr</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tier.gpus.map((gpu) => {
+                    const od = getPrice(gpu, "on_demand");
+                    const sp = getPrice(gpu, "spot");
+                    if (!od && !sp) return null;
+                    return (
+                      <tr key={gpu} className="border-b border-slate-50 hover:bg-slate-50">
+                        <td className="px-2 py-1 font-medium text-slate-800 text-[11px]">{gpu}</td>
+                        {priceCell(od)}
+                        {priceCell(sp)}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="text-[10px] text-slate-400 text-right mt-1">
+        Source: Vast.ai + RunPod + Tensordock | Per-GPU hourly rates | Updated every 2 hours
+      </p>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 
 const CAMEL_COLORS = ["#e11d48", "#2563eb", "#16a34a", "#d97706"];

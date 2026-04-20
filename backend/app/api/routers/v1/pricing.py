@@ -18,6 +18,8 @@ PCPP_MONTHLY = Path("backend/data/market_data/pcpartpicker_trends/_combined.parq
 PCPP_WEEKLY = Path("backend/data/market_data/pcpartpicker_trends/_combined_weekly.parquet")
 CAMEL_PATH = Path("backend/data/market_data/camelcamelcamel/camelcamelcamel_prices.parquet")
 CAMEL_MANIFEST = Path("backend/data/market_data/camelcamelcamel/manifest.json")
+GPU_LATEST = Path("backend/data/market_data/gpu_prices/gpu_price_latest.parquet")
+GPU_HISTORY = Path("backend/data/market_data/gpu_prices/gpu_price_history.parquet")
 
 
 def _load_pcpp(granularity: str = "monthly"):
@@ -124,5 +126,65 @@ def get_camel_data(
             "product_name": r["product_name"],
             "quarter": r["quarter"],
             "approx_price_usd": r["approx_price_usd"],
+        })
+    return {"rows": rows}
+
+
+# ---------------------------------------------------------------------------
+# Cloud GPU pricing
+# ---------------------------------------------------------------------------
+
+@router.get("/gpu/latest")
+def gpu_latest(
+    gpu: str | None = Query(None, description="Filter by GPU name"),
+    market: str | None = Query(None, description="on_demand or spot"),
+):
+    if not GPU_LATEST.exists():
+        return {"rows": []}
+    df = pd.read_parquet(GPU_LATEST)
+    if gpu:
+        df = df[df["gpu_name"].str.contains(gpu, case=False, na=False)]
+    if market:
+        df = df[df["market_type"] == market]
+    df = df.sort_values(["gpu_name", "market_type"])
+
+    rows = []
+    for _, r in df.iterrows():
+        rows.append({
+            "gpu_name": r["gpu_name"],
+            "market_type": r["market_type"],
+            "min_price": float(r["min_price"]),
+            "max_price": float(r["max_price"]),
+            "median_price": float(r["median_price"]),
+            "mean_price": float(r["mean_price"]),
+            "num_offers": int(r["num_offers"]),
+            "providers": r["providers"],
+            "timestamp": r.get("timestamp", ""),
+        })
+    return {"rows": rows, "timestamp": df["timestamp"].iloc[0] if len(df) else ""}
+
+
+@router.get("/gpu/history")
+def gpu_history(
+    gpu: str | None = Query(None, description="Filter by GPU name"),
+    market: str = Query("on_demand"),
+):
+    if not GPU_HISTORY.exists():
+        return {"rows": []}
+    df = pd.read_parquet(GPU_HISTORY)
+    df = df[df["market_type"] == market]
+    if gpu:
+        df = df[df["gpu_name"].str.contains(gpu, case=False, na=False)]
+    df = df.sort_values(["gpu_name", "timestamp"])
+
+    rows = []
+    for _, r in df.iterrows():
+        rows.append({
+            "gpu_name": r["gpu_name"],
+            "date": r["date"],
+            "hour": r.get("hour", ""),
+            "min_price": float(r["min_price"]),
+            "median_price": float(r["median_price"]),
+            "num_offers": int(r["num_offers"]),
         })
     return {"rows": rows}

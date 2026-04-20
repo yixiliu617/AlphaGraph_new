@@ -26,6 +26,27 @@ export interface CamelProduct {
   current?: number;
 }
 
+export interface GpuPriceRow {
+  gpu_name: string;
+  market_type: string;
+  min_price: number;
+  max_price: number;
+  median_price: number;
+  mean_price: number;
+  num_offers: number;
+  providers: string;
+  timestamp: string;
+}
+
+export interface GpuHistoryRow {
+  gpu_name: string;
+  date: string;
+  hour: string;
+  min_price: number;
+  median_price: number;
+  num_offers: number;
+}
+
 export interface CamelRow {
   asin: string;
   product_name: string;
@@ -60,6 +81,19 @@ export const pricingClient = {
       "/pricing/camel/products",
     );
     return res.products;
+  },
+
+  async getGpuLatest(gpu?: string): Promise<GpuPriceRow[]> {
+    const qs = gpu ? `?gpu=${encodeURIComponent(gpu)}` : "";
+    const res = await apiRequest<{ rows: GpuPriceRow[] }>(`/pricing/gpu/latest${qs}`);
+    return res.rows;
+  },
+
+  async getGpuHistory(gpu?: string, market = "on_demand"): Promise<GpuHistoryRow[]> {
+    const params = new URLSearchParams({ market });
+    if (gpu) params.set("gpu", gpu);
+    const res = await apiRequest<{ rows: GpuHistoryRow[] }>(`/pricing/gpu/history?${params}`);
+    return res.rows;
   },
 
   async getCamelData(asin?: string): Promise<CamelRow[]> {
