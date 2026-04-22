@@ -172,7 +172,7 @@ export const notesClient = {
   // WebSocket helper — returns the WS URL (connection opened in component)
   // ------------------------------------------------------------------
 
-  recordingWsUrl: (noteId: string, mode: "wasapi" | "browser", language = "en-US") => {
+  recordingWsUrl: (noteId: string, mode: "wasapi" | "browser" | "live_v2", language = "en-US") => {
     const base = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000";
     return `${base}/api/v1/notes/ws/recording/${noteId}?mode=${mode}&language=${language}`;
   },

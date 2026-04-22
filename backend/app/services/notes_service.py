@@ -81,6 +81,7 @@ class NotesService:
         editor_plain_text: Optional[str] = None,
         company_tickers: Optional[List[str]] = None,
         meeting_date: Optional[str] = None,
+        recording_path: Optional[str] = None,
     ) -> Optional[MeetingNote]:
         row = self._fetch(note_id, tenant_id)
         if not row:
@@ -95,6 +96,8 @@ class NotesService:
             row.company_tickers = company_tickers
         if meeting_date is not None:
             row.meeting_date = meeting_date
+        if recording_path is not None:
+            row.recording_path = recording_path
         row.updated_at = datetime.utcnow()
         self.db.commit()
         self.db.refresh(row)

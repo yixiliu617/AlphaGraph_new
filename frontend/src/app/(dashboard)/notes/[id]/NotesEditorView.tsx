@@ -4,6 +4,7 @@
 // NotesEditorView — DUMB layer. Pure JSX; orchestrates the 2/3 + 1/3 layout.
 // ---------------------------------------------------------------------------
 
+import { useRef, useEffect } from "react";
 import { ArrowLeft, Mic, Save, CheckCircle, Sparkles } from "lucide-react";
 import type { NoteStub, TranscriptLine } from "@/lib/api/notesClient";
 import RichTextEditor from "@/components/domain/notes/RichTextEditor";
@@ -12,6 +13,7 @@ import RecordingPopup from "@/components/domain/notes/RecordingPopup";
 import PostMeetingWizard from "@/components/domain/notes/PostMeetingWizard";
 
 const NOTE_TYPE_LABELS: Record<string, string> = {
+  meeting_transcript: "Meeting Transcript",
   earnings_call: "Earnings Call",
   management_meeting: "Mgmt Meeting",
   conference: "Conference",
@@ -19,6 +21,7 @@ const NOTE_TYPE_LABELS: Record<string, string> = {
 };
 
 const NOTE_TYPE_COLORS: Record<string, string> = {
+  meeting_transcript: "bg-green-50 text-green-700 border border-green-100",
   earnings_call: "bg-blue-50 text-blue-700 border border-blue-100",
   management_meeting: "bg-violet-50 text-violet-700 border border-violet-100",
   conference: "bg-amber-50 text-amber-700 border border-amber-100",
@@ -52,6 +55,17 @@ export default function NotesEditorView({
   onSaveSpeakers, onExtractTopics, onDelta, onStartAISummary,
 }: Props) {
   const showWizard = WIZARD_STATUSES.has(note.summary_status);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const editorWrapperRef = useRef<HTMLDivElement>(null);
+
+  // Handle timestamp clicks from the Tiptap editor — seek audio to that time
+  const handleTimestampSeek = (seconds: number) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const clamped = Math.min(seconds, audio.duration > 0 ? audio.duration - 1 : seconds);
+    audio.currentTime = clamped;
+    audio.play();
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -137,10 +151,47 @@ export default function NotesEditorView({
       <div className="flex flex-1 overflow-hidden">
         {/* Left — Rich text editor (2/3) */}
         <div className="flex-[2] border-r border-slate-200 overflow-y-auto bg-white">
-          <RichTextEditor
-            initialContent={note.editor_content}
-            onChange={onContentChange}
-          />
+          {/* Audio player for meeting recordings */}
+          {note.recording_path && (
+            <div className="px-6 pt-4 pb-2 border-b border-slate-100 bg-slate-50 sticky top-0 z-10">
+              <div className="flex items-center gap-3">
+                <Mic size={14} className="text-red-500 shrink-0" />
+                <span className="text-xs font-medium text-slate-600">Recording</span>
+                <audio
+                  ref={audioRef}
+                  controls
+                  preload="metadata"
+                  className="flex-1 h-8"
+                  src={`http://localhost:8000/api/v1/notes/audio/${note.recording_path}`}
+                >
+                  Your browser does not support audio playback.
+                </audio>
+                <a
+                  href={`http://localhost:8000/api/v1/notes/audio/${note.recording_path}`}
+                  download
+                  className="text-[10px] text-indigo-600 hover:underline shrink-0"
+                >
+                  Download
+                </a>
+              </div>
+            </div>
+          )}
+          <div className="transcript-timestamps">
+            <style>{`
+              .transcript-timestamps .ts-seek {
+                cursor: pointer !important;
+              }
+              .transcript-timestamps .ts-seek:hover {
+                background: #c7d2fe !important;
+                text-decoration: none;
+              }
+            `}</style>
+            <RichTextEditor
+              initialContent={note.editor_content}
+              onChange={onContentChange}
+              onTimestampClick={note.recording_path ? handleTimestampSeek : undefined}
+            />
+          </div>
         </div>
 
         {/* Right — Search panel OR Post-meeting wizard (1/3) */}

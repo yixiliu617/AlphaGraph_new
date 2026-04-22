@@ -30,14 +30,24 @@
       "query": "\"data center\" deal OR investment OR billion OR lease OR hyperscaler OR campus OR construction OR capex OpenAI OR Anthropic OR xAI OR Meta OR Microsoft OR Google OR Oracle",
       "region": "US"
     },
-    "datacenter_power": {
-      "label": "Datacenter Power & Energy",
-      "query": "\"data center\" power OR energy OR electricity OR nuclear OR \"grid capacity\" OR \"power constraint\" OR \"energy demand\" AI OR gigawatt OR \"natural gas\" datacenter",
+    "datacenter_cooling": {
+      "label": "Datacenter Cooling",
+      "query": "\"data center\" cooling OR \"liquid cooling\" OR \"immersion cooling\" OR \"direct-to-chip\" OR \"rear door\" heat OR \"cooling infrastructure\" OR Vertiv OR Schneider OR CoolIT OR \"thermal management\" datacenter",
       "region": "US"
     },
-    "supply_gpu_asic": {
-      "label": "Supply Chain: GPU & ASIC",
-      "query": "\"GPU supply\" OR \"GPU shortage\" OR \"AI chip\" supply OR allocation OR \"lead time\" OR \"ASIC\" AI OR \"custom silicon\" OR \"GPU price\" OR \"RTX 5090\" OR \"RTX 5080\" OR \"Radeon RX 9070\"",
+    "ai_power": {
+      "label": "AI Power & Energy",
+      "query": "\"AI power\" OR \"data center\" power deal OR PPA OR nuclear OR \"small modular reactor\" OR \"natural gas\" AI OR \"grid capacity\" OR \"power purchase\" datacenter OR Vistra OR Constellation OR NRG OR \"energy infrastructure\" AI OR transformer utility OR \"electricity demand\" AI",
+      "region": "US"
+    },
+    "gpu_datacenter": {
+      "label": "GPU Datacenter (NVIDIA)",
+      "query": "NVIDIA \"data center\" OR \"H100\" OR \"H200\" OR \"B100\" OR \"B200\" OR \"GB200\" OR \"Rubin\" OR \"Blackwell\" OR \"NVLink\" OR \"NVSwitch\" OR \"DGX\" OR \"HGX\" OR \"SuperPOD\" OR \"InfiniBand\" OR \"Spectrum-X\" OR \"liquid cooling\" NVIDIA",
+      "region": "US"
+    },
+    "asic_market": {
+      "label": "ASIC & Custom Silicon",
+      "query": "\"custom chip\" AI OR \"Google TPU\" OR \"AWS Trainium\" OR \"AWS Inferentia\" OR Broadcom ASIC OR Marvell ASIC OR \"custom silicon\" OR \"AI accelerator\" OR \"inference chip\" OR \"training chip\" custom OR \"Microsoft Maia\" OR \"Meta MTIA\"",
       "region": "US"
     },
     "supply_memory": {
@@ -55,19 +65,14 @@
       "query": "CoWoS OR \"advanced packaging\" OR \"chip packaging\" OR \"2.5D\" OR \"3D packaging\" OR \"chiplet\" OR \"interposer\" OR TSMC packaging OR ASE OR \"fan-out\"",
       "region": "US"
     },
-    "supply_equipment": {
-      "label": "Supply Chain: Semi Equipment",
-      "query": "ASML OR \"Tokyo Electron\" OR \"Applied Materials\" OR \"Lam Research\" OR \"KLA Corporation\" OR \"SCREEN Holdings\" OR \"Disco Corporation\" OR \"EUV lithography\" OR \"semiconductor equipment\"",
+    "supply_foundry": {
+      "label": "Foundry & Semi Equipment",
+      "query": "TSMC OR \"Samsung foundry\" OR \"Intel foundry\" OR \"GlobalFoundries\" OR UMC OR SMIC OR Rapidus foundry OR \"fab capacity\" OR \"wafer start\" OR \"process node\" OR \"2nm\" OR \"3nm\" OR ASML OR \"Tokyo Electron\" OR \"Applied Materials\" OR \"Lam Research\" OR \"KLA Corporation\" OR \"EUV lithography\"",
       "region": "US"
     },
     "supply_materials": {
       "label": "Supply Chain: Materials & Chemicals",
       "query": "\"rare earth\" semiconductor OR \"neon gas\" OR photoresist OR \"JSR\" OR \"Shin-Etsu\" OR \"SUMCO\" OR \"silicon wafer\" supply OR \"specialty chemical\" chip OR \"semiconductor material\"",
-      "region": "US"
-    },
-    "supply_foundry": {
-      "label": "Supply Chain: Foundry & Fab",
-      "query": "TSMC OR Samsung foundry OR Intel foundry OR \"fab capacity\" OR \"chip manufacturing\" OR \"2nm\" OR \"3nm\" OR \"wafer start\" OR \"process node\" OR \"chip shortage\"",
       "region": "US"
     },
     "supply_labor": {

@@ -1,0 +1,358 @@
+**Key Topics:**
+
+*   Financial Overview and Loan-to-Value (LTV) Ratio
+*   Consolidated Financial Results (Revenue, Profit/Loss)
+*   Investment Gains/Losses by Quarter
+*   OpenAI Investment Performance and Valuation Growth
+*   Accumulated Investment Profit/Loss
+*   Key Financial Indicators: Net Asset Value (NAV) and Liquidity
+*   Adherence to Financial Policy
+*   Vision Fund Performance Breakdown
+*   Coupang Investment and Future Outlook
+
+---
+
+**Japanese Transcript:**
+
+[00:00] Speaker 1: え、ローン・トゥ・バリューも
+[00:01] これだけの投資を行っておりますが
+[00:04] **20.6%**。
+[00:05] また手元流動性も **3.8兆円**を
+[00:09] あの、維持すると
+[00:11] いう財務状況でございます。
+[00:13] え、ローン・トゥ・バリューもですね、
+[00:15] え、今朝の足元の数字で言うと
+[00:17] **20%**を切っておりまして、 **19%台**でございます。
+
+[00:23] 連結業績、
+[00:24] もう少しご説明申し上げます。
+[00:26] え、まず、
+[00:28] え、売上高、
+[00:30] それ以下のですね、それぞれのラインですけれども、
+[00:33] 投資損益、
+[00:34] 税前利益、純利益それぞれ
+[00:37] え、増減額で言うと、 **2兆円**以上の増減額
+[00:41] という着地です。
+[00:42] え、数字的には、この
+[00:45] **2025年**ですね、非常に、え、キーになると、いう風に思います。
+
+[00:51] え、この **9ヶ月**、あ、え、四半期、クォーター別のですね、
+[00:55] 投資損益の展開ですけれども、
+[01:00] 直近のこの
+[01:03] あの、第3四半期、
+[01:04] 第3四半期は、約 **3000億**弱の投資損益
+[01:08] でございますけれども、
+[01:10] これ見ていただいて、
+[01:12] その、わ、デコボコだなと
+[01:14] いう、あの、感想も終わりかと思いますが、
+[01:17] ま、我々はですね、
+[01:19] むしろ、例えば
+[01:21] 直近の **4四半期**ですね、
+[01:23] 全部利益出てるんですね。
+[01:26] で、え、この **7**、あの、**7回**の
+[01:29] あの、四半期全部並べてみてもですね、
+[01:33] え、ま、**7試合**やって、あの、**6勝1敗**と
+[01:37] いう数字でございまして、
+[01:38] え、これが投資会社としては、非常に、え、良い
+[01:44] あの、ま、成長を遂げてる
+[01:46] 証ではないかなと思います。
+[01:47] ま、こういうことですから、累積すれば当然黒字になっていくわけですね。
+[01:51] え、ま、我々の様々な投資戦略は、
+[01:55] このような形で、え、実を結びつつあると、そのように思います。
+
+[02:00] 投資損益をさらに展開いたしております。
+[02:08] **10月**から**12月**の第3四半期、それからその前のですね、
+[02:12] **7月**から**9月**の第2四半期、
+[02:15] ともにOpenAIの構成価値増加は、確かに大きく寄与しております。
+[02:21] え、これはこれで、え、あの、この投資、
+[02:25] え、の意思決定が、非常に、あの、
+[02:29] え、投資結果に、あの、貢献してくれてると思います。
+[02:32] え、例えば、
+[02:34] 第2クォーター見ていただくと、
+[02:36] そのライトブルーのですね、OpenAIの構成価値、
+[02:40] これも非常に大きいですが、
+[02:42] その下にあるその他投資のところでも、
+[02:46] **1兆2000**、え、**1兆3000億**近いですね、
+[02:50] え、プラスがあったわけですね。
+[02:52] え、で、この第3四半期のところは、
+[02:55] その他投資のところが、**3000億強**のマイナスになっております。
+[02:59] ま、これ後ほどご説明しますが、
+[03:01] ま、上場株のですね、え、一時的な下落というのも、こういったところで、
+[03:07] え、作用してるわけですけれども、ただトータルでの
+[03:09] 黒字をちゃんと維持できてるというところで、
+[03:12] え、私はしっかり評価したいと、そのように思います。
+
+[03:17] え、このように大きく、我々の投資結果に、
+[03:22] え、貢献してくれているOpenAIですが、
+[03:25] バリュエーションのこの **1年強**の推移を見ていただくとですね、
+[03:30] **2024年**投資始めた頃は、バリュエーションは **150ビリオン**でした。
+[03:37] え、そして、え、昨年の**3月**にですね、
+[03:40] え、昨年、ま、トータルで、
+[03:44] え、昨年ってのは今期になりますが、**30ビリオン**の投資をしようと
+[03:48] いう大型の意思決定をした時のバリュエーションは、**260ビリオン**です。
+[03:53] そしてこの **260ビリオン**で **30ビリオン**の投資を行いましたが、
+[3:58] これは、**7ヶ月後**の、昨年の**10月**の段階で、
+[04:02] ま、**3ヶ月前**ですが、
+[04:04] え、このOpenAIのバリュエーションは **500ビリオン**
+[04:08] というラウンドに成長しました。
+[04:10] ま、これ、私たちが **500**だと言ってるわけではなくて、
+[04:13] え、そのOpenAIの
+[04:17] 株式を取得するラウンドのバリュエーション、
+[04:21] 第3者評価としてのバリュエーションがこの **500**になって、**500ビリオン**になってる
+[04:25] ということでございます。
+[04:26] え、この成長は、まさにこのAIを
+[04:30] 今リード、できてきている、え、OpenAIの様々なサービス、
+[04:35] え、これが急速にこの会社の価値を高めている
+[04:39] ことに他ならないだろうとは思います。
+
+[04:43] え、我々の投資利益の積み上げを
+[04:47] ご確認いただきたいんですけども、
+[04:49] 右側の、あ、失礼、左側の緑のところが、
+[04:53] 我々の投資コストになりますね。
+[04:56] え、**2025年度**、**Q2**末の累積投資コスト、
+[05:01] **10.8ビリオン**に加えて、
+[05:04] え、この、え、第3クォーターに、
+[05:06] え、**23.8ビリオン**の投資を積み重ねました。
+[05:10] 従いまして、え、それが、この
+[05:13] **12月末**の投資利益にどう影響してるかと言いますと、
+[05:17] あの、**30**、あの、約 **34.6ビリオン**という投資コストがまず黒い部分で、
+[05:23] え、その上に **2024年**に計上した利益、そして、
+[05:28] え、第2、第、
+[05:31] え、第2クォーターに計上した利益、
+[05:34] それに加えてですね、え、この第3クォーターで **4.2ビリオン**の
+[05:39] さらなる、え、追加の投資利益を上乗せすることができておりまして、
+[05:45] トータルで **54.4ビリオン**
+[05:47] という数字に至っております。
+[05:49] え、累計の投資利益は **19.8ビリオン**のプラスと
+[05:54] いうことになります。
+
+[05:57] さて、重要指標についても少しご説明したいと思います。
+[06:04] まず、え、ネット、
+[06:06] 先ほども申し上げたネットアセットバリュー、時価純資産、
+[06:09] え、ま、投資会社ですので、どうしてもこれが一番重要な指標だと思います。
+[06:14] え、この **12月末**で、え、約 **31兆円**。
+[06:18] え、そして、え、ま、あの、
+[06:20] 重ねて申し上げますが、さらに、あの、今朝の数字で申し上げると、ほぼ **33兆円**ということ。
+[06:26] え、ローン・トゥ・バリューもですね、
+[06:28] え、これも **20.6%**でしたが、
+[06:32] ま、足元は **19%程度**。
+[06:35] 手元流動性も現在 **3.8兆円**レベルということで、
+[06:40] え、我々の財務の、
+[06:43] 状態というのは、ま、極めて健全な状態を維持できていると思いますし、
+[06:48] え、皆さんにお約束している財務ポリシーも
+[06:51] しっかりその範囲内で財務運営ができているというでございます。
+
+[06:58] ネットアセットバリューの、
+[07:00] 少しこの **3年**ぐらいのヒストリーを見ていただきたいんですけども、
+[07:05] ま、このように、え、非常に安定した、我々の資産の
+[07:10] 価値の状況をご覧いただけると思います。
+[07:14] また、え、ま、資産に、資産に対する借り入れの指標ですね、
+[07:20] ま、担保掛目みたいなもんですけど、これがローン・トゥ・バリューとして、
+[07:24] え、今、**20%**、足元は **20%**切るレベルということで、
+[07:29] え、この、ほぼ **4、5年間**ですね、
+[07:33] え、安定した安全性を維持
+[07:36] できているという風に思います。
+[07:38] え、つまり、え、巨大な投資をですね、え、この
+[07:43] **9ヶ月**でも行ってきているわけです。
+[07:45] え、かなり巨大な投資ですが、それをを行っていますけれども、
+[07:49] ちゃんと財務方針を堅持しながらやっておりますと
+[07:52] いうことも、皆さんに申し上げたいメッセージでございます。
+
+[07:58] 手元流動性は、我々のポリシーとしては、
+[08:02] 常に今後 **2年間**の社債償還資金を上回るキャッシュポジションを
+[08:06] 準備しておくこと。
+[08:08] この、え、
+[08:11] ポリシーも、しっかりと守れておりまして、
+[08:14] え、これも歴史を見ていただいても、ま、ほぼ、え、**3兆円**から**4兆円**のレベルを
+[08:20] 維持できている、え、そのような財務状況でございます。
+
+[08:26] さて、ビジョンファンドについて、え、少しお話を申し上げたいと思います。
+[08:32] え、ビジョンファンドの投資損益の推移を見ていただきますと、
+[08:36] ま、数字は、あの、異なりますけれども、
+[08:39] え、概ね、え、その、
+[08:42] え、クォーターごとのパフォーマンス変化は、
+[08:45] 冒頭見ていただいたソフトバンクグループ全体のですね、
+[08:48] え、投資損益と、同じような動き方をしておりまして、
+[08:53] え、中身の分析もその通りでございます。
+
+[08:57] え、投資損益の内訳を、もう少し細かく見てみますと、
+[09:02] ビジョンファンド **1**のところで、え、このクォーターは、
+[09:07] マイナスが出ております。
+[09:08] え、公開投資先の、
+[09:13] あの、損益が **380億**のマイナスになっておりますが、
+[09:17] 主にクーパンのちょっと評価減が、
+[09:20] このクォーターは大きくてですね、
+[09:22] え、ご存知と思いますけども、クーパン、ま、情報漏洩等の、
+[09:28] え、ま、問題が生じた結果として、
+[09:31] え、株価、ま、評価が下落しているものと思います。
+[09:36] え、私どもはですね、え、このクーパンという会社の今後については、
+[09:40] ま、あの、ファンダメンタルズしっかりしておりますし、
+[09:44] え、ビジネスも好調だと思いますので、
+[09:48] え、ま、今後、今後へのですね、え、クーパンについての株価の、
+[09:52] え、回復、さらなる成長を期待したいと、
+[09:55] 私たちはそのように思っております。
+[09:57] また、あの、え、右側のビジョンファンド **2**
+
+---
+
+**English Translation:**
+
+[00:00] Speaker 1: Our loan-to-value ratio,
+[00:01] for which we have made this much investment, is
+[00:04] **20.6%**.
+[00:05] Furthermore, our liquidity on hand, which is **3.8 trillion yen**,
+[00:09] we are maintaining.
+[00:11] This is our financial situation.
+[00:13] Regarding the loan-to-value ratio,
+[00:15] looking at the current figures as of this morning,
+[00:17] it is below **20%**, in the **19% range**.
+
+[00:23] Consolidated results,
+[00:24] I will explain a bit more.
+[00:26] First,
+[00:28] regarding revenue,
+[00:30] and the respective lines below it,
+[00:33] investment profit/loss,
+[00:34] pre-tax profit, and net profit, for each,
+[00:37] in terms of the amount of increase or decrease, it landed with an increase or decrease of over **2 trillion yen**.
+[00:41] Numerically,
+[00:45] **2025** will be a very key year, I believe.
+
+[00:51] For these **9 months**, or rather, for the quarterly, quarter-by-quarter,
+[00:55] development of investment profit/loss,
+[01:00] in the most recent
+[01:03] third quarter,
+[01:04] the third quarter had an investment profit/loss of just under **300 billion yen**.
+[01:08] However,
+[01:10] if you look at this,
+[01:12] you might have the impression that it's quite volatile.
+[01:17] But for us,
+[01:19] if you look at, for example,
+[01:21] the most recent **four quarters**,
+[01:23] all of them have generated profit.
+[01:26] And, if you line up all **seven** of these
+[01:29] quarters,
+[01:33] it's like playing **seven games** and having **six wins and one loss**.
+[01:37] This is the figure,
+[01:38] and for an investment company, this is a very good
+[01:44] indication of growth, I believe.
+[01:47] So, if accumulated, it naturally becomes profitable.
+[01:51] Our various investment strategies
+[01:55] are bearing fruit in this way, I believe.
+
+[02:00] We are further expanding our investment profit/loss.
+[02:08] The third quarter from **October** to **December**, and the preceding
+[02:12] second quarter from **July** to **September**,
+[02:15] both show that the increase in the constituent value of OpenAI has indeed contributed significantly.
+[02:21] This means that the investment
+[02:25] decision has greatly
+[02:29] contributed to the investment results, I believe.
+[02:32] For example,
+[02:34] if you look at the second quarter,
+[02:36] the constituent value of OpenAI, shown in light blue,
+[02:40] is also very large.
+[02:42] And in the "other investments" section below that,
+[02:46] there was a positive of nearly **1.3 trillion yen**.
+[02:50] So, there was a positive.
+[02:52] And for this third quarter,
+[02:55] the "other investments" section shows a negative of over **300 billion yen**.
+[02:59] I will explain this later, but
+[03:01] the temporary decline in listed stocks has also had an effect in this area.
+[03:07] However, we have managed to maintain a total profit,
+[03:12] and I would like to evaluate that positively.
+
+[03:17] OpenAI, which has contributed so significantly to our investment results,
+[03:25] if you look at the trend of its valuation over the past **year or so**,
+[03:30] when we started investing in **2024**, the valuation was **150 billion**.
+[03:37] And then, in **March** of last year,
+[03:40] last year, well, this fiscal year, in total,
+[03:44] when we made a large investment decision to invest **30 billion**,
+[03:48] the valuation was **260 billion**.
+[03:53] And we made a **30 billion** investment at this **260 billion** valuation,
+[03:58] but **seven months later**, in **October** of last year,
+[04:02] which was **three months ago**,
+[04:04] the valuation of OpenAI grew to a round of **500 billion**.
+[04:10] This is not us saying it's **500**,
+[04:13] but rather the valuation of the round in which
+[04:17] OpenAI's shares were acquired,
+[04:21] the third-party valuation, became **500**, or **500 billion**.
+[04:25] This growth
+[04:26] is precisely due to the various services of OpenAI,
+[04:30] which is now leading AI,
+[04:35] and this is rapidly increasing the company's value,
+[04:39] I believe.
+
+[04:43] I would like you to confirm the accumulation of our investment profits.
+[04:49] The green part on the right, oh, excuse me, on the left,
+[04:53] represents our investment cost.
+[04:56] In addition to the cumulative investment cost of **10.8 billion** at the end of **Q2** of fiscal **2025**,
+[05:04] we accumulated an additional investment of **23.8 billion** in this third quarter.
+[05:10] Therefore, how that has affected the investment profit at the end of **December** is as follows:
+[05:17] First, the investment cost of approximately **34.6 billion** is the black portion.
+[05:23] On top of that, there's the profit recorded in **2024**, and then,
+[05:28] the profit recorded in the second quarter.
+[05:34] In addition to that, in this third quarter, we were able to add an additional investment profit of **4.2 billion**,
+[05:45] bringing the total to **54.4 billion**.
+[05:49] The cumulative investment profit is a positive **19.8 billion**.
+
+[05:57] Next, I would like to briefly explain the key indicators.
+[06:04] First, the Net
+[06:06] Asset Value, or market net assets, which I mentioned earlier.
+[06:09] As an investment company, this is undoubtedly the most important indicator.
+[06:14] As of the end of **December**, it was approximately **31 trillion yen**.
+[06:18] And,
+[06:20] to reiterate, if I mention this morning's figures, it's almost **33 trillion yen**.
+[06:26] The loan-to-value ratio,
+[06:28] which was **20.6%**,
+[06:32] is currently around **19%**.
+[06:35] Our liquidity on hand is also currently at the **3.8 trillion yen** level,
+[06:40] meaning that our financial
+[06:43] condition is extremely healthy, and we have been able to maintain it.
+[06:48] Furthermore, the financial policy we promised everyone
+[06:51] is also being managed well within that scope.
+
+[06:58] Regarding the Net Asset Value,
+[07:00] I would like you to look at the history over the past **three years** or so.
+[07:05] As you can see, you will observe a very stable
+[07:08] asset value situation for us.
+[07:14] Also, regarding the indicator for borrowing against assets,
+[07:20] which is like a collateral ratio, this loan-to-value ratio
+[07:24] is currently below **20%**, meaning it's at a level below **20%**.
+[07:29] So, for almost **four or five years**,
+[07:33] we have been able to maintain stable safety.
+[07:38] In other words, we have been making huge investments,
+[07:43] even in these **nine months**.
+[07:45] These are quite large investments, but we are making them
+[07:49] while firmly adhering to our financial policy.
+[07:52] This is also a message I want to convey to everyone.
+
+[07:58] Our policy for liquidity on hand is
+[08:02] to always maintain a cash position that exceeds the bond redemption funds for the next **two years**.
+[08:06] This
+[08:11] policy is also being strictly adhered to,
+[08:14] and if you look at the history, it has almost always maintained a level of **3 trillion yen** to **4 trillion yen**.
+[08:22] This is our financial situation.
+
+[08:26] Now, I would like to talk a little about the Vision Fund.
+[08:32] If you look at the trend of the Vision Fund's investment profit/loss,
+[08:36] although the figures differ,
+[08:39] generally,
+[08:42] the quarter-by-quarter performance changes
+[08:45] are similar to the investment profit/loss of the entire SoftBank Group that you saw at the beginning.
+[08:53] The analysis of the content is also consistent with that.
+
+[08:57] If we look at the breakdown of investment profit/loss in a bit more detail,
+[09:02] in Vision Fund **1**, this quarter,
+[09:07] there was a negative.
+[09:08] The profit/loss from publicly traded investments
+[09:13] showed a negative of **38 billion yen**,
+[09:17] mainly due to a significant valuation markdown of Coupang in this quarter.
+[09:22] As you may know, Coupang experienced issues such as information leaks,
+[09:28] and as a result,
+[09:31] its stock price, or valuation, has declined.
+[09:36] However, we believe that for the future of Coupang,
+[09:40] its fundamentals are solid,
+[09:44] and its business is also performing well.
+[09:48] Therefore, we expect the stock price of Coupang to recover and grow further in the future.
+[09:55] That is what we believe.
+[09:57] Also, on the right side, Vision Fund **2**...

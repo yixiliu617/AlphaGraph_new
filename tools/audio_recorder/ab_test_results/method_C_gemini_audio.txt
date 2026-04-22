@@ -1,0 +1,16 @@
+## Key Topics
+- AI-driven market narrative and expectations (DeepSeek V4, hyperscalers)
+- Cloud pricing trends and key players (Tencent, Alibaba, Kingsoft Cloud)
+- E-commerce strategy shift and Pinduoduo's performance (Temu, Duoduo Maicai)
+- Investment sentiment and outlook for Pinduoduo
+
+## Transcript
+**[Speaker A]** 之間,未來幾個星期應該能回到一個 AI帶動的一個 narrative。那AI帶動要靠什麼呢？當然要靠 token量,要靠 cloud的預期,模型的發布。大家就對這個 DeepSeek V4也有一定的時間性的 expectation。那我覺得就比較重要的是它的美國的 peers。Google這些也從低點明顯反彈了一整週了,整個美國的 hyperscalers這邊。所以只要 CapEx預期,如果擔心 CapEx會有已經 factored in的話,市場的 focus就會回到 cloud的增長。
+
+**[Speaker A]** 然後有沒有有一些中國比較出色的還有一個 cloud pricing。我們這些 pricing都是 **4月**開始提價的。然後騰訊也差不多一些 **5月**再會提一些 CPU啊這些的。所以整個 pricing比較 positive。然後如果你看整個 AI stack的話,芯片公司現在基本上多的不得了。模型公司也是數不盡的,多的不得了。hyperscaler 真的最大的只有一家可以買,就是阿里。那當然 Timothy會分享我們 upgrade了這個金山雲作為其中我們一個 idea。
+
+**[Speaker A]** 那我們對 data center和 cloud還是首推的。在我們業績後的這個 what to do from here的一個 reset。但阿里的這個最大的 hyperscaler說了這節就是它。所以在這個可以,可投資的 layer裡邊應該其實還是 hyperscaler是最清晰的。而且有一個 pricing upside。那所以雖然主營業務還是比較差的,但也沒有說差到哪裡去,就是跟當時業績後的這個 CML是比較好,只是不算它進去。然後 CML加 CapEx那整個 underlying的電商的 profit還是比較 stable的情況下。那 AI incremental就可以是,我覺得未來一個月的一個阿里的主調吧。
+
+**[[Speaker A]** 那所以這個 data center cloud還是我們的手推。然後這個 idea上個禮拜 refresh的 DDSB Net,阿里我們是 **3月**加到 conviction **5**。然後就 Timothy分享這個金山雲是 idea。那第二我們調整了就是把電商挪上去。那為什麼會在這個時點還重點在推一下電商？然後主要是推拼多多。那就是這個業績過去以後,一季報會有亮點的,我覺得就是拼多多的 profit low base,去年一季度的這個 triple digit tariff。還有這個多多買菜帶動的 transaction service revenue已經明顯在 **4季度**拼多多的 top line開始 accelerate。然後進入一季度的話,那 Temu的這個 transaction service revenue也會進一步 accelerate。因為它也是從一季度開始轉這個 business model的。那就是從全託轉半託, commission已經影響就差不多結束。
+
+**[Speaker A]** 那所以拼多多基本上進入一個 top line和 bottom line都 extremely easy base。它怎麼投一季度去年也才單季 **100億**利潤。所以這個這個 base是在太容易了。這就少了這個 **100億**的 investment income,因為它去年一季度。那所以這個 super easy base加 top line acceleration,多多就進入一個比較舒服的一條路了。我們基本上我上個禮拜在新加坡路演,很多投資人還是不不敢或者不能碰拼多多。但 as usual,我覺得這個還是 **26年**的最明顯的一個 alpha generation。所以 interest level慢慢有有一些回來。有一些個別的大的基金還是隱含原因不能夠碰這個票。那我覺得這個 throughout this year應該會 incrementally會多一些的有一些轉向吧。那轉向應該還是 Q1 set一個比較好的一個業績的 reaction,然後也從所有的邏輯上還有新的這個再建一個拼多多叫三年再建拼多多這個 strategy應該能讓大家去再再一次重點關注這個 name吧。所以這個就是我們對這個頭兩個板塊的一個。

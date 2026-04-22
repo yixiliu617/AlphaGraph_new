@@ -29,12 +29,15 @@ from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.app.api.dependencies import get_llm_provider, get_db_repo
 from backend.app.db.session import get_db_session
 from backend.app.models.api_contracts import APIResponse
+import json
+
 from backend.app.services.notes_service import NotesService
 from backend.app.services.meeting_summary_service import MeetingSummaryService
 
@@ -63,6 +66,7 @@ class UpdateNoteRequest(BaseModel):
     editor_plain_text: Optional[str] = None
     company_tickers: Optional[List[str]] = None
     meeting_date: Optional[str] = None
+    recording_path: Optional[str] = None
 
 
 class FlagLineRequest(BaseModel):
@@ -128,14 +132,20 @@ def get_note(note_id: str, db: Session = Depends(get_db_session)):
 @router.put("/{note_id}", response_model=APIResponse)
 def update_note(note_id: str, request: UpdateNoteRequest, db: Session = Depends(get_db_session)):
     svc = NotesService(db)
-    updated = svc.update_note(
-        note_id, TENANT_ID,
-        title=request.title,
-        editor_content=request.editor_content,
-        editor_plain_text=request.editor_plain_text,
-        company_tickers=request.company_tickers if request.company_tickers else None,
-        meeting_date=request.meeting_date,
-    )
+    kwargs = {}
+    if request.title is not None:
+        kwargs["title"] = request.title
+    if request.editor_content is not None:
+        kwargs["editor_content"] = request.editor_content
+    if request.editor_plain_text is not None:
+        kwargs["editor_plain_text"] = request.editor_plain_text
+    if request.company_tickers is not None:
+        kwargs["company_tickers"] = request.company_tickers
+    if request.meeting_date is not None:
+        kwargs["meeting_date"] = request.meeting_date
+    if request.recording_path is not None:
+        kwargs["recording_path"] = request.recording_path
+    updated = svc.update_note(note_id, TENANT_ID, **kwargs)
     if not updated:
         raise HTTPException(status_code=404, detail="Note not found.")
     return APIResponse(success=True, data=updated.model_dump())
@@ -148,6 +158,35 @@ def delete_note(note_id: str, db: Session = Depends(get_db_session)):
     if not deleted:
         raise HTTPException(status_code=404, detail="Note not found.")
     return APIResponse(success=True, data={"deleted": note_id})
+
+
+@router.get("/audio/{filename}")
+def serve_audio(filename: str):
+    """Serve audio files from the recordings directory."""
+    audio_dir = Path(__file__).resolve().parents[5] / "tools" / "audio_recorder" / "recordings"
+    filepath = audio_dir / filename
+    if not filepath.exists():
+        raise HTTPException(status_code=404, detail="Audio file not found.")
+
+    media_types = {
+        ".opus": "audio/ogg; codecs=opus",
+        ".ogg": "audio/ogg",
+        ".wav": "audio/wav",
+        ".mp3": "audio/mpeg",
+        ".m4a": "audio/mp4",
+    }
+    ext = filepath.suffix.lower()
+    media_type = media_types.get(ext, "application/octet-stream")
+
+    return FileResponse(
+        filepath,
+        media_type=media_type,
+        filename=filename,
+        headers={
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "public, max-age=3600",
+        },
+    )
 
 
 @router.post("/{note_id}/transcript/flag", response_model=APIResponse)
@@ -238,6 +277,7 @@ async def recording_websocket(
     note_id: str,
     mode: str = Query(default="wasapi"),
     language: str = Query(default="en-US"),
+    audio_source: str = Query(default="mic"),
 ):
     """
     Bidirectional WebSocket for live meeting transcription.
@@ -258,8 +298,14 @@ async def recording_websocket(
       {"type": "stop"}                ->  server stops recording gracefully
     """
     await websocket.accept()
-    api_key = os.getenv("DEEPGRAM_API_KEY", "")
 
+    # live_v2 mode uses SenseVoice + Gemini — no Deepgram needed
+    if mode == "live_v2":
+        await _run_live_v2_session(websocket, note_id, language, audio_source)
+        return
+
+    # Legacy modes require Deepgram
+    api_key = os.getenv("DEEPGRAM_API_KEY", "")
     if not api_key:
         await websocket.send_json({"type": "error", "message": "DEEPGRAM_API_KEY not configured."})
         await websocket.close()
@@ -555,3 +601,413 @@ async def _run_browser_session(
         audio_thread_q.put_nowait(None)
         stop_event.set()
         await websocket.send_json({"type": "stopped", "note_id": note_id})
+
+
+# ---------------------------------------------------------------------------
+# Live V2 — Language-aware SenseVoice + Gemini batch polish
+# ---------------------------------------------------------------------------
+
+async def _run_live_v2_session(
+    websocket: WebSocket,
+    note_id: str,
+    language: str,
+    audio_source: str = "mic",
+):
+    """
+    Option B: SenseVoice live draft + Gemini batch polish.
+    audio_source: "mic" = browser sends PCM, "system" = server captures WASAPI loopback
+    """
+    from backend.app.services.live_transcription import gemini_batch_transcribe
+    from backend.app.services.asr_worker import transcribe_audio_bytes, is_model_ready, is_model_loading
+    import numpy as np
+    import scipy.io.wavfile as wavfile
+    import logging
+
+    logger = logging.getLogger("live_v2")
+
+    detected_lang = language if language in ("zh", "ja", "ko", "en") else "auto"
+    language_detected = False
+    line_counter = 0
+
+    # Stream audio to disk instead of RAM to prevent memory issues
+    audio_dir = Path(__file__).resolve().parents[5] / "tools" / "audio_recorder" / "recordings"
+    audio_dir.mkdir(parents=True, exist_ok=True)
+    wav_path = str(audio_dir / f"{note_id}.wav")
+
+    # Write WAV header, then append raw PCM chunks
+    import wave
+    wav_file = wave.open(wav_path, "wb")
+    wav_file.setnchannels(1)
+    wav_file.setsampwidth(2)  # 16-bit
+    wav_file.setframerate(16000)
+
+    # Keep only last 15s in RAM for live transcription
+    recent_audio = bytearray()
+    total_bytes = [0]  # mutable list so WASAPI thread can update it
+
+    from backend.app.services.asr_worker import transcribe_audio_bytes, is_model_ready, is_model_loading
+
+    stop_event = threading.Event()
+    wasapi_thread = None  # will be set if audio_source == "system"
+
+    if is_model_ready():
+        await websocket.send_json({"type": "status", "status": "ready",
+                                    "message": f"SenseVoice ready. Source: {audio_source}. Live transcript + Gemini polish."})
+    elif is_model_loading():
+        await websocket.send_json({"type": "status", "status": "starting",
+                                    "message": "SenseVoice loading (~30s)... Recording starts immediately."})
+    else:
+        await websocket.send_json({"type": "status", "status": "starting",
+                                    "message": "Loading ASR model... Recording starts immediately."})
+
+    # For system audio: capture WASAPI loopback in a background thread
+    if audio_source == "system":
+        def wasapi_capture_thread():
+            try:
+                import sounddevice as sd
+                import queue as q
+                from scipy.signal import resample_poly
+
+                audio_q: "q.Queue[np.ndarray]" = q.Queue()
+
+                # Find loopback device
+                device_idx = None
+                for i, dev in enumerate(sd.query_devices()):
+                    name = dev["name"].lower()
+                    if ("loopback" in name or "stereo mix" in name) and dev["max_input_channels"] > 0:
+                        device_idx = i
+                        break
+
+                if device_idx is None:
+                    logger.error("No loopback device found")
+                    return
+
+                dev_info = sd.query_devices(device_idx)
+                native_rate = int(dev_info["default_samplerate"])
+                channels = min(2, int(dev_info["max_input_channels"]))
+                logger.info(f"WASAPI: device={dev_info['name']}, rate={native_rate}, ch={channels}")
+
+                def audio_cb(indata, frames, time_info, status):
+                    if stop_event.is_set():
+                        raise sd.CallbackStop()
+                    audio_q.put_nowait(indata.copy())
+
+                with sd.InputStream(device=device_idx, samplerate=native_rate, channels=channels,
+                                     callback=audio_cb, blocksize=native_rate // 10, dtype="float32"):
+                    while not stop_event.is_set():
+                        try:
+                            chunk = audio_q.get(timeout=0.2)
+                            # Convert to mono
+                            mono = np.mean(chunk, axis=1) if chunk.shape[1] > 1 else chunk[:, 0]
+                            # Resample to 16kHz if needed
+                            if native_rate != 16000:
+                                # Simple decimation for common rates
+                                if native_rate == 48000:
+                                    mono = mono[::3]  # 48000/3 = 16000
+                                elif native_rate == 44100:
+                                    mono = resample_poly(mono, 16000, 44100)
+                                else:
+                                    ratio = 16000 / native_rate
+                                    new_len = int(len(mono) * ratio)
+                                    indices = np.linspace(0, len(mono) - 1, new_len).astype(int)
+                                    mono = mono[indices]
+
+                            pcm = (mono * 32767).astype(np.int16).tobytes()
+                            wav_file.writeframes(pcm)
+                            total_bytes[0] += len(pcm)
+                            recent_audio.extend(pcm)
+                            if len(recent_audio) > 480000:
+                                del recent_audio[:len(recent_audio) - 480000]
+                        except q.Empty:
+                            pass
+            except Exception as e:
+                logger.error(f"WASAPI capture error: {e}", exc_info=True)
+
+        wasapi_thread = threading.Thread(target=wasapi_capture_thread, daemon=True, name="wasapi-capture")
+        wasapi_thread.start()
+
+    try:
+        last_transcribe_bytes = 0
+
+        while True:
+            try:
+                # Short timeout for system audio (so we can check buffer periodically)
+                timeout = 2 if audio_source == "system" else 300
+                data = await asyncio.wait_for(websocket.receive(), timeout=timeout)
+            except asyncio.TimeoutError:
+                if wasapi_thread is not None:
+                    # Check if we have enough audio to transcribe
+                    if total_bytes[0] - last_transcribe_bytes >= 256000 and is_model_ready():
+                        chunk_bytes = bytes(recent_audio)
+                        audio_len_s = total_bytes[0] / (16000 * 2)
+                        try:
+                            result = await asyncio.to_thread(transcribe_audio_bytes, chunk_bytes)
+                            text = result.get("text", "")
+                            lang = result.get("language", "")
+
+                            if text:
+                                line_counter += 1
+                                mins = int(audio_len_s // 60)
+                                secs = int(audio_len_s % 60)
+
+                                # Translate to English if non-English
+                                translation = ""
+                                if lang in ("zh", "ja", "ko") and text:
+                                    try:
+                                        import requests as req
+                                        from dotenv import load_dotenv
+                                        load_dotenv(Path(__file__).resolve().parents[5] / ".env")
+                                        gkey = os.environ.get("GEMINI_API_KEY", "")
+                                        if gkey:
+                                            tr_resp = req.post(
+                                                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gkey}",
+                                                json={"contents": [{"parts": [{"text": f"Translate to English (financial meeting context). Return ONLY the translation.\n\n{text}"}]}],
+                                                      "generationConfig": {"temperature": 0.1, "maxOutputTokens": 1024}},
+                                                timeout=10,
+                                            )
+                                            if tr_resp.status_code == 200:
+                                                translation = tr_resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+                                    except Exception:
+                                        pass
+
+                                await websocket.send_json({
+                                    "type": "transcript", "line_id": line_counter,
+                                    "timestamp": f"{mins:02d}:{secs:02d}",
+                                    "text": text, "translation": translation,
+                                    "language": lang, "is_interim": False,
+                                    "speaker_label": "", "draft": True,
+                                })
+
+                                if not language_detected and lang in ("zh", "ja", "ko", "en"):
+                                    detected_lang = lang
+                                    language_detected = True
+                                    await websocket.send_json({
+                                        "type": "status", "status": "language_detected",
+                                        "message": f"Detected: {lang}", "language": lang,
+                                    })
+
+                            last_transcribe_bytes = total_bytes[0]
+                        except Exception as e:
+                            logger.error(f"System audio transcription error: {e}")
+
+                    # Send progress
+                    if total_bytes[0] > 0:
+                        audio_len_s = total_bytes[0] / (16000 * 2)
+                        mins = int(audio_len_s // 60)
+                        secs = int(audio_len_s % 60)
+                        await websocket.send_json({
+                            "type": "status", "status": "recording",
+                            "message": f"Recording... {mins:02d}:{secs:02d} ({total_bytes[0] // 1024}KB)",
+                        })
+                    continue
+                else:
+                    break
+
+            if "bytes" in data:
+                audio_bytes = data["bytes"]
+
+                # Write to disk (not RAM)
+                wav_file.writeframes(audio_bytes)
+                total_bytes[0] += len(audio_bytes)
+
+                # Keep only last 15s in RAM for live transcription
+                recent_audio.extend(audio_bytes)
+                if len(recent_audio) > 480000:  # 15s at 16kHz 16-bit
+                    recent_audio = recent_audio[-480000:]
+
+                audio_len_s = total_bytes[0] / (16000 * 2)
+
+                # Every 8 seconds of audio (~256KB), transcribe the recent chunk
+                if total_bytes[0] % 256000 < len(audio_bytes) and is_model_ready():
+                    chunk_bytes = bytes(recent_audio)
+                    try:
+                        result = await asyncio.to_thread(transcribe_audio_bytes, chunk_bytes)
+                        text = result.get("text", "")
+                        lang = result.get("language", "")
+
+                        if text:
+                            line_counter += 1
+                            mins = int(audio_len_s // 60)
+                            secs = int(audio_len_s % 60)
+
+                            # Live translation to English via Gemini
+                            translation = ""
+                            if lang in ("zh", "ja", "ko") and text:
+                                try:
+                                    import requests as req
+                                    from dotenv import load_dotenv
+                                    load_dotenv(Path(__file__).resolve().parents[5] / ".env")
+                                    gkey = os.environ.get("GEMINI_API_KEY", "")
+                                    if gkey:
+                                        tr_resp = req.post(
+                                            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gkey}",
+                                            json={
+                                                "contents": [{"parts": [{"text": f"Translate this financial meeting transcript segment to English. Keep financial terms. Return ONLY the translation.\n\n{text}"}]}],
+                                                "generationConfig": {"temperature": 0.1, "maxOutputTokens": 1024},
+                                            },
+                                            timeout=10,
+                                        )
+                                        if tr_resp.status_code == 200:
+                                            translation = tr_resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+                                except Exception:
+                                    pass
+
+                            await websocket.send_json({
+                                "type": "transcript",
+                                "line_id": line_counter,
+                                "timestamp": f"{mins:02d}:{secs:02d}",
+                                "text": text,
+                                "translation": translation,
+                                "language": lang,
+                                "is_interim": False,
+                                "speaker_label": "",
+                                "draft": True,
+                            })
+
+                            if not language_detected and lang in ("zh", "ja", "ko", "en"):
+                                detected_lang = lang
+                                language_detected = True
+                                await websocket.send_json({
+                                    "type": "status", "status": "language_detected",
+                                    "message": f"Detected: {lang}",
+                                    "language": lang,
+                                })
+                    except Exception as e:
+                        logger.error(f"Live transcription error: {e}")
+
+                # Progress update every 5 seconds
+                elif total_bytes[0] % 160000 < len(audio_bytes):
+                    mins = int(audio_len_s // 60)
+                    secs = int(audio_len_s % 60)
+                    status_msg = "Recording..." if is_model_ready() else "Recording (model loading)..."
+                    await websocket.send_json({
+                        "type": "status", "status": "recording",
+                        "message": f"{status_msg} {mins:02d}:{secs:02d}",
+                    })
+
+            elif "text" in data:
+                try:
+                    msg = json.loads(data["text"])
+                except (json.JSONDecodeError, TypeError):
+                    continue
+                if msg.get("type") in ("stop", "stop_no_polish"):
+                    if msg.get("type") == "stop_no_polish":
+                        # Stop WASAPI thread first
+                        stop_event.set()
+                        if wasapi_thread is not None:
+                            try:
+                                wasapi_thread.join(timeout=3)
+                            except Exception:
+                                pass
+                        # Save audio but skip Gemini polish
+                        wav_file.close()
+
+                        if total_bytes[0] > 32000:
+                            opus_path = wav_path.replace(".wav", ".opus")
+                            import subprocess
+                            subprocess.run(
+                                ["ffmpeg", "-y", "-i", wav_path, "-c:a", "libopus", "-b:a", "48k",
+                                 "-ar", "48000", "-ac", "1", opus_path],
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                            )
+                            from backend.app.db.session import SessionLocal
+                            db = SessionLocal()
+                            try:
+                                svc = NotesService(db)
+                                svc.update_note(note_id, TENANT_ID, recording_path=f"{note_id}.opus")
+                            finally:
+                                db.close()
+                            if os.path.exists(opus_path) and os.path.exists(wav_path):
+                                os.unlink(wav_path)
+
+                        await websocket.send_json({
+                            "type": "status", "status": "complete",
+                            "message": f"Audio saved ({total_bytes[0] // (16000*2)}s). No AI polish.",
+                        })
+                        return
+                    break
+                if msg.get("type") == "flag":
+                    await websocket.send_json({"type": "flagged", "line_id": msg.get("line_id")})
+
+        # --- Meeting ended ---
+        stop_event.set()
+        if wasapi_thread is not None and wasapi_thread.is_alive():
+            wasapi_thread.join(timeout=3)
+        wav_file.close()
+
+        audio_len_s = total_bytes[0] / (16000 * 2)
+        await websocket.send_json({
+            "type": "status", "status": "processing",
+            "message": f"Meeting ended ({audio_len_s:.0f}s audio). Generating polished transcript with Gemini...",
+        })
+
+        if total_bytes[0] < 32000:
+            await websocket.send_json({"type": "error", "message": "Too little audio recorded. Try again."})
+            return
+
+        # Convert to OPUS
+        opus_path = wav_path.replace(".wav", ".opus")
+        import subprocess
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", wav_path, "-c:a", "libopus", "-b:a", "48k",
+             "-ar", "48000", "-ac", "1", opus_path],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+
+        # Update note recording path
+        from backend.app.db.session import SessionLocal
+        db = SessionLocal()
+        try:
+            svc = NotesService(db)
+            svc.update_note(note_id, TENANT_ID, recording_path=f"{note_id}.opus")
+        finally:
+            db.close()
+
+        # Gemini batch transcription
+        final_lang = detected_lang if detected_lang != "auto" else "zh"
+        source = opus_path if os.path.exists(opus_path) else wav_path
+
+        result = await asyncio.to_thread(gemini_batch_transcribe, source, final_lang, note_id)
+
+        if result.get("error"):
+            await websocket.send_json({
+                "type": "error", "message": f"Gemini error: {result['error']}",
+            })
+        else:
+            await websocket.send_json({
+                "type": "polished_transcript",
+                "text": result["text"],
+                "language": result.get("language", final_lang),
+                "input_tokens": result.get("input_tokens", 0),
+                "output_tokens": result.get("output_tokens", 0),
+            })
+            await websocket.send_json({
+                "type": "status", "status": "complete",
+                "message": "Polished transcript ready.",
+            })
+
+        # Clean up WAV
+        if os.path.exists(opus_path) and os.path.exists(wav_path):
+            os.unlink(wav_path)
+
+    except WebSocketDisconnect:
+        stop_event.set()
+        if wasapi_thread is not None:
+            try:
+                wasapi_thread.join(timeout=3)
+            except Exception:
+                pass
+        wav_file.close()
+    except Exception as e:
+        stop_event.set()
+        if wasapi_thread is not None:
+            try:
+                wasapi_thread.join(timeout=3)
+            except Exception:
+                pass
+        wav_file.close()
+        logger.error(f"Live V2 error: {e}", exc_info=True)
+        try:
+            await websocket.send_json({"type": "error", "message": str(e)})
+        except Exception:
+            pass

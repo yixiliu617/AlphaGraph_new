@@ -192,7 +192,7 @@ def news_articles(
 
     if not feed and not keyword and not source:
         # No filter: return top N per feed to ensure all sections represented
-        per_feed = max(limit // max(df["feed_label"].nunique(), 1), 10)
+        per_feed = max(limit // max(df["feed_label"].nunique(), 1), 20)
         parts = []
         for fl in df["feed_label"].unique():
             sub = df[df["feed_label"] == fl].sort_values("pub_iso", ascending=False).head(per_feed)

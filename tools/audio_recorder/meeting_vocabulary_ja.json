@@ -1,0 +1,70 @@
+{
+  "companies": {
+    "半導体": [
+      {"zh": "東京エレクトロン", "en": "Tokyo Electron", "ticker": "8035.T", "aliases": ["TEL"]},
+      {"zh": "ルネサス", "en": "Renesas", "ticker": "6723.T"},
+      {"zh": "キオクシア", "en": "Kioxia", "ticker": "285A.T", "aliases": ["旧東芝メモリ"]},
+      {"zh": "ディスコ", "en": "Disco Corporation", "ticker": "6146.T"},
+      {"zh": "レーザーテック", "en": "Lasertec", "ticker": "6920.T"},
+      {"zh": "アドバンテスト", "en": "Advantest", "ticker": "6857.T"},
+      {"zh": "SUMCO", "en": "SUMCO", "ticker": "3436.T"},
+      {"zh": "信越化学", "en": "Shin-Etsu Chemical", "ticker": "4063.T"},
+      {"zh": "ラピダス", "en": "Rapidus", "ticker": "N/A", "notes": "Japanese advanced chip fab consortium, targeting 2nm"},
+      {"zh": "TSMC", "en": "TSMC", "ticker": "TSM/2330.TW"},
+      {"zh": "エヌビディア", "en": "NVIDIA", "ticker": "NVDA", "aliases": ["NVIDIA"]},
+      {"zh": "SK ハイニックス", "en": "SK Hynix", "ticker": "000660.KS"},
+      {"zh": "サムスン", "en": "Samsung", "ticker": "005930.KS"}
+    ],
+    "テクノロジー": [
+      {"zh": "ソニー", "en": "Sony", "ticker": "6758.T/SONY", "aliases": ["ソニーグループ"]},
+      {"zh": "トヨタ", "en": "Toyota", "ticker": "7203.T/TM", "aliases": ["トヨタ自動車"]},
+      {"zh": "ソフトバンクグループ", "en": "SoftBank Group", "ticker": "9984.T", "aliases": ["SBG", "ソフトバンク"]},
+      {"zh": "キーエンス", "en": "Keyence", "ticker": "6861.T"},
+      {"zh": "ファナック", "en": "Fanuc", "ticker": "6954.T"},
+      {"zh": "村田製作所", "en": "Murata Manufacturing", "ticker": "6981.T"},
+      {"zh": "TDK", "en": "TDK", "ticker": "6762.T"}
+    ]
+  },
+
+  "financial_terms": {
+    "japanese_financial": [
+      "営業利益 (えいぎょうりえき) = operating income",
+      "経常利益 (けいじょうりえき) = ordinary income",
+      "純利益 (じゅんりえき) = net income",
+      "売上高 (うりあげだか) = revenue/sales",
+      "売上総利益 (うりあげそうりえき) = gross profit",
+      "一株当たり利益 (ひとかぶあたりりえき) = EPS",
+      "自己資本利益率 = ROE",
+      "設備投資 (せつびとうし) = capex/capital expenditure",
+      "減価償却 (げんかしょうきゃく) = depreciation",
+      "研究開発費 (けんきゅうかいはつひ) = R&D expense",
+      "配当 (はいとう) = dividend",
+      "自社株買い (じしゃかぶがい) = share buyback",
+      "業績予想 (ぎょうせきよそう) = earnings forecast/guidance",
+      "上方修正 (じょうほうしゅうせい) = upward revision",
+      "下方修正 (かほうしゅうせい) = downward revision",
+      "前年同期比 (ぜんねんどうきひ) = year-over-year",
+      "前期比 (ぜんきひ) = quarter-over-quarter"
+    ],
+    "english_in_japanese": [
+      "ROE", "EBITDA", "EPS", "P/E", "PBR", "PER",
+      "ガイダンス = guidance",
+      "コンセンサス = consensus",
+      "ファウンドリ = foundry",
+      "先端パッケージング = advanced packaging",
+      "HBM", "DRAM", "NAND",
+      "データセンター = data center",
+      "ハイパースケーラー = hyperscaler",
+      "AI", "GPU", "CPU", "ASIC"
+    ]
+  },
+
+  "common_misrecognitions": [
+    {"wrong": "えいぎょうりえき (garbled)", "correct": "営業利益 (operating income)"},
+    {"wrong": "アールオーイー", "correct": "ROE"},
+    {"wrong": "イービットダー", "correct": "EBITDA"},
+    {"wrong": "ピーイー", "correct": "P/E or PER"},
+    {"wrong": "イーピーエス", "correct": "EPS"},
+    {"wrong": "ファンドリー", "correct": "ファウンドリ (foundry)"}
+  ]
+}

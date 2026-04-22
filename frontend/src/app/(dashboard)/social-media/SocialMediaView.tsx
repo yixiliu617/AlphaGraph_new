@@ -201,16 +201,18 @@ const FEED_SECTIONS: { key: string; label: string; accent: string; borderColor: 
   // --- Infrastructure Layer ---
   { key: "Neocloud & CSP", label: "Neocloud & CSP", accent: "text-indigo-700", borderColor: "border-indigo-600" },
   { key: "Datacenter Deals & Capex", label: "Datacenter Deals & Capex", accent: "text-indigo-600", borderColor: "border-indigo-500" },
-  { key: "Datacenter Power & Energy", label: "Datacenter Power & Energy", accent: "text-amber-700", borderColor: "border-amber-500" },
+  { key: "Datacenter Cooling", label: "Datacenter Cooling", accent: "text-cyan-700", borderColor: "border-cyan-600" },
+  { key: "AI Power & Energy", label: "AI Power & Energy", accent: "text-amber-700", borderColor: "border-amber-500" },
+  // --- Compute & Chips ---
+  { key: "GPU Datacenter (NVIDIA)", label: "GPU Datacenter (NVIDIA)", accent: "text-green-700", borderColor: "border-green-600" },
+  { key: "ASIC & Custom Silicon", label: "ASIC & Custom Silicon", accent: "text-lime-700", borderColor: "border-lime-600" },
   // --- Supply Chain Layer ---
-  { key: "Supply Chain: GPU & ASIC", label: "GPU & ASIC Supply", accent: "text-cyan-700", borderColor: "border-cyan-600" },
-  { key: "Supply Chain: Memory (DRAM/HBM/NAND)", label: "Memory: DRAM / HBM / NAND", accent: "text-green-700", borderColor: "border-green-600" },
+  { key: "Supply Chain: Memory (DRAM/HBM/NAND)", label: "Memory: DRAM / HBM / NAND", accent: "text-green-600", borderColor: "border-green-500" },
   { key: "Supply Chain: Interconnect & Optical", label: "Interconnect & Optical", accent: "text-teal-700", borderColor: "border-teal-500" },
   { key: "Supply Chain: Advanced Packaging", label: "Advanced Packaging", accent: "text-emerald-700", borderColor: "border-emerald-500" },
-  { key: "Supply Chain: Foundry & Fab", label: "Foundry & Fab", accent: "text-sky-700", borderColor: "border-sky-500" },
-  { key: "Supply Chain: Semi Equipment", label: "Semi Equipment", accent: "text-slate-700", borderColor: "border-slate-500" },
-  { key: "Supply Chain: Materials & Chemicals", label: "Materials & Chemicals", accent: "text-lime-700", borderColor: "border-lime-500" },
-  { key: "Supply Chain: Labor & Construction", label: "Labor & Construction", accent: "text-stone-700", borderColor: "border-stone-500" },
+  { key: "Foundry & Semi Equipment", label: "Foundry & Semi Equipment", accent: "text-sky-700", borderColor: "border-sky-500" },
+  { key: "Supply Chain: Materials & Chemicals", label: "Materials & Chemicals", accent: "text-stone-700", borderColor: "border-stone-500" },
+  { key: "Supply Chain: Labor & Construction", label: "Labor & Construction", accent: "text-stone-600", borderColor: "border-stone-400" },
   { key: "Semi Company Earnings", label: "Semi Company Earnings", accent: "text-blue-700", borderColor: "border-blue-600" },
   // --- Regional Layer ---
   { key: "Taiwan Semi (English)", label: "Taiwan Semi", accent: "text-emerald-700", borderColor: "border-emerald-600" },
@@ -227,7 +229,7 @@ const FEED_SECTIONS: { key: string; label: string; accent: string; borderColor: 
   { key: "Macro: Economy & Markets", label: "Economy & Markets", accent: "text-amber-600", borderColor: "border-amber-500" },
 ];
 
-const ARTICLES_PER_SECTION = 6;
+const ARTICLES_PER_SECTION = 20;
 
 function FeedSection({
   section,

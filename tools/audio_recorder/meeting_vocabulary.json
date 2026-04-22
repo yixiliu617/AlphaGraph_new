@@ -1,0 +1,84 @@
+{
+  "_comment": "Domain vocabulary for meeting transcription. Add companies, products, and terms that ASR models commonly misrecognize.",
+
+  "companies": {
+    "中国互联网": [
+      {"zh": "阿里巴巴", "en": "Alibaba", "ticker": "BABA/9988.HK", "aliases": ["巴巴", "88", "八八"], "products": ["Temu", "通义千问/Qwen", "阿里云"], "notes": "When analysts say '巴巴' or '88/八八' they mean Alibaba. 千问/Qwen is Alibaba's AI model (NOT 钱问). 通义千问 = Tongyi Qianwen."},
+      {"zh": "拼多多", "en": "Pinduoduo", "ticker": "PDD", "aliases": ["多多"], "products": ["Temu", "多多买菜", "多多买菜"]},
+      {"zh": "腾讯", "en": "Tencent", "ticker": "0700.HK/TCEHY", "products": ["微信", "WeChat", "混元", "Hunyuan"]},
+      {"zh": "美团", "en": "Meituan", "ticker": "3690.HK/MPNGF"},
+      {"zh": "满帮", "en": "Full Truck Alliance/Manbang", "ticker": "YMM", "aliases": ["运满满", "货车帮"], "products": ["满运保"], "notes": "司机匹配平台，不是美团"},
+      {"zh": "哔哩哔哩", "en": "Bilibili", "ticker": "BILI/9626.HK", "aliases": ["B站"]},
+      {"zh": "快手", "en": "Kuaishou", "ticker": "1024.HK", "products": ["可灵/Kling"]},
+      {"zh": "京东", "en": "JD.com", "ticker": "JD/9618.HK", "products": ["京东健康"]},
+      {"zh": "携程", "en": "Trip.com/Ctrip", "ticker": "TCOM/9961.HK"},
+      {"zh": "滴滴", "en": "DiDi", "ticker": "DIDIY"},
+      {"zh": "贝壳", "en": "KE Holdings/Beike", "ticker": "BEKE/2423.HK"},
+      {"zh": "阿里健康", "en": "Alibaba Health", "ticker": "0241.HK"},
+      {"zh": "网易", "en": "NetEase", "ticker": "NTES/9999.HK"}
+    ],
+    "教育": [
+      {"zh": "好未来", "en": "TAL Education", "ticker": "TAL", "aliases": ["学而思"]},
+      {"zh": "新东方", "en": "New Oriental", "ticker": "EDU/9901.HK", "products": ["东方甄选"]}
+    ],
+    "云/数据中心": [
+      {"zh": "金山云", "en": "Kingsoft Cloud", "ticker": "KC/3896.HK"},
+      {"zh": "世纪互联", "en": "VNET Group", "ticker": "VNET"},
+      {"zh": "万国数据", "en": "GDS Holdings", "ticker": "GDS/9698.HK"}
+    ],
+    "半导体": [
+      {"zh": "台积电", "en": "TSMC", "ticker": "TSM/2330.TW"},
+      {"zh": "英伟达", "en": "NVIDIA", "ticker": "NVDA"},
+      {"zh": "AMD", "en": "AMD", "ticker": "AMD"},
+      {"zh": "美光", "en": "Micron", "ticker": "MU"},
+      {"zh": "SK海力士", "en": "SK Hynix", "ticker": "000660.KS"}
+    ]
+  },
+
+  "financial_terms": {
+    "common_en_in_zh": [
+      "top line", "bottom line", "guidance", "consensus", "CapEx", "OpEx",
+      "conviction buy", "top pick", "key idea", "alpha generation", "outperformance",
+      "easy base", "re-rating", "de-rating", "write-off",
+      "factor in", "price in", "factored in",
+      "business model", "unit economics", "pricing power", "pricing upside",
+      "top idea", "sub-sector", "mega cap",
+      "transaction service revenue", "marketing services revenue",
+      "double digit growth", "single digit", "triple digit",
+      "net cash", "market cap", "investment income",
+      "hedge against", "execution risk",
+      "earnings call", "road show", "路演",
+      "antitrust investigation", "反垄断调查",
+      "free delivery", "送货上门", "包邮",
+      "white label", "白牌",
+      "hyperscaler", "data center", "cloud"
+    ],
+    "metrics": [
+      "ROE", "EBITDA", "EPS", "P/E", "PE", "PB", "NPM", "GPM", "OPM",
+      "FCF", "CAPEX", "OPEX", "IRR", "WACC", "DCF",
+      "GMV", "ARR", "MRR", "DAU", "MAU", "ARPU",
+      "CER", "YoY", "QoQ", "MoM"
+    ]
+  },
+
+  "analyst_names": [
+    "Ronald", "Lincoln", "Timothy", "Tian",
+    "陆颖", "林肯", "天"
+  ],
+
+  "common_misrecognitions": [
+    {"wrong": "美团 (when discussing freight/driver matching)", "correct": "满帮 (YMM)"},
+    {"wrong": "CD匹配", "correct": "司机匹配 (driver matching)"},
+    {"wrong": "美金寶", "correct": "满运保 (Manbang's insurance product)"},
+    {"wrong": "Macrolon", "correct": "macro + 反垄断 (antitrust)"},
+    {"wrong": "narrator", "correct": "narrative"},
+    {"wrong": "京象雲", "correct": "金山云 (Kingsoft Cloud)"},
+    {"wrong": "CML", "correct": "consensus"},
+    {"wrong": "88 or 288 (when referring to a stock)", "correct": "巴巴/阿里巴巴 (Alibaba) — analysts use '巴巴/88' as shorthand for Alibaba"},
+    {"wrong": "Tencent 在這個視頻是 288", "correct": "Technically, 在这个水平，是巴巴 (Alibaba at this level)"},
+    {"wrong": "pesgogle/pesgoogle", "correct": "Google peers"},
+    {"wrong": "triple digit terror", "correct": "triple digit growth (三位数增长)"},
+    {"wrong": "钱问 (money question)", "correct": "千问/Qwen (Alibaba's AI model 通义千问)"},
+    {"wrong": "前问", "correct": "千问/Qwen (Alibaba's AI model)"}
+  ]
+}

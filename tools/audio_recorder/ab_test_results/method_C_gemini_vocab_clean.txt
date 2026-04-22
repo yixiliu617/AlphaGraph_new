@@ -1,0 +1,79 @@
+**Key Topics:**
+
+*   **AI-driven Narrative and Cloud Growth:** Discussion on AI's role in driving growth, particularly for cloud services, with a focus on `阿里巴巴` as a key `hyperscaler`.
+*   **Pinduoduo's Performance and Strategy:** Analysis of `Pinduoduo`'s strong Q1 performance, driven by `Temu` and `多多买菜`, and its "super easy base" for growth, despite investor caution. Discussion on its "thousand-billion-yuan" investment plan and its impact on domestic profit.
+*   **Full Truck Alliance/Manbang (YMM) Outlook:** Assessment of `Manbang`'s `topline` for 2024 and 2026, considering the impact of oil prices and its competitive advantage in driver matching.
+*   **Bilibili's (B站) Gaming and Advertising:** Positive outlook for `Bilibili`'s advertising growth, driven by new ad formats and AI agent investments, and a stable gaming outlook with new game releases.
+*   **Tencent's Gaming and AI Investments:** Expectations for `Tencent`'s gaming growth to slow compared to Q4, with advertising showing slight improvement. Discussion on `Hunyuan 3.0` and its parameter count.
+*   **KE Holdings/Beike (贝壳) and Real Estate Market:** Analysis of `Beike`'s stock performance, current valuation, and the improving dynamics in the second-hand housing market.
+*   **Alibaba Health (阿里健康) and AI Investments:** Discussion on `Alibaba Health`'s AI investments impacting short-term profit but with strong `topline` growth.
+*   **TAL Education (好未来) and New Oriental (新东方) Outlook:** Positive outlook for `New Oriental`'s earnings, driven by core business growth and `low base` effects, and `TAL Education` as a more solid long-term play with AI investments.
+*   **Data Center Companies (Kingsoft Cloud, VNET, GDS):** Discussion on `Kingsoft Cloud` as a preferred pick due to its cleaner `flow` and strong `bottomline`, with `GDS` also having strong order books.
+
+---
+
+[00:00:00] **Ronald:** 之間,未來幾個星期應該能回到一個AI帶動的一個 **narrative**。那AI帶動要靠什麼呢？當然要靠 **token量**，要靠 **cloud的預期**，模型的發布。大家就對這個 **DeepSeek V4** 也有一定的時間性的 **expectation**。那我覺得就比較重要的是它的美國的 **peers**。`Google`這些也從低點明顯反彈了一整週了，整個美國的 **hyperscaler** 這邊。所以只要 **CapEx** 預期，如果擔心 **CapEx** 會有已經 **factored in** 的話，市場的 **focus** 就會回到 `cloud` 的增長。有沒有有一些中國比較突出的還有一個 **cloud pricing**。我們這些 **pricing** 都是 **4月** 開始提價的。然後 `腾讯` 也差不多一些 **5月** 再會提一些 **CPU** 啊這些的。所以整個 **pricing** 比較 **positive**。然後如果你看整個 **AI stack** 的話，芯片公司現在基本上多的不得了。模型公司也是數不盡的多的不得了。`hyperscaler` 真的最大的只有一家可以買，就是 `阿里巴巴`。那當然 `Timothy` 會分享我們 **upgrade** 了這個 `金山云` 作為其中我們一個 **TID**。那我們對 **data center** 和 `cloud` 還是首推的。在我們業績後的這個 **what to do from here** 的一個 **reset**。但 `阿里巴巴` 的這個最大的 **hyperscaler** 說了就是它。所以在這個可以可投資的 **layer** 裡邊應該其實還是 **hyperscaler** 是最清晰的。而且有一個 **pricing upside**。那所以雖然主營業務還是比較差的，但也沒有說差到哪裡去。就是跟當時業績後的這個 **CML** 還是比較好，只是不算是太過進取。然後 **CML** 加 **CapEx** 那整個 **underlying** 的電商的 **profit** 還是比較 **stable** 的情況下，那 **AI incremental** 就可以是，我覺得未來一個月的一個 `阿里巴巴` 的主調吧。那所以這個 **data center cloud** 還是我們的首推。然後四個 **TID** 上個禮拜 **refresh** 的 **DDSB net**，`阿里巴巴` 我們是 **3月** 進入加到 **conviction buy**。然後就 `Timothy` 可以分享這個 `金山云` 是 **TID**。
+
+[02:32:10] **Ronald:** 那第二我們調整了就是把電商挪上去。那為什麼會在這個時點還重點再推一下電商？然後主要是推 `拼多多`。那就是這個業績過去以後，一季報有亮點的，我覺得就是 `拼多多` 的 **profit low base**。去年一季度的這個 **triple digit terror**。還有這個 `多多买菜` 帶動的 **transaction service revenue** 已經明顯在 **4季度** `拼多多` 的 **topline** 開始 **accelerate**。然後進入一季度的話，那 `Temu` 的這個 **transaction service revenue** 也會進一步 **accelerate**。因為它也是從一季度開始轉這個 **business model** 的。那就是從 **全託轉半託**。**accounting share** 已經影響，就差不多結束。那所以 `拼多多` 基本上進入一個 **topline** 和 **bottomline** 都 **extremely easy base**。它怎麼投一季度去年也才單季 **100億** 綠，所以這個這個 **base** 是在太容易了。這就少了這個 **100億** 的 **investment income**，因為它去年一季度。那所以這個 **super easy base** 加 **topline acceleration**，就 `拼多多` 就進入一個比較學徒的一條路了。我們基本上我上個禮拜在新加坡路演，很多投資人還是不敢或者不能碰 `拼多多`。但 **as usual** 我們覺得這個還是 **26年** 的最明顯的一個 **alpha generation**。所以 **interest level** 慢慢有有一些回來。有一些個別的大的基金還是有隱含原因不能夠碰這個票。但我覺得這個 **throughout this year** 應該會 **incrementally** 會多一些的有一些轉向吧。那轉向應該還是 **一季度 set** 一個比較好的一個業績的 **reaction**。然後也從所有的邏輯上還有新的這個再建一個 `拼多多` 叫三年再建 `拼多多` 這種 **strategy** 應該能讓大家去在再一次重點關注這個 **name** 吧。
+
+[04:52:30] **Ronald:** 所以這個就是我們對這個頭兩個板塊的一些想法吧。我們也覺得 `Full Truck Alliance/Manbang` 也差不多。但 `Full Truck Alliance/Manbang` 的這個 **catalyst** 要等這個 `携程` 的 **antitrust investigation**。就從大家覺得要 **6個月**，因為 `阿里巴巴` 當時用了 **6個月** 的時間。但是如果 **business model** 比較簡單，我不會就這個 **一季度** 內 **4、5月** 不會有一些定案。如果這個 `携程` 的反壟斷調查能結束穩定下來，那其實 `携程` 已經跌了很多。但我們覺得這些有壟斷地位的或者 **dominant positioning** 通過過去以前這種合併的方式變成了市場支配地位的這些 `Full Truck Alliance/Manbang`、`滴滴`、`携程` 都在這一波比較是比較慘的，除了說擔心 **AI agent** 以外。但 `Full Truck Alliance/Manbang` 其實真的沒有說什麼 **AI agent** 的這種影響。畢竟還是 **司機匹配** 真的沒有任何我覺得太 **structural** 的 **AI agent** 的 **threat**。那所以它的 **driving** 還是自己的業績。在 `满运保` 和 **macro** 和這個反壟斷一堆的這些影響到它也是變成一個 **single digit**，**mid single digit** 的 **CapEx PE**。所以這個票也還是有一定的從 **2季度** 開始的一個 **re-rating** 的空間。所以這些是頭六個票。那第三個 **sub-sector** 我們就把遊戲下調了一點，遊戲娛樂。那 `Lincoln` 可以分享他加了 `Bilibili` 進去我們 **TID** 的一個想法。
+
+[06:39:40] **Ronald:** 那在我們的 **mega cap** 排序，所以就比較 **clear**。我們就覺得 **Tech** 在這個視頻是 `阿里巴巴`。全年還是 `拼多多`。然後這兩個都會高於 `腾讯`。而且是 `腾讯` 在這個季度的遊戲增速也會明顯比 **4季度** 慢一些。廣告可能好一點點，但也不會有太明顯。那所以在 **AI investment**，`混元 3.0` 這個月要出。**3季度** 有 **potential** 有一些 **pilot testing** 的 **AI agent**。但這些我覺得都已經比較 **well understood** 了。那而且 `混元 3.0` 可能還是一個 **parameter** 數目前跟不同的色彩，**parameter** 數不會特別大。那所以 **coding** 肯定也達不到 `GPT` 的這種水平。但小模型來講可能 **MiniMax** 已經是最優的一個 **economics**。所以也未必能有非常 **wow** 的情況下，那可能就是一個 **non-event**。所以我們的排序還是會 `阿里巴巴` 和 `拼多多` 會高於 `腾讯`。那我今天停在這吧。
+
+[07:56:30] **陆颖:** 喂，`Ronald`。
+
+[07:58:40] **Ronald:** 哎。
+
+[07:59:70] **陆颖:** Hello。
+
+[08:01:50] **陆颖:** 聽得見嗎？
+
+[08:02:30] **Ronald:** 哎，聽得見。
+
+[08:03:50] **陆颖:** 哎，我有一個很快的問題關於 `拼多多` 的，我想問一下。就是它上一次的 **earnings** 也提到過它要做一個新的 **千億計劃** 吧，三年要投 **1000億** 給那個那個 `拼多多` 什麼，新品牌是嗎？
+
+[08:22:60] **Ronald:** 對。
+
+[08:23:80] **陆颖:** 啊。就是這個是不是沒有在我們的模型或者說是 **consensus** 的數字裡面呢？就現在我看大家就還是估正常 **normalized earnings** 就一年賺 **1000億** 嘛，對吧？
+
+[08:37:60] **陆颖:** 那如果你把這個加上去不是少 **30%** 嗎？每年。
+
+[08:43:50] **Ronald:** 嗯，對。當然它每年的這個 **transaction service** 和 **revenue marketing services** 就我們也未來三年 **total revenue** 其實也多了 **1000億**。然後我一般會叫大家不要 **expect** 有任何大的國內 **profit** 的變化。所以我國內 **profit 26** 到 **28** 還是 **1100億** 左右。
+
+[09:11:50] **陆颖:** 嗯。
+
+[09:12:10] **Ronald:** 所以就基本上就要假設這家公司的 **topline** 會繼續 **grow** 的，而且 **double digit growth**。然後但是這個利潤就大家先假設 **1000億** 上下的這個國內利潤是不會有 **swing** 的，就還是非常 **stable** 和 **unexciting**。但光是這個 **assumption** 已經 **net cash** 加四年的這個 **千億級** 的 **profit** 都是 **market cap** 了。所以就我覺得就我的數可能應該，我的數是比 **consensus** 低的。但只要我是叫大家，反正白菜的，先假設就國內利潤就 **flat** 吧。無論是我們在香港或者是什麼現在西部地區所有生活上門，還有未來什麼 `Temu` 也送到拉美都有一些 **free delivery**。其實這家公司肯定會把所有額外的 **revenue** 和 **profit growth** 都會投出去。所以這個每天其實是現在到更高的 **user retention** 和 **user frequency**。然後我都說了香港現在真的只有 `拼多多` 是你買 **5塊、4塊、9塊9** 包郵的生活上門。香港現在就單件生活上門不需要急運，就只有 `拼多多` 一家。`阿里巴巴` 就的確沒有這個 **budget** 去做。所以 `阿里巴巴` 有免費自提。所有的西部地區，所有的很多很多的市場，`拼多多` 現在給大家就是一個不只是免郵，是免費送貨上門。那這些都是它所謂的 **reinvestment**。那新品牌的話就的確會有一些 **substitution** 的 **risk**。就是它它如果自己去做品牌，自己去去跟上游，然後再建一個 `拼多多` 的情況下會不會影響到本身的商家的體系。那這個是大家是有這個 **question** 的。但大家比如 **AI agent** 年代，大家也擔心未來的 **agent to agent** 會不會影響到 `阿里巴巴`、`拼多多` 這些單靠廣告做收入的這種電商平台會不會在流量有變化的時候出現 **business model** 的一個影響。所以先先想像就 `拼多多` 自己往上游走，就是有點像 `京东` 自營這種。那最後是賺產品差價，或者是把廣告的這個 **business model** 變成更多是從商品的毛利去想。那這個也是一個 **hedge against** 可能流量的，對未來電商廣告會有變化的一個 **strategy**。
+
+[11:59:30] **陆颖:** 嗯。
+
+[12:01:00] **陆颖:** 好的，所以就結論就是說這個 **earnings** 你覺得還是暫時 **assume** 它是 **stabilized** 在現在的水平的。但是實際上就是說 **depends on** 這公司會做什麼事情，是嗎？
+
+[12:15:40] **Ronald:** 對，或者是先不要假設 **earnings growth** 吧。但 **topline** 就的確會有會是比較健康的增長。因為有 `多多买菜`，有 `Temu` **accounting** 和 **OMS** 也開始有 `Temu` 的貢獻。`Temu` 也開始做廣告。那所以它的 **topline** 在，它的 **topline growth** 最慢的是去年 **4季度**。就整個 **group** 就只有去年 **2、3季度** 就只有 **7個點、9個點** 的 **topline growth as a group**。然後其實 **4季度** 已經加速到雙位數。然後今年要維持一個雙位數再有一點加速的這個狀態。所以跟它的這個估值就這個 **gap** 就明顯看到這個 **stock** 是太太便宜了。
+
+[13:06:20] **陆颖:** 嗯，好的，謝謝。
+
+[13:13:30] **陆颖:** 好的，那我們謝謝 `Ronald`。現在請 `Lincoln`。
+
+[13:18:70] **Lincoln:** 好的，那個，大家好。那我這邊的話，這次業績之後就 `Ronald` 也說了，就是主要就是把這個 `Bilibili` 調到這個 **top pick** 裡面嘛。那主要的原因還是說，像就這次太多的擔心都還是一個是 **AI disruption**，或者是這個自己的競爭嘛。那覺得對於很多的這個遊戲娛樂都會有這方面的影響。那 `Bilibili` 這邊的話，應該是為數不多吧，還是用戶和市場都是增長比較快的這麼一個平台。現在一季度的話，至少廣告這邊看 **20%**，我覺得 **high 20%** 可能是機會的，在 **25%** 以上吧。然後這個後續其實還是有挺多的這個 **lever** 吧，可以去做。那最近應該也出了一些這種類似，就是暫停，暫停視頻的廣告，剛剛開始推吧。那其實也是個試點吧。那其實後面應該這樣的類型的這種不同的形態的廣告 **format**，還是可以讓它這個廣告的增長能持續維持在 **20%** 以上吧。我覺得今年的確定性還是比較大的。另外可能有人擔心它的這個就是一季度會有比較多的這個 **AI agent** 這邊的這個投放廣告吧，比如說錢問這塊。那可能後面會是不是會少一些。但是一呢就是 **2季度、3季度** 也是這個遊戲的一個旺季吧。所以其實有比較多的這些新遊啊什麼的也會在上面去投。二呢其實就不只是這種這個錢包是吧，那可能更多的這些不同的這種 **AI** 的應用吧，其實現在都會在上面去 **allocate** 些 **budget**。所以整體上我覺得廣告的這個信心還是比較足的。
+
+[15:12:70] **Lincoln:** 那這個可能大家之前擔心的 **downside** 還是說它的這個遊戲這邊是比較老遊戲是比較弱吧。看那個三毛什麼的確實是掉了一些。但是我覺得上半年吧，上半年大家現在可能也沒有太多對它遊戲的預期。那月底會上新的這個三國卡牌，然後年底應該還有新的這個三國大招棋。所以至少往上半年看吧，我覺得這個遊戲這邊應該也是不會太悲觀的。**bottomline** 其實怎麼著應該也能回到一個正增長。那如果這個後續的這些新遊有更多的一些貢獻的話，可能還是有一個加速的一個狀況。然後最後一個就是說這個之前說的這個 **51** 到 **11** 的這個 **AI** 的投入吧。那反正之前我們在 **trip** 上跟大家聊就感覺現在先還是往 **51** 這個方向去看。並且呢其實也沒有 **factoring** 太多這個就是成本端節省的這個幫助啊。所以但實際上的這個人員的調整啊，這個裁撤啊，這個其實一直都說在進行的。所以其實後面真的看就是也未必有這麼大的一個 **earnings** 上的影響吧。尤其往上半年去看這個逐漸的這個成本降低的這個情況下。所以在這幾個中間吧，在這這幾個就是遊戲娛樂標的中間，我覺得它的這個相對來說這個增長的景氣度擔心沒那麼多。然後呢這個增速也是確實是全新市場的更高的。所以把它放到這個 **top pick** 裡面。
+
+[16:54:30] **Lincoln:** 然後這個遊戲這邊的話，就是當然就 `Ronald` 說就是最近其實我們挺多的這種新遊也準備上線了。那今年可能是往這世界，那個月底是那個卡牌，然後還有 **一碗** 啊，還有這個後面往 **一** 應該大概率 **7月份** 吧，上這些遊戲。所以反正這塊這個新的這些後面的一些 **event** 吧，也還是會是比較多。那當然從這個標的選擇的角度呢，我其實在現在就沒有去 `腾讯` 吧。因為還是覺得一季度的這個基數是比較高的。去年的利潤的那個 **budget** 其實太高了。同比的壓力還是會有的。所以報完 **5月份** 的這次業績之後吧，那一旦它後面的這些新遊有些定檔的話，那可能會是一個更好的一個時間的一個窗口。然後其他的票我們覺得就短期都還是會有一些壓力吧。那這個在那個 `混元` **CapEx** 出來之後，大家看可能這個 `可靈` 的壓力啊，或者 `快手` 這邊股價也還是比較弱吧。那我覺得就是它的下一代的模型目前定到的應該要到下個月，可能會有一個相對大一點的一個升級。那這個也是比較大的一個關注點吧。它收入端目前這個一季度現在說的是 **5億** 的人民幣的這個收入。那是不是後面還能持續的話，並且繼續提升嘛，還是比較重要的。但現在這個階段因為它的主業的這個 **guidance** 確實比較弱。所以就是大家現在可能 `可靈` 的這個估值也還是就基本上有點 **write off** 吧。在這個景氣的情況下。
+
+[18:46:0] **Lincoln:** 然後最後再簡單說一下那個健康這邊我們也調了一下數，就是 `阿里健康` 本身這個也是要做一些 **AI** 的投入，做一些這個一些折扣吧。所以它的這個利潤其實在今年上半年是不及預期的。那大概率這個往二就是它 **26年** 這個 **20年** 去看的話，其實也還是會有一些更多的一些這個就是 **AI** 相關的一些投入吧。那可能看點上是看跟整個這個集團跟錢問這邊是不是有更好的一些結合。但在目前這個階段還是處在一個就是短期會對利潤有影響的這樣一個情況。那收入端還是很明顯就是 `京东健康` 的這個收入是超過 `阿里巴巴` 的。所以這個這個這邊我們還是有一個比較 **clear** 的這個 `京东` **over** `阿里巴巴` 的一個一個 **preference** 吧。我就分享這麼多。
+
+[19:46:50] **陆颖:** 好，我們先看一下大家對 `Lincoln` 這邊有沒有問題。
+
+[19:55:0] **陆颖:** 好的，那我們先謝謝 `Lincoln`。然後回到一個關於 `Ronald` 這邊的問題。`Ronald` 還在嗎？
+
+[20:06:30] **陆颖:** 哎，好嘞，就是幫客戶問一下哈。客戶想問一下關於 `YMM` 的 **topline** 對於 **1Q** 跟 **26年** 怎麼看？會不會受到油價的影響？
+
+[20:17:40] **Ronald:** 我們是 **25號** 吧，就是 **3月底** 最後一週當時跟他們聊了。當時說的這個油價其實短期對它好事，因為這個油價提高，然後運費是往上嘛。但是因為他們的這個 **CapEx** 比中介的這個價格是更有優勢，平常會比網上便宜 **10** 到 **15個點**。那所以有更多的這種貨主會可能通過 `YMM` 去找貨。所以它覺得短期反而是對 **total volume** 應該是有些幫助。一季度的話，當然說整個季度還是一個 **13個點**，**guidance** 說沒有沒有改變。那他們基本上 **1、2月** 是比較好的。但 **3月** 尤其頭一兩個星期當時春節原因，所以恢復的比較慢。所以整個整個季度還是當時說 **13個點** 左右。但聽起來應該是 **3月** 到第三、第四週是已經恢復的比較正常。而且剛才說的這個油價反是一個 **short-term** 的一個 **tailwind**。全年的話還是一個 **mid-teen** 應該是能做到吧。所以全年來講，感覺它這次的 **guidance** 應該是清理的比較 **clean**。然後一季度當時的 **guidance** 應該是沒問題。而且希望最後兩三，最後的一兩週的情況還是不錯的。所以它全年應該應該不會有太大 **surprise**。只要但油價會不會影響到其他 **export** 啊這些宏觀因素呢，這些它就目前來說大家還沒 **comment** 這麼一個。
+
+[21:14:80] **陆颖:** 好的，謝謝 `Ronald`。那我們最後有請 `Timothy`。
+
+[22:22:30] **Timothy:** 好的，謝謝 `Ronald`，謝謝 `Lincoln`。那我這邊其實就跟 `Ronald` 說的吧，就可能對這個 **data center** 板塊，包括像 `金山云` 還是比較推薦的。那 `金山云` 我覺得它的邏輯相對之前可能更清晰一些。那它在 **2季度** 的話，它在 **2 2026** 年的 **alpha generation**。
+
+[29:00:00] **陆颖:** 我再發一下那個 **conference list** 的話，可以來 **ping** 我。當然就是我們雖然是 **天地 conference**，但是其實在就是 **industrial** 啊，**consumer** 啊，不同的 **sector** 其實也會有一些其他的那個公司。然後包括非上市公司的話，這邊也會有一些就是比較 **popular** 的人機機器人。這些都歡迎大家查閱。然後最後看一下大家有沒有對我們三位分析師最後的問題。
+
+[29:23:30] **陆颖:** 如果沒有的話，那謝謝大家。我再來 **Bloomberg** 上給大家發一下那個那個我們 **conference** 的最終的 **100** 家公司 **list**。如果有問題的話，歡迎隨時查詢。謝謝大家。

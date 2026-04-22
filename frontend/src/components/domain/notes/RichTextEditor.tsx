@@ -38,6 +38,7 @@ import Image from "@tiptap/extension-image";
 import Typography from "@tiptap/extension-typography";
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import {
   Bold, Italic, Strikethrough, Code, List, ListOrdered, Quote
 } from "lucide-react";
@@ -220,9 +221,48 @@ function createSlashExtension(
 interface Props {
   initialContent: Record<string, unknown>;
   onChange: (json: Record<string, unknown>, plainText: string) => void;
+  onTimestampClick?: (seconds: number) => void;
 }
 
-export default function RichTextEditor({ initialContent, onChange }: Props) {
+export default function RichTextEditor({ initialContent, onChange, onTimestampClick }: Props) {
+  // Keep a ref to the latest callback so the Tiptap handleClick closure always sees the current value
+  const tsClickRef = useRef(onTimestampClick);
+  tsClickRef.current = onTimestampClick;
+
+  // Tiptap extension that highlights [MM:SS] timestamps as clickable badges
+  const timestampDecoPlugin = useRef(
+    new Plugin({
+      key: new PluginKey("timestampDecorations"),
+      props: {
+        decorations(state) {
+          const decorations: Decoration[] = [];
+          const tsRegex = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g;
+
+          state.doc.descendants((node, pos) => {
+            if (!node.isText || !node.text) return;
+            let match: RegExpExecArray | null;
+            while ((match = tsRegex.exec(node.text)) !== null) {
+              const from = pos + match.index;
+              const to = from + match[0].length;
+              const mins = parseInt(match[1]) || 0;
+              const secs = parseInt(match[2]) || 0;
+              decorations.push(
+                Decoration.inline(from, to, {
+                  class: "ts-seek",
+                  "data-seek-seconds": String(mins * 60 + secs),
+                  style:
+                    "color: #4f46e5; background: #eef2ff; padding: 1px 5px; border-radius: 4px; cursor: pointer; font-family: ui-monospace, monospace; font-size: 11px; font-weight: 600; transition: background 0.15s;",
+                }),
+              );
+            }
+          });
+
+          return DecorationSet.create(state.doc, decorations);
+        },
+      },
+    }),
+  ).current;
+
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
   const [slashPos, setSlashPos] = useState({ top: 0, left: 0 });
@@ -258,6 +298,12 @@ export default function RichTextEditor({ initialContent, onChange }: Props) {
       TableCell,
       Image.configure({ inline: false }),
       slashExtension,
+      Extension.create({
+        name: "timestampHighlight",
+        addProseMirrorPlugins() {
+          return [timestampDecoPlugin];
+        },
+      }),
     ],
     content: initialContent && Object.keys(initialContent).length > 0 ? initialContent : undefined,
     onUpdate: ({ editor }) => {
@@ -267,6 +313,37 @@ export default function RichTextEditor({ initialContent, onChange }: Props) {
       attributes: {
         class:
           "prose prose-slate max-w-none focus:outline-none min-h-full px-10 py-8 text-sm leading-relaxed",
+      },
+      handleClick: (view, pos, event) => {
+        const cb = tsClickRef.current;
+        if (!cb) return false;
+
+        // Check if clicked on a styled timestamp span
+        const target = event.target as HTMLElement;
+        if (target.classList.contains("ts-seek")) {
+          const secs = parseInt(target.dataset.seekSeconds || "0");
+          event.preventDefault();
+          cb(secs);
+          return true;
+        }
+
+        // Fallback: check text position for [MM:SS] patterns
+        const $pos = view.state.doc.resolve(pos);
+        const nodeText = $pos.parent.textContent || "";
+        const offset = $pos.parentOffset;
+        const tsRegex = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g;
+        let m: RegExpExecArray | null;
+
+        while ((m = tsRegex.exec(nodeText)) !== null) {
+          if (offset >= m.index - 1 && offset <= m.index + m[0].length + 1) {
+            const mins = parseInt(m[1]) || 0;
+            const secs = parseInt(m[2]) || 0;
+            event.preventDefault();
+            cb(mins * 60 + secs);
+            return true;
+          }
+        }
+        return false;
       },
     },
   });

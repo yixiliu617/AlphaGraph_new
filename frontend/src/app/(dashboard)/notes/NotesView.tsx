@@ -36,6 +36,11 @@ import NoteCreationModal from "@/components/domain/notes/NoteCreationModal";
 
 const NOTE_GROUPS = [
   {
+    type:  "meeting_transcript",
+    label: "Meeting Transcripts",
+    path:  "MEETING TYPE › MEETING TRANSCRIPT",
+  },
+  {
     type:  "earnings_call",
     label: "Earnings Calls",
     path:  "MEETING TYPE › EARNINGS CALL",
@@ -748,6 +753,7 @@ export default function NotesView({
             className="h-8 px-3 rounded-md border border-slate-200 bg-slate-50 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-600"
           >
             <option value="">All types</option>
+            <option value="meeting_transcript">Meeting Transcript</option>
             <option value="earnings_call">Earnings Call</option>
             <option value="management_meeting">Mgmt Meeting</option>
             <option value="conference">Conference</option>
@@ -776,18 +782,6 @@ export default function NotesView({
           onOpenSource={onOpenRelease}
         />
 
-        {/* Earnings releases section — always rendered first, independent of
-            the notes loading/empty state below. */}
-        {earningsLoading ? (
-          <div className="bg-white rounded-xl border border-slate-200 h-14 animate-pulse" />
-        ) : earnings.length > 0 ? (
-          <EarningsGroup
-            path="SEC FILINGS › EARNINGS PRESS RELEASES & CFO COMMENTARY"
-            items={earnings}
-            onOpen={onOpenRelease}
-          />
-        ) : null}
-
         {isLoading ? (
           // Loading skeleton
           <div className="space-y-3">
@@ -796,7 +790,7 @@ export default function NotesView({
             ))}
           </div>
 
-        ) : !hasAny && earnings.length === 0 ? (
+        ) : !hasAny ? (
           // Empty state — only when there are no notes AND no earnings to show
           <div className="flex flex-col items-center justify-center gap-4 py-24">
             <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center">
@@ -816,10 +810,6 @@ export default function NotesView({
               Create first note
             </button>
           </div>
-
-        ) : !hasAny ? (
-          // Notes empty but earnings section is rendered above — no extra state
-          null
 
         ) : groups.length === 0 ? (
           // Has notes but none match current filter
@@ -845,6 +835,17 @@ export default function NotesView({
             />
           ))
         )}
+
+        {/* SEC Filings — rendered at bottom */}
+        {earningsLoading ? (
+          <div className="bg-white rounded-xl border border-slate-200 h-14 animate-pulse" />
+        ) : earnings.length > 0 ? (
+          <EarningsGroup
+            path="SEC FILINGS › EARNINGS PRESS RELEASES & CFO COMMENTARY"
+            items={earnings}
+            onOpen={onOpenRelease}
+          />
+        ) : null}
       </div>
 
       {/* Creation Modal */}

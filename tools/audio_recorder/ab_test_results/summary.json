@@ -1,0 +1,9 @@
+[
+  {
+    "method": "B",
+    "name": "Deepgram nova-2",
+    "time": 2.782097339630127,
+    "chars": 0,
+    "file": "tools\\audio_recorder\\ab_test_results\\method_B_deepgram.txt"
+  }
+]
