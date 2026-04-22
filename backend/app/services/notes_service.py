@@ -32,6 +32,7 @@ class NotesService:
         note_type: str,
         company_tickers: List[str],
         meeting_date: Optional[str] = None,
+        ux_variant: str = "A",
     ) -> MeetingNote:
         note = MeetingNote(
             tenant_id=tenant_id,
@@ -40,6 +41,7 @@ class NotesService:
             company_tickers=company_tickers,
             meeting_date=meeting_date,
             editor_content={"type": "doc", "content": []},
+            ux_variant=ux_variant,  # type: ignore[arg-type]
         )
         orm = self._to_orm(note)
         self.db.add(orm)
@@ -207,6 +209,7 @@ class NotesService:
             updated_at=note.updated_at,
             editor_content=note.editor_content,
             editor_plain_text=note.editor_plain_text,
+            ux_variant=note.ux_variant,
             recording_path=note.recording_path,
             recording_mode=note.recording_mode,
             duration_seconds=note.duration_seconds,
@@ -233,6 +236,7 @@ class NotesService:
             updated_at=row.updated_at,
             editor_content=row.editor_content or {},
             editor_plain_text=row.editor_plain_text or "",
+            ux_variant=(row.ux_variant or "A"),  # type: ignore[arg-type]
             recording_path=row.recording_path,
             recording_mode=row.recording_mode,
             duration_seconds=row.duration_seconds,

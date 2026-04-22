@@ -7,13 +7,17 @@
 
 ## Goal
 
-Ship an A/B-testable "Variant B" for the Notes editor that changes post-recording UX without disturbing the current behaviour ("Variant A"). Variant B:
+Ship an A/B-testable "Variant B" for the Notes editor that changes post-recording UX without disturbing the current behaviour ("Variant A").
 
-- Auto-inserts bilingual raw + polished transcripts into the main editor below the user's own notes (instead of leaving them in the sidebar).
-- Replaces the sidebar's post-wizard state with a Meeting Intelligence panel containing the extraction results plus a chat agent.
-- Allows extraction to proceed with zero user-supplied topics (derived from the user's own notes + transcript).
+**What applies to both variants** (shared improvements — fixes the current A-note data-loss bug where polished output has nowhere to go):
+- Auto-inserts bilingual raw + polished transcripts into the main editor below the user's own notes on Save Both.
+- Allows extraction to proceed with zero user-supplied topics (derived from the user's own notes + transcript — already shipped).
 
-Variant A is the current behaviour, completely unchanged. The user opts into B per note at creation time.
+**What distinguishes Variant B from A:**
+- B replaces the sidebar's post-wizard state with a Meeting Intelligence panel containing the extraction results plus a chat agent. (Plans 2 + 3.)
+- A keeps the existing sidebar behaviour (PostMeetingWizard → completion message).
+
+Variant A's sidebar is unchanged from today. The user opts into B per note at creation time.
 
 ---
 
@@ -47,7 +51,7 @@ Every new code path added by this spec is gated behind `note.ux_variant === "B"`
 
 ---
 
-## 2. Variant B — Editor Layout
+## 2. Editor Layout (applies to both variants)
 
 ### 2.1 Three-section document structure
 
@@ -102,7 +106,7 @@ Utility `editorSectionBuilder.insertOrReplaceSection(editor, sectionId, contentJ
 - If not found → appends: `<hr>` + `<h2>` heading + the content block, with the wrapping `data-section-id` attribute.
 - For `user_notes`, the function ensures a heading/divider exists at the top but never overwrites the body.
 
-### 2.5 Save Both flow (variant B only)
+### 2.5 Save Both flow (both variants)
 
 When the user clicks **Save Both (Draft + Polished)** in `RecordingPanel`:
 
@@ -114,7 +118,7 @@ When the user clicks **Save Both (Draft + Polished)** in `RecordingPanel`:
 4. Existing auto-save debounces and writes the new `editor_content` via `PUT /notes/{id}`.
 5. `summary_status` flips through the wizard as today (`awaiting_speakers` → … → `complete`).
 
-For variant A: steps 2–3 are skipped. Behaviour is unchanged.
+The flow is identical for both variants; the editor auto-insert is a shared improvement that resolves the prior A-variant bug where the polished transcript had nowhere to go.
 
 ---
 
@@ -413,11 +417,23 @@ This spec produces **three independently shippable implementation plans**. Each 
 - Render AI extraction group (narrative, topic fragments, delta cards, action items) in read-only form.
 - Verification: on a B note that's completed the wizard, the sidebar shows the extraction panel with all wizard output; A notes unaffected.
 
-### Plan 3 — Chat agent
+### Plan 3 — Chat agent (within-note only)
 - Add `chat_messages` and `analysis_jobs` columns + one-shot ALTER TABLE.
 - Implement `chat_service.py`, `chat_tools.py`, `modules.py`, endpoints.
 - Build `ChatAgent.tsx`, integrate into `MeetingIntelligencePanel`.
+- Scope: the agent operates on a single note — it reads this note's transcripts + AI extraction only. Cross-note retrieval is deliberately out of scope; see Plan 4.
 - Verification: ask "what are the bull/bear points?" on a B note with a transcript; agent calls `run_analysis("bull_bear")`, result appears in chat, message persists across page reload.
+
+### Plan 4 — Cross-note embedding index + library search
+- At ingest-time on Save Both: chunk the polished transcript by segment, compute embeddings via `LLMProvider.get_embeddings()`, upsert to Pinecone with metadata facets (`note_id`, `ticker`, `meeting_date`, `note_type`, `language`, `speaker`).
+- Add library-search UI (extend the existing Research Panel or add a dedicated meeting-search panel) for semantic + metadata-filtered search across all meetings.
+- Add two cross-note chat tools to the Plan-3 agent:
+  - `search_meetings(query, filters)` — semantic search returning {note_id, timestamp, text, score}.
+  - `compare_vs_previous(previous_note_id)` — already spec'd for within-note tool list; wire it to actually fetch the target note's transcripts.
+- Post-MVP: decide whether to retire or keep the PostMeetingWizard fragment flow based on real usage. For now the wizard stays untouched (Q2=a).
+- Verification: search across two meetings for a phrase that appears in one; confirm the hit returns with the correct timestamp and the audio link seeks to that moment.
+
+**Current plan status (2026-04-22):** Plan 1 ✓ built + smoke-tested. Plans 2/3 next. Plan 4 sequenced after Plan 3.
 
 ---
 

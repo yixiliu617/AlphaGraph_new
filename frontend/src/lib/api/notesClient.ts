@@ -27,6 +27,7 @@ export interface NoteStub {
   updated_at: string;
   editor_content: Record<string, unknown>;
   editor_plain_text: string;
+  ux_variant: "A" | "B";
   recording_path: string | null;
   recording_mode: string | null;
   duration_seconds: number | null;
@@ -44,6 +45,13 @@ export interface TranscriptLine {
   text: string;
   is_flagged: boolean;
   is_interim: boolean;
+}
+
+export interface PolishedSegment {
+  timestamp: string;      // "MM:SS"
+  speaker: string;
+  text_original: string;
+  text_english: string;
 }
 
 export interface SpeakerMapping {
@@ -117,6 +125,7 @@ export const notesClient = {
     note_type: string;
     company_tickers: string[];
     meeting_date?: string;
+    ux_variant?: "A" | "B";
   }) => apiRequest<AR<NoteStub>>(BASE, "POST", payload),
 
   get: (noteId: string) =>
@@ -174,6 +183,9 @@ export const notesClient = {
       "POST",
       { action, edited_text: editedText ?? null }
     ),
+
+  markSummaryComplete: (noteId: string) =>
+    apiRequest<AR<NoteStub>>(`${BASE}/${noteId}/summary/complete`, "POST", {}),
 
   // ------------------------------------------------------------------
   // WebSocket helper — returns the WS URL (connection opened in component)

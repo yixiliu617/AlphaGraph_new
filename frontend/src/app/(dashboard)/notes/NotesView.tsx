@@ -114,6 +114,7 @@ interface Props {
   onCloseCreate: () => void;
   onCreate: (payload: {
     title: string; note_type: string; company_tickers: string[]; meeting_date?: string;
+    ux_variant: "A" | "B";
   }) => void;
   onDelete: (noteId: string) => void;
   onOpen:   (noteId: string) => void;
@@ -167,6 +168,18 @@ function NoteRow({
           <span className="text-[10px] text-slate-400">+{note.company_tickers.length - 3}</span>
         )}
       </div>
+
+      {/* A/B layout badge */}
+      <span
+        className={`shrink-0 px-1.5 py-0.5 text-[9px] font-bold rounded uppercase tracking-wide ${
+          note.ux_variant === "B"
+            ? "bg-violet-50 text-violet-700 border border-violet-200"
+            : "bg-slate-50 text-slate-500 border border-slate-200"
+        }`}
+        title={note.ux_variant === "B" ? "New layout (experiment)" : "Classic layout"}
+      >
+        {note.ux_variant}
+      </span>
 
       {/* AI status badge */}
       {hasAI && aiLabel && (

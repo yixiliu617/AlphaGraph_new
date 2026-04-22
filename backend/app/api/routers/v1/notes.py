@@ -59,6 +59,7 @@ class CreateNoteRequest(BaseModel):
     note_type: str
     company_tickers: List[str]
     meeting_date: Optional[str] = None
+    ux_variant: str = "A"
 
 
 class UpdateNoteRequest(BaseModel):
@@ -122,6 +123,7 @@ def create_note(request: CreateNoteRequest, db: Session = Depends(get_db_session
         note_type=request.note_type,
         company_tickers=request.company_tickers,
         meeting_date=request.meeting_date,
+        ux_variant=request.ux_variant,
     )
     return APIResponse(success=True, data=note.model_dump())
 
@@ -270,6 +272,22 @@ def extract_topics(
         note = svc.extract_topic_fragments(note_id, TENANT_ID, request.topics)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    return APIResponse(success=True, data=note.model_dump())
+
+
+@router.post("/{note_id}/summary/complete", response_model=APIResponse)
+def mark_summary_complete(
+    note_id: str,
+    db: Session = Depends(get_db_session),
+    llm=Depends(get_llm_provider),
+    db_repo=Depends(get_db_repo),
+):
+    """Flip summary_status to COMPLETE. Used to unstick notes left in the
+    legacy AWAITING_APPROVAL state by the pre-deprecation delta flow."""
+    svc = MeetingSummaryService(db, db_repo, llm)
+    note = svc.mark_complete(note_id, TENANT_ID)
+    if note is None:
+        raise HTTPException(status_code=404, detail="Note not found.")
     return APIResponse(success=True, data=note.model_dump())
 
 
@@ -999,8 +1017,8 @@ async def _run_live_v2_session(
                 "type": "error", "message": f"Gemini error: {result['error']}",
             })
         else:
-            # Persist polished transcript before notifying the client, so it's
-            # durable even if the client disconnects before saving.
+            # Persist polished transcript + structured segments before notifying
+            # the client, so it's durable even if the client disconnects.
             from backend.app.db.session import SessionLocal
             db2 = SessionLocal()
             try:
@@ -1015,6 +1033,9 @@ async def _run_live_v2_session(
                         "output_tokens": result.get("output_tokens", 0),
                         "model": "gemini-2.5-flash",
                         "ran_at": datetime.utcnow().isoformat(),
+                        "is_bilingual": result.get("is_bilingual", False),
+                        "key_topics": result.get("key_topics", []),
+                        "segments": result.get("segments", []),
                     },
                 )
             finally:
@@ -1024,6 +1045,9 @@ async def _run_live_v2_session(
                 "type": "polished_transcript",
                 "text": result["text"],
                 "language": result.get("language", final_lang),
+                "is_bilingual": result.get("is_bilingual", False),
+                "key_topics": result.get("key_topics", []),
+                "segments": result.get("segments", []),
                 "input_tokens": result.get("input_tokens", 0),
                 "output_tokens": result.get("output_tokens", 0),
             })

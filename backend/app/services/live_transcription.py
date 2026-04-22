@@ -206,21 +206,44 @@ def gemini_batch_transcribe(
 ) -> dict:
     """
     Run Gemini V2-quality batch transcription on the full audio file.
-    Returns {"text": ..., "key_topics": [...], "speakers": [...]}
+
+    Returns a structured dict:
+      {
+        "language": str,           # detected language code
+        "is_bilingual": bool,      # True for zh/ja/ko source (English translation provided)
+        "key_topics": list[str],
+        "segments": [              # one entry per spoken segment
+          {"timestamp": "MM:SS", "speaker": str,
+           "text_original": str, "text_english": str},
+          ...
+        ],
+        "text": str,               # flattened markdown form (for export/backup)
+        "input_tokens": int,
+        "output_tokens": int,
+        "error": str (optional),
+      }
     """
     from dotenv import load_dotenv
     load_dotenv(PROJECT_ROOT / ".env")
 
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
-        return {"error": "GEMINI_API_KEY not set", "text": ""}
+        return {
+            "error": "GEMINI_API_KEY not set",
+            "language": language,
+            "is_bilingual": False,
+            "key_topics": [],
+            "segments": [],
+            "text": "",
+            "input_tokens": 0,
+            "output_tokens": 0,
+        }
 
     vocab_context = load_vocabulary(language)
 
     with open(audio_path, "rb") as f:
         audio_b64 = base64.b64encode(f.read()).decode()
 
-    # Determine mime type
     ext = Path(audio_path).suffix.lower()
     mime_types = {".opus": "audio/ogg", ".wav": "audio/wav", ".mp3": "audio/mpeg", ".m4a": "audio/mp4"}
     mime = mime_types.get(ext, "audio/ogg")
@@ -231,11 +254,27 @@ def gemini_batch_transcribe(
     prompt = f"""{vocab_context}
 Transcribe this financial meeting audio. Primary language: {lang_name} with English code-switching.
 
+Return ONLY valid JSON matching this exact schema:
+{{
+  "language": "{language}",
+  "is_bilingual": true,
+  "key_topics": ["topic1", "topic2", ...],
+  "segments": [
+    {{
+      "timestamp": "MM:SS",
+      "speaker": "speaker name or role (e.g. 'Tanaka (CFO)')",
+      "text_original": "exact transcription in the meeting's primary language",
+      "text_english": "English translation of this segment"
+    }}
+  ]
+}}
+
 Rules:
-1. Exact transcription with speaker names + timestamps [MM:SS]
-2. Bold **key data points**
-3. Key topics list at top
-4. CRITICAL: NEVER repeat the same phrase more than once. If audio unclear, write [audio unclear] and skip ahead."""
+1. Timestamps in MM:SS format relative to the start of the audio.
+2. Provide `text_english` for every segment. For English-only meetings, set `text_english` equal to `text_original`.
+3. For English-only meetings, set `is_bilingual` to false.
+4. NEVER repeat a segment. If audio is unclear, emit a single segment with text_original="[audio unclear]".
+5. Preserve financial terminology and proper nouns exactly as spoken."""
 
     import requests
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
@@ -247,25 +286,112 @@ Rules:
                 {"text": prompt},
                 {"inline_data": {"mime_type": mime, "data": audio_b64}},
             ]}],
-            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 65536},
+            "generationConfig": {
+                "temperature": 0.2,
+                "maxOutputTokens": 65536,
+                "responseMimeType": "application/json",
+            },
         },
         timeout=900,
     )
 
     if resp.status_code != 200:
-        return {"error": f"Gemini API error: {resp.status_code}", "text": ""}
+        return {
+            "error": f"Gemini API error: {resp.status_code}",
+            "language": language,
+            "is_bilingual": False,
+            "key_topics": [],
+            "segments": [],
+            "text": "",
+            "input_tokens": 0,
+            "output_tokens": 0,
+        }
 
     result = resp.json()
-    text = result["candidates"][0]["content"]["parts"][0]["text"]
-
-    # Clean repetition loops
-    text = re.sub(r"(.{10,50}?)\1{3,}", r"\1", text)
-
+    raw_text = result["candidates"][0]["content"]["parts"][0]["text"]
     usage = result.get("usageMetadata", {})
 
+    parsed = _parse_polish_response(raw_text)
+    # Fill in the fallback markdown if parsing failed so downstream still has *something* to show.
+    text_md = _flatten_segments_to_markdown(parsed["segments"], parsed["is_bilingual"]) \
+        if parsed["segments"] else parsed.get("text_markdown_fallback", "")
+
     return {
-        "text": text,
+        "language": parsed["language"] or language,
+        "is_bilingual": parsed["is_bilingual"],
+        "key_topics": parsed["key_topics"],
+        "segments": parsed["segments"],
+        "text": text_md,
         "input_tokens": usage.get("promptTokenCount", 0),
         "output_tokens": usage.get("candidatesTokenCount", 0),
-        "language": language,
     }
+
+
+def _parse_polish_response(raw_text: str) -> dict:
+    """
+    Parse Gemini's structured-output response. Returns a dict with keys:
+    `language`, `is_bilingual`, `key_topics`, `segments`, and optionally
+    `text_markdown_fallback` when we couldn't parse JSON.
+    """
+    import json as _json
+    try:
+        data = _json.loads(raw_text)
+        segments = [
+            {
+                "timestamp": str(s.get("timestamp", "")),
+                "speaker": str(s.get("speaker", "")),
+                "text_original": str(s.get("text_original", "")),
+                "text_english": str(s.get("text_english", "")),
+            }
+            for s in (data.get("segments") or [])
+            if isinstance(s, dict)
+        ]
+        # Anti-repetition pass on the assembled segments (kept here rather than
+        # in the prompt because Gemini sometimes produces duplicates anyway).
+        deduped: list[dict] = []
+        for seg in segments:
+            if deduped and seg["text_original"] == deduped[-1]["text_original"]:
+                continue
+            deduped.append(seg)
+
+        return {
+            "language": str(data.get("language", "")),
+            "is_bilingual": bool(data.get("is_bilingual", False)),
+            "key_topics": [str(t) for t in (data.get("key_topics") or []) if t],
+            "segments": deduped,
+        }
+    except (ValueError, KeyError, TypeError):
+        return {
+            "language": "",
+            "is_bilingual": False,
+            "key_topics": [],
+            "segments": [],
+            "text_markdown_fallback": raw_text,
+        }
+
+
+def _flatten_segments_to_markdown(segments: list, is_bilingual: bool) -> str:
+    """
+    Render segments as a markdown table. Two columns for monolingual
+    (Time | Text) or three for bilingual (Time | Original | English).
+    Used for export / backup; the frontend builds its own TipTap table
+    directly from the structured segments, not this markdown.
+    """
+    if not segments:
+        return ""
+
+    if is_bilingual:
+        lines = ["| Time | 原文 | English |", "|------|------|---------|"]
+        for s in segments:
+            ts = s.get("timestamp", "")
+            orig = (s.get("text_original", "") or "").replace("|", "\\|").replace("\n", " ")
+            eng = (s.get("text_english", "") or "").replace("|", "\\|").replace("\n", " ")
+            lines.append(f"| {ts} | {orig} | {eng} |")
+        return "\n".join(lines)
+    else:
+        lines = ["| Time | Text |", "|------|------|"]
+        for s in segments:
+            ts = s.get("timestamp", "")
+            txt = (s.get("text_original", "") or "").replace("|", "\\|").replace("\n", " ")
+            lines.append(f"| {ts} | {txt} |")
+        return "\n".join(lines)

@@ -16,7 +16,7 @@ all relevant sentences, timestamps, speaker labels, and relevance reasons.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 import uuid
 
 from pydantic import BaseModel, Field
@@ -129,6 +129,9 @@ class MeetingNote(BaseModel):
     # Tiptap JSON (stored as-is for the editor) + plain text for full-text search
     editor_content: Dict[str, Any] = Field(default_factory=dict)
     editor_plain_text: str = ""
+
+    # A/B experiment variant — see ORM comment for full context.
+    ux_variant: Literal["A", "B"] = "A"
 
     # Recording metadata
     recording_path: Optional[str] = None

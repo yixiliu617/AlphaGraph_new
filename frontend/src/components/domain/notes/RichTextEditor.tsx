@@ -43,6 +43,7 @@ import {
   Bold, Italic, Strikethrough, Code, List, ListOrdered, Quote
 } from "lucide-react";
 import { useCallback, useState, useRef, useEffect } from "react";
+import { SectionHeading } from "./sectionHeadingExtension";
 
 // ---------------------------------------------------------------------------
 // Slash command extension
@@ -222,9 +223,10 @@ interface Props {
   initialContent: Record<string, unknown>;
   onChange: (json: Record<string, unknown>, plainText: string) => void;
   onTimestampClick?: (seconds: number) => void;
+  onEditorReady?: (editor: Editor) => void;
 }
 
-export default function RichTextEditor({ initialContent, onChange, onTimestampClick }: Props) {
+export default function RichTextEditor({ initialContent, onChange, onTimestampClick, onEditorReady }: Props) {
   // Keep a ref to the latest callback so the Tiptap handleClick closure always sees the current value
   const tsClickRef = useRef(onTimestampClick);
   tsClickRef.current = onTimestampClick;
@@ -281,10 +283,14 @@ export default function RichTextEditor({ initialContent, onChange, onTimestampCl
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
+        heading: false,
         // StarterKit includes: bold, italic, strike, code, codeBlock, blockquote,
-        // bulletList, orderedList, listItem, horizontalRule, hardBreak, history
+        // bulletList, orderedList, listItem, horizontalRule, hardBreak, history.
+        // Heading is disabled here and replaced by SectionHeading below so we
+        // can persist a `sectionId` attr for the auto-inserted transcript
+        // sections in Variant B (and for B-style improvements in A too).
       }),
+      SectionHeading.configure({ levels: [1, 2, 3] }),
       Placeholder.configure({
         placeholder: ({ node }) => {
           if (node.type.name === "heading") return "Heading";
@@ -357,6 +363,12 @@ export default function RichTextEditor({ initialContent, onChange, onTimestampCl
     if (slashOpen) document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [slashOpen, handleClose]);
+
+  // Notify parent container of the editor instance so it can programmatically
+  // insert / replace transcript sections after Save Both.
+  useEffect(() => {
+    if (editor && onEditorReady) onEditorReady(editor);
+  }, [editor, onEditorReady]);
 
   if (!editor) return null;
 

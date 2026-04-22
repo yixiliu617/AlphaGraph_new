@@ -207,6 +207,19 @@ class MeetingSummaryService:
     # Step 2: Extract topic fragments from transcript
     # ------------------------------------------------------------------
 
+    def mark_complete(self, note_id: str, tenant_id: str) -> Optional[MeetingNote]:
+        """
+        Flip summary_status to COMPLETE. Used to unstick notes that landed in
+        AWAITING_APPROVAL under the old delta-comparison flow.
+        """
+        row = self._fetch_row(note_id, tenant_id)
+        if row is None:
+            return None
+        row.summary_status = SummaryStatus.COMPLETE.value
+        row.updated_at = datetime.utcnow()
+        self.db.commit()
+        return self._row_to_domain(row)
+
     def _derive_topics_from_context(
         self,
         row: MeetingNoteORM,
@@ -245,10 +258,17 @@ class MeetingSummaryService:
     ) -> MeetingNote:
         """
         For each topic: run LLM extraction, build TopicFragment + DataFragment.
-        Returns note with summary_status=AWAITING_APPROVAL and populated delta_cards.
+        Returns note with summary_status=COMPLETE.
 
         If user_topics is empty, derive topics from the user's own notes +
         transcript before extraction.
+
+        NOTE: the former delta-vs-previous-meetings step has been removed.
+        Comparing against prior meetings requires prior fragments for the same
+        ticker, which is typically absent for the first meeting on any new
+        ticker and produced a misleading "No significant changes found" state
+        with no way to advance. The full comparison flow will come back in
+        Plan 3 as the `compare_vs_previous` chat-agent tool (user-triggered).
         """
         import json
 
@@ -294,23 +314,30 @@ class MeetingSummaryService:
             all_fragment_ids.append(fragment_id)
             topic_fragments.append(extracted)
 
-        # Delta comparison for each topic
-        delta_cards = self._run_delta_comparison(
-            tenant_id=tenant_id,
-            company_tickers=row.company_tickers or [],
-            note_id=note_id,
-            topic_fragments=topic_fragments,
-            current_source=f"{row.title} — {row.meeting_date or 'Today'}",
-        )
+        # Build a short ai_narrative from the extracted topics so CompleteStep
+        # has something to show.
+        topic_names = [tf.get("topic", "") for tf in topic_fragments if tf.get("topic")]
+        if topic_names:
+            narrative = (
+                f"Extracted {len(topic_names)} topic "
+                f"{'fragment' if len(topic_names) == 1 else 'fragments'}: "
+                + ", ".join(topic_names[:6])
+                + (f", and {len(topic_names) - 6} more" if len(topic_names) > 6 else "")
+                + "."
+            )
+        else:
+            narrative = "No topic fragments were extracted from this meeting."
 
-        # Persist
+        # Persist — go straight to COMPLETE. Delta-vs-previous comparison is
+        # intentionally skipped (will return as a chat-agent tool in Plan 3).
         summary = row.ai_summary or {}
         summary["user_topics"] = user_topics
         summary["topic_fragments"] = topic_fragments
-        summary["delta_cards"] = [d.model_dump() for d in delta_cards]
+        summary["delta_cards"] = []
+        summary["ai_narrative"] = narrative
         row.ai_summary = summary
         row.fragment_ids = all_fragment_ids
-        row.summary_status = SummaryStatus.AWAITING_APPROVAL.value
+        row.summary_status = SummaryStatus.COMPLETE.value
         row.updated_at = datetime.utcnow()
         self.db.commit()
         return self._row_to_domain(row)

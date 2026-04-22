@@ -45,6 +45,12 @@ class MeetingNoteORM(Base):
     polished_transcript_language = Column(String, nullable=True)
     polished_transcript_meta = Column(JSON, nullable=True)
 
+    # A/B experiment variant — "A" = classic (wizard in sidebar),
+    # "B" = new (transcripts in editor + chat). Default A so existing code paths
+    # are unchanged for every pre-existing and newly-created note unless the
+    # caller opts into B.
+    ux_variant = Column(String, default="A", nullable=False)
+
     # AI summary flow state
     summary_status = Column(String, default="none")
 

@@ -107,6 +107,7 @@ export default function NotesContainer() {
     note_type: string;
     company_tickers: string[];
     meeting_date?: string;
+    ux_variant: "A" | "B";
   }) => {
     const res = await notesClient.create(payload);
     if (res.success && res.data) {

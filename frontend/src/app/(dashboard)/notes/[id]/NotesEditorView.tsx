@@ -6,7 +6,8 @@
 
 import { useRef, useEffect } from "react";
 import { ArrowLeft, Mic, Save, CheckCircle, Sparkles } from "lucide-react";
-import type { NoteStub, TranscriptLine } from "@/lib/api/notesClient";
+import type { Editor } from "@tiptap/react";
+import type { NoteStub, TranscriptLine, PolishedSegment } from "@/lib/api/notesClient";
 import RichTextEditor from "@/components/domain/notes/RichTextEditor";
 import NoteSearchPanel from "@/components/domain/notes/NoteSearchPanel";
 import RecordingPanel from "@/components/domain/notes/RecordingPanel";
@@ -41,18 +42,30 @@ interface Props {
   onContentChange: (json: Record<string, unknown>, plainText: string) => void;
   onOpenRecording: () => void;
   onCloseRecording: () => void;
-  onRecordingComplete: (lines: TranscriptLine[], durationSeconds: number) => void;
+  onRecordingComplete: (
+    lines: TranscriptLine[],
+    durationSeconds: number,
+    polished: {
+      segments: PolishedSegment[];
+      language: string;
+      is_bilingual: boolean;
+      key_topics: string[];
+    } | null,
+  ) => void;
   onSaveSpeakers: (mappings: { label: string; name: string; role?: string }[]) => Promise<void>;
   onExtractTopics: (topics: string[]) => Promise<void>;
   onDelta: (deltaId: string, action: "approve" | "edit" | "dismiss", editedText?: string) => Promise<void>;
+  onMarkComplete: () => Promise<void>;
   onStartAISummary: () => void;
+  onEditorReady: (editor: Editor) => void;
 }
 
 export default function NotesEditorView({
   note, isSaving, showRecordingPopup,
   onBack, onTitleChange, onContentChange,
   onOpenRecording, onCloseRecording, onRecordingComplete,
-  onSaveSpeakers, onExtractTopics, onDelta, onStartAISummary,
+  onSaveSpeakers, onExtractTopics, onDelta, onMarkComplete, onStartAISummary,
+  onEditorReady,
 }: Props) {
   const showWizard = WIZARD_STATUSES.has(note.summary_status);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -190,6 +203,7 @@ export default function NotesEditorView({
               initialContent={note.editor_content}
               onChange={onContentChange}
               onTimestampClick={note.recording_path ? handleTimestampSeek : undefined}
+              onEditorReady={onEditorReady}
             />
           </div>
         </div>
@@ -208,6 +222,7 @@ export default function NotesEditorView({
               onSaveSpeakers={onSaveSpeakers}
               onExtractTopics={onExtractTopics}
               onDelta={onDelta}
+              onMarkComplete={onMarkComplete}
             />
           ) : (
             <NoteSearchPanel

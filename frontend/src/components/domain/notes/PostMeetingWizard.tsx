@@ -36,6 +36,7 @@ interface Props {
   onSaveSpeakers: (mappings: { label: string; name: string; role?: string }[]) => Promise<void>;
   onExtractTopics: (topics: string[]) => Promise<void>;
   onDelta: (deltaId: string, action: "approve" | "edit" | "dismiss", editedText?: string) => Promise<void>;
+  onMarkComplete: () => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -271,10 +272,11 @@ function ExtractingStep({ note }: { note: NoteStub }) {
 // ---------------------------------------------------------------------------
 
 function DeltaStep({
-  note, onDelta,
+  note, onDelta, onMarkComplete,
 }: {
   note: NoteStub;
   onDelta: Props["onDelta"];
+  onMarkComplete: () => Promise<void>;
 }) {
   const deltaCards: DeltaCard[] = note.ai_summary?.delta_cards ?? [];
   const pending = deltaCards.filter((d) => d.status === "PENDING");
@@ -282,6 +284,7 @@ function DeltaStep({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [processing, setProcessing] = useState<string | null>(null);
+  const [finishing, setFinishing] = useState(false);
 
   const handle = async (deltaId: string, action: "approve" | "edit" | "dismiss", text?: string) => {
     setProcessing(deltaId);
@@ -290,14 +293,32 @@ function DeltaStep({
     setProcessing(null);
   };
 
+  const handleFinish = async () => {
+    setFinishing(true);
+    try {
+      await onMarkComplete();
+    } finally {
+      setFinishing(false);
+    }
+  };
+
   if (deltaCards.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 gap-3 text-center">
+      <div className="flex-1 flex flex-col items-center justify-center p-6 gap-4 text-center">
         <Check size={24} className="text-green-500" />
-        <p className="text-sm font-medium text-slate-700">No significant changes found.</p>
-        <p className="text-xs text-slate-400">
-          Management's messaging on these topics appears consistent with previous meetings.
-        </p>
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-slate-700">Nothing to review.</p>
+          <p className="text-xs text-slate-400">
+            The delta-vs-previous-meetings step has been retired. Click Finish to mark this note complete.
+          </p>
+        </div>
+        <button
+          onClick={handleFinish}
+          disabled={finishing}
+          className="flex items-center gap-2 px-4 py-2 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+        >
+          {finishing ? <><Loader2 size={12} className="animate-spin" /> Finishing…</> : "Finish →"}
+        </button>
       </div>
     );
   }
@@ -422,9 +443,15 @@ function CompleteStep({ note }: { note: NoteStub }) {
   const summary = note.ai_summary;
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-4">
-      <div className="flex items-center gap-2">
-        <Sparkles size={16} className="text-amber-500" />
-        <h3 className="text-sm font-semibold text-slate-800">AI Summary Complete</h3>
+      <div className="flex items-start gap-2">
+        <Sparkles size={16} className="text-amber-500 mt-0.5 shrink-0" />
+        <div>
+          <h3 className="text-sm font-semibold text-slate-800">AI Summary &amp; Polished Transcripts Finished</h3>
+          <p className="text-[11px] text-slate-500 mt-0.5">
+            Your raw notes, live transcript, and polished transcript are in the main editor.
+            Topic fragments below are saved to the knowledge graph.
+          </p>
+        </div>
       </div>
 
       {summary?.ai_narrative && (
@@ -491,7 +518,7 @@ function CompleteStep({ note }: { note: NoteStub }) {
 // Main wizard router
 // ---------------------------------------------------------------------------
 
-export default function PostMeetingWizard({ note, onSaveSpeakers, onExtractTopics, onDelta }: Props) {
+export default function PostMeetingWizard({ note, onSaveSpeakers, onExtractTopics, onDelta, onMarkComplete }: Props) {
   const STEP_LABELS: Record<string, string> = {
     awaiting_speakers: "1 / 4 — Label Speakers",
     awaiting_topics: "2 / 4 — Choose Topics",
@@ -539,7 +566,7 @@ export default function PostMeetingWizard({ note, onSaveSpeakers, onExtractTopic
         <ExtractingStep note={note} />
       )}
       {note.summary_status === "awaiting_approval" && (
-        <DeltaStep note={note} onDelta={onDelta} />
+        <DeltaStep note={note} onDelta={onDelta} onMarkComplete={onMarkComplete} />
       )}
       {note.summary_status === "complete" && (
         <CompleteStep note={note} />

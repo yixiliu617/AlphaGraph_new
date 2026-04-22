@@ -21,7 +21,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { X, Mic, Monitor, Flag, Square, Wifi, Globe, Sparkles, Loader2 } from "lucide-react";
-import { notesClient, type TranscriptLine } from "@/lib/api/notesClient";
+import { notesClient, type TranscriptLine, type PolishedSegment } from "@/lib/api/notesClient";
 
 const LANGUAGES = [
   { value: "auto", label: "Auto-Detect" },
@@ -34,7 +34,16 @@ const LANGUAGES = [
 interface Props {
   noteId: string;
   onClose: () => void;
-  onComplete: (lines: TranscriptLine[], durationSeconds: number) => void;
+  onComplete: (
+    lines: TranscriptLine[],
+    durationSeconds: number,
+    polished: {
+      segments: PolishedSegment[];
+      language: string;
+      is_bilingual: boolean;
+      key_topics: string[];
+    } | null,
+  ) => void;
 }
 
 export default function RecordingPanel({ noteId, onClose, onComplete }: Props) {
@@ -49,6 +58,10 @@ export default function RecordingPanel({ noteId, onClose, onComplete }: Props) {
   const [detectedLang, setDetectedLang] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [polishedText, setPolishedText] = useState<string | null>(null);
+  const [polishedSegments, setPolishedSegments] = useState<PolishedSegment[]>([]);
+  const [polishedLanguage, setPolishedLanguage] = useState<string>("");
+  const [polishedIsBilingual, setPolishedIsBilingual] = useState<boolean>(false);
+  const [polishedKeyTopics, setPolishedKeyTopics] = useState<string[]>([]);
   const [bytesSent, setBytesSent] = useState(0);
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -137,6 +150,10 @@ export default function RecordingPanel({ noteId, onClose, onComplete }: Props) {
           }
         } else if (msg.type === "polished_transcript") {
           setPolishedText(msg.text);
+          setPolishedSegments(Array.isArray(msg.segments) ? msg.segments : []);
+          setPolishedLanguage(typeof msg.language === "string" ? msg.language : "");
+          setPolishedIsBilingual(Boolean(msg.is_bilingual));
+          setPolishedKeyTopics(Array.isArray(msg.key_topics) ? msg.key_topics : []);
           setStatus("idle");
           setIsRecording(false);
         } else if (msg.type === "error") {
@@ -247,7 +264,7 @@ export default function RecordingPanel({ noteId, onClose, onComplete }: Props) {
         setTimeout(() => wsRef.current?.close(), 500);
       }
       const finalLines = lines.filter((l) => !l.is_interim);
-      onComplete(finalLines, duration);
+      onComplete(finalLines, duration, null);
     }
   }, [wsRef, lines, duration, onComplete]);
 
@@ -260,8 +277,13 @@ export default function RecordingPanel({ noteId, onClose, onComplete }: Props) {
 
   const handlePolishedDone = useCallback(() => {
     const finalLines = lines.filter((l) => !l.is_interim);
-    onComplete(finalLines, duration);
-  }, [lines, duration, onComplete]);
+    onComplete(finalLines, duration, {
+      segments: polishedSegments,
+      language: polishedLanguage,
+      is_bilingual: polishedIsBilingual,
+      key_topics: polishedKeyTopics,
+    });
+  }, [lines, duration, onComplete, polishedSegments, polishedLanguage, polishedIsBilingual, polishedKeyTopics]);
 
   const formatDuration = (s: number) => {
     const m = Math.floor(s / 60);

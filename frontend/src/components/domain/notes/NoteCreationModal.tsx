@@ -18,6 +18,7 @@ interface Props {
     note_type: string;
     company_tickers: string[];
     meeting_date?: string;
+    ux_variant: "A" | "B";
   }) => void;
 }
 
@@ -38,6 +39,7 @@ export default function NoteCreationModal({ onClose, onCreate }: Props) {
   const [companyInput, setCompanyInput] = useState("");
   const [suggestions, setSuggestions]   = useState<{ symbol: string; name: string }[]>([]);
   const [meetingDate, setMeetingDate]   = useState(() => new Date().toISOString().slice(0, 10));
+  const [uxVariant, setUxVariant]       = useState<"A" | "B">("A");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors]             = useState<Record<string, string>>({});
 
@@ -135,6 +137,7 @@ export default function NoteCreationModal({ onClose, onCreate }: Props) {
       note_type: effectiveType,
       company_tickers: companies,
       meeting_date: meetingDate || undefined,
+      ux_variant: uxVariant,
     });
     setIsSubmitting(false);
   };
@@ -307,6 +310,39 @@ export default function NoteCreationModal({ onClose, onCreate }: Props) {
               onChange={(e) => setMeetingDate(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-slate-200 rounded-md bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 text-slate-700"
             />
+          </div>
+
+          {/* A/B layout variant */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wider">
+              Layout <span className="text-slate-400 font-normal normal-case">(experiment)</span>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setUxVariant("A")}
+                className={`px-3 py-2.5 text-xs font-medium rounded-md border text-left transition-colors ${
+                  uxVariant === "A"
+                    ? "border-indigo-600 bg-indigo-600 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-600"
+                }`}
+              >
+                <span className="font-mono mr-1">A</span> Classic
+                <span className="block text-[10px] opacity-70 mt-0.5 normal-case">Wizard in sidebar</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setUxVariant("B")}
+                className={`px-3 py-2.5 text-xs font-medium rounded-md border text-left transition-colors ${
+                  uxVariant === "B"
+                    ? "border-indigo-600 bg-indigo-600 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-600"
+                }`}
+              >
+                <span className="font-mono mr-1">B</span> New
+                <span className="block text-[10px] opacity-70 mt-0.5 normal-case">Transcripts in editor + chat</span>
+              </button>
+            </div>
           </div>
         </div>
 
