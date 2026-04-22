@@ -12,6 +12,7 @@ import RichTextEditor from "@/components/domain/notes/RichTextEditor";
 import NoteSearchPanel from "@/components/domain/notes/NoteSearchPanel";
 import RecordingPanel from "@/components/domain/notes/RecordingPanel";
 import PostMeetingWizard from "@/components/domain/notes/PostMeetingWizard";
+import MeetingIntelligencePanel from "@/components/domain/notes/MeetingIntelligencePanel";
 
 const NOTE_TYPE_LABELS: Record<string, string> = {
   meeting_transcript: "Meeting Transcript",
@@ -29,8 +30,9 @@ const NOTE_TYPE_COLORS: Record<string, string> = {
   internal: "bg-slate-100 text-slate-600 border border-slate-200",
 };
 
-const WIZARD_STATUSES = new Set([
-  "awaiting_speakers", "awaiting_topics", "extracting", "awaiting_approval", "complete"
+// The wizard UI is shown for every step before completion.
+const WIZARD_IN_PROGRESS_STATUSES = new Set([
+  "awaiting_speakers", "awaiting_topics", "extracting", "awaiting_approval",
 ]);
 
 interface Props {
@@ -67,7 +69,8 @@ export default function NotesEditorView({
   onSaveSpeakers, onExtractTopics, onDelta, onMarkComplete, onStartAISummary,
   onEditorReady,
 }: Props) {
-  const showWizard = WIZARD_STATUSES.has(note.summary_status);
+  const showWizard = WIZARD_IN_PROGRESS_STATUSES.has(note.summary_status);
+  const showMeetingIntelligence = note.ux_variant === "B" && note.summary_status === "complete";
   const audioRef = useRef<HTMLAudioElement>(null);
   const editorWrapperRef = useRef<HTMLDivElement>(null);
 
@@ -208,7 +211,7 @@ export default function NotesEditorView({
           </div>
         </div>
 
-        {/* Right — Recording panel OR Post-meeting wizard OR Search panel (1/3) */}
+        {/* Right — Recording panel → wizard → B-only MeetingIntelligencePanel → search panel */}
         <div className="flex-[1] flex flex-col overflow-hidden bg-slate-50 border-l border-slate-200 min-w-0">
           {showRecordingPopup ? (
             <RecordingPanel
@@ -217,6 +220,19 @@ export default function NotesEditorView({
               onComplete={onRecordingComplete}
             />
           ) : showWizard ? (
+            <PostMeetingWizard
+              note={note}
+              onSaveSpeakers={onSaveSpeakers}
+              onExtractTopics={onExtractTopics}
+              onDelta={onDelta}
+              onMarkComplete={onMarkComplete}
+            />
+          ) : showMeetingIntelligence ? (
+            <MeetingIntelligencePanel note={note} />
+          ) : note.summary_status === "complete" ? (
+            // Variant A: show the existing CompleteStep via the wizard so A users see
+            // the same "AI Summary & Polished Transcripts Finished" message they had
+            // before this plan.
             <PostMeetingWizard
               note={note}
               onSaveSpeakers={onSaveSpeakers}
