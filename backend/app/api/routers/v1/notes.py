@@ -25,6 +25,7 @@ import asyncio
 import os
 import queue
 import threading
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
@@ -72,6 +73,11 @@ class UpdateNoteRequest(BaseModel):
 class FlagLineRequest(BaseModel):
     line_id: int
     flagged: bool
+
+
+class SaveTranscriptRequest(BaseModel):
+    transcript_lines: List[dict]
+    duration_seconds: int
 
 
 class SaveSpeakersRequest(BaseModel):
@@ -198,6 +204,25 @@ def flag_transcript_line(note_id: str, request: FlagLineRequest, db: Session = D
     return APIResponse(success=True, data={"line_id": request.line_id, "flagged": request.flagged})
 
 
+@router.post("/{note_id}/transcript", response_model=APIResponse)
+def save_transcript(note_id: str, request: SaveTranscriptRequest, db: Session = Depends(get_db_session)):
+    """
+    Persist the raw live-transcript lines for this note.
+    Called by the frontend when recording stops so downstream wizard / AI analysis
+    can read transcript_lines from the DB instead of relying on client-only state.
+    """
+    svc = NotesService(db)
+    updated = svc.save_transcript(
+        note_id=note_id,
+        tenant_id=TENANT_ID,
+        transcript_lines=request.transcript_lines,
+        duration_seconds=request.duration_seconds,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Note not found.")
+    return APIResponse(success=True, data=updated.model_dump())
+
+
 # ---------------------------------------------------------------------------
 # Summary / Wizard endpoints
 # ---------------------------------------------------------------------------
@@ -238,8 +263,8 @@ def extract_topics(
     llm=Depends(get_llm_provider),
     db_repo=Depends(get_db_repo),
 ):
-    if not request.topics:
-        raise HTTPException(status_code=400, detail="Provide at least one topic.")
+    # Empty topics list is allowed — the service derives topics from the user's
+    # own notes + transcript in that case.
     svc = MeetingSummaryService(db, db_repo, llm)
     try:
         note = svc.extract_topic_fragments(note_id, TENANT_ID, request.topics)
@@ -974,6 +999,27 @@ async def _run_live_v2_session(
                 "type": "error", "message": f"Gemini error: {result['error']}",
             })
         else:
+            # Persist polished transcript before notifying the client, so it's
+            # durable even if the client disconnects before saving.
+            from backend.app.db.session import SessionLocal
+            db2 = SessionLocal()
+            try:
+                svc = NotesService(db2)
+                svc.save_polished_transcript(
+                    note_id=note_id,
+                    tenant_id=TENANT_ID,
+                    markdown=result["text"],
+                    language=result.get("language", final_lang),
+                    meta={
+                        "input_tokens": result.get("input_tokens", 0),
+                        "output_tokens": result.get("output_tokens", 0),
+                        "model": "gemini-2.5-flash",
+                        "ran_at": datetime.utcnow().isoformat(),
+                    },
+                )
+            finally:
+                db2.close()
+
             await websocket.send_json({
                 "type": "polished_transcript",
                 "text": result["text"],

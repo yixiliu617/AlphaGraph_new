@@ -150,7 +150,6 @@ function TopicsStep({ note, onExtract }: { note: NoteStub; onExtract: Props["onE
   const removeTopic = (t: string) => setTopics((prev) => prev.filter((x) => x !== t));
 
   const handleExtract = async () => {
-    if (topics.length === 0) return;
     setIsExtracting(true);
     await onExtract(topics);
     setIsExtracting(false);
@@ -164,7 +163,8 @@ function TopicsStep({ note, onExtract }: { note: NoteStub; onExtract: Props["onE
       </div>
       <p className="text-xs text-slate-500">
         What were the most important topics from this meeting?
-        I'll extract detailed fragments for each one.
+        I&apos;ll extract detailed fragments for each one. Leave blank to
+        auto-derive topics from your own notes + the transcript.
       </p>
 
       {/* Added topics */}
@@ -222,11 +222,13 @@ function TopicsStep({ note, onExtract }: { note: NoteStub; onExtract: Props["onE
 
       <button
         onClick={handleExtract}
-        disabled={topics.length === 0 || isExtracting}
+        disabled={isExtracting}
         className="w-full py-2 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
       >
         {isExtracting ? (
-          <><Loader2 size={13} className="animate-spin" /> Extracting {topics.length} topics…</>
+          <><Loader2 size={13} className="animate-spin" />{topics.length === 0 ? " Deriving topics…" : ` Extracting ${topics.length} topic${topics.length !== 1 ? "s" : ""}…`}</>
+        ) : topics.length === 0 ? (
+          "Extract (auto-derive from notes + transcript) →"
         ) : (
           `Extract ${topics.length} topic${topics.length !== 1 ? "s" : ""} →`
         )}

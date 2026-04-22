@@ -199,7 +199,7 @@ class LiveTranscriber:
         self._started = False
 
 
-async def gemini_batch_transcribe(
+def gemini_batch_transcribe(
     audio_path: str,
     language: str = "zh",
     note_id: str = "",

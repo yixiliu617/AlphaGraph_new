@@ -9,7 +9,7 @@ import { ArrowLeft, Mic, Save, CheckCircle, Sparkles } from "lucide-react";
 import type { NoteStub, TranscriptLine } from "@/lib/api/notesClient";
 import RichTextEditor from "@/components/domain/notes/RichTextEditor";
 import NoteSearchPanel from "@/components/domain/notes/NoteSearchPanel";
-import RecordingPopup from "@/components/domain/notes/RecordingPopup";
+import RecordingPanel from "@/components/domain/notes/RecordingPanel";
 import PostMeetingWizard from "@/components/domain/notes/PostMeetingWizard";
 
 const NOTE_TYPE_LABELS: Record<string, string> = {
@@ -194,9 +194,15 @@ export default function NotesEditorView({
           </div>
         </div>
 
-        {/* Right — Search panel OR Post-meeting wizard (1/3) */}
+        {/* Right — Recording panel OR Post-meeting wizard OR Search panel (1/3) */}
         <div className="flex-[1] flex flex-col overflow-hidden bg-slate-50 border-l border-slate-200 min-w-0">
-          {showWizard ? (
+          {showRecordingPopup ? (
+            <RecordingPanel
+              noteId={note.note_id}
+              onClose={onCloseRecording}
+              onComplete={onRecordingComplete}
+            />
+          ) : showWizard ? (
             <PostMeetingWizard
               note={note}
               onSaveSpeakers={onSaveSpeakers}
@@ -211,15 +217,6 @@ export default function NotesEditorView({
           )}
         </div>
       </div>
-
-      {/* Recording popup */}
-      {showRecordingPopup && (
-        <RecordingPopup
-          noteId={note.note_id}
-          onClose={onCloseRecording}
-          onComplete={onRecordingComplete}
-        />
-      )}
     </div>
   );
 }

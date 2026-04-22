@@ -1,6 +1,6 @@
 /**
  * notesClient — all HTTP calls for the Notes tab.
- * WebSocket connections are opened directly in RecordingPopup.tsx.
+ * WebSocket connections are opened directly in RecordingPanel.tsx.
  *
  * BASE is "/notes" — apiRequest prepends http://localhost:8000/api/v1 automatically.
  */
@@ -141,6 +141,13 @@ export const notesClient = {
       `${BASE}/${noteId}/transcript/flag`,
       "POST",
       { line_id: lineId, flagged }
+    ),
+
+  saveTranscript: (noteId: string, lines: TranscriptLine[], durationSeconds: number) =>
+    apiRequest<AR<NoteStub>>(
+      `${BASE}/${noteId}/transcript`,
+      "POST",
+      { transcript_lines: lines, duration_seconds: durationSeconds }
     ),
 
   // ------------------------------------------------------------------

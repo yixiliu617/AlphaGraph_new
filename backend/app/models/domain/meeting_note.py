@@ -136,6 +136,11 @@ class MeetingNote(BaseModel):
     duration_seconds: Optional[int] = None
     transcript_lines: List[TranscriptLine] = Field(default_factory=list)
 
+    # Polished transcript from the post-meeting Gemini pass
+    polished_transcript: Optional[str] = None
+    polished_transcript_language: Optional[str] = None
+    polished_transcript_meta: Optional[Dict[str, Any]] = None
+
     # AI post-meeting flow
     summary_status: SummaryStatus = SummaryStatus.NONE
     ai_summary: Optional[AISummary] = None

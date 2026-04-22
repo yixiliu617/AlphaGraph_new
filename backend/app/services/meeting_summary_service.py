@@ -51,6 +51,21 @@ Return as a JSON array of short strings, e.g.:
 Only return the JSON array, nothing else.
 """
 
+_TOPIC_DERIVATION_PROMPT = """
+You are a financial analyst assistant. Derive the 3-6 key topics the user cares
+about for this {note_type} meeting about {tickers}. Prioritise what the user
+took notes on; use the transcript only to fill gaps.
+
+USER'S OWN NOTES (authoritative — these reflect the user's focus):
+{user_notes}
+
+TRANSCRIPT EXCERPT (first ~600 words, for context only):
+{transcript_excerpt}
+
+Return a JSON array of 3-6 short topic strings (each 1-4 words, lower case).
+Only return the JSON array, nothing else.
+"""
+
 _TOPIC_EXTRACTION_PROMPT = """
 You are an expert financial analyst. Extract all statements related to the topic
 "{topic}" from this meeting transcript.
@@ -192,6 +207,36 @@ class MeetingSummaryService:
     # Step 2: Extract topic fragments from transcript
     # ------------------------------------------------------------------
 
+    def _derive_topics_from_context(
+        self,
+        row: MeetingNoteORM,
+    ) -> List[str]:
+        """
+        Derive topics when the user supplies none. Prioritises user's own notes
+        (editor_plain_text); falls back to transcript excerpt if notes are empty.
+        """
+        import json
+
+        lines = row.transcript_lines or []
+        excerpt = " ".join(l.get("text", "") for l in lines[:50])[:3000]
+        user_notes = (row.editor_plain_text or "").strip()[:3000] or "(user took no notes)"
+        tickers = ", ".join(row.company_tickers or ["Unknown"])
+        note_type = (row.note_type or "meeting").replace("_", " ").title()
+
+        prompt = _TOPIC_DERIVATION_PROMPT.format(
+            note_type=note_type,
+            tickers=tickers,
+            user_notes=user_notes,
+            transcript_excerpt=excerpt,
+        )
+        try:
+            raw = self.llm.generate_response(prompt)
+            topics = json.loads(raw)
+            return [t for t in topics if isinstance(t, str) and t.strip()][:6]
+        except Exception:
+            # Fallback: use the existing suggestion path (transcript-only)
+            return self.suggest_topics(row.note_id, row.tenant_id)[:6]
+
     def extract_topic_fragments(
         self,
         note_id: str,
@@ -201,12 +246,19 @@ class MeetingSummaryService:
         """
         For each topic: run LLM extraction, build TopicFragment + DataFragment.
         Returns note with summary_status=AWAITING_APPROVAL and populated delta_cards.
+
+        If user_topics is empty, derive topics from the user's own notes +
+        transcript before extraction.
         """
         import json
 
         row = self._fetch_row(note_id, tenant_id)
         row.summary_status = SummaryStatus.EXTRACTING.value
         self.db.commit()
+
+        # If user provided no topics, auto-derive from their notes + transcript.
+        if not user_topics:
+            user_topics = self._derive_topics_from_context(row)
 
         lines = row.transcript_lines or []
         transcript_text = self._format_transcript_for_llm(lines)

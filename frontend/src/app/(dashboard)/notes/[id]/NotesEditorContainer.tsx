@@ -114,21 +114,26 @@ export default function NotesEditorContainer({ noteId }: Props) {
     patchNote({ summary_status: "awaiting_topics" });
   }, [patchNote]);
 
-  // After recording stops: save transcript lines to note
+  // After recording stops: persist transcript lines server-side so the wizard
+  // and AI-analysis modules can read them from the DB, then update local state.
   const handleRecordingComplete = useCallback(
     async (lines: import("@/lib/api/notesClient").TranscriptLine[], durationSeconds: number) => {
       if (!note) return;
-      // Persist via update (transcript stored in note ORM via backend)
-      // For now patch locally so wizard can begin immediately
-      patchNote({
-        transcript_lines: lines,
-        duration_seconds: durationSeconds,
-        summary_status: "awaiting_speakers",
-        recording_path: `recordings/${note.note_id}.wav`,
-      });
+      const res = await notesClient.saveTranscript(note.note_id, lines, durationSeconds);
+      if (res.success && res.data) {
+        setNote(res.data);
+        updateNote(res.data);
+      } else {
+        // Fall back to local patch so the UI still advances even if the save failed
+        patchNote({
+          transcript_lines: lines,
+          duration_seconds: durationSeconds,
+          summary_status: "awaiting_speakers",
+        });
+      }
       setShowRecordingPopup(false);
     },
-    [note, patchNote, setShowRecordingPopup]
+    [note, setNote, updateNote, patchNote, setShowRecordingPopup]
   );
 
   if (!note) {

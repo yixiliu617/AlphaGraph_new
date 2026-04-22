@@ -146,6 +146,26 @@ class NotesService:
         self.db.refresh(row)
         return self._to_domain(row)
 
+    def save_polished_transcript(
+        self,
+        note_id: str,
+        tenant_id: str,
+        markdown: str,
+        language: Optional[str] = None,
+        meta: Optional[dict] = None,
+    ) -> Optional[MeetingNote]:
+        """Persist the post-meeting polished Gemini transcript."""
+        row = self._fetch(note_id, tenant_id)
+        if not row:
+            return None
+        row.polished_transcript = markdown
+        row.polished_transcript_language = language
+        row.polished_transcript_meta = meta
+        row.updated_at = datetime.utcnow()
+        self.db.commit()
+        self.db.refresh(row)
+        return self._to_domain(row)
+
     def flag_transcript_line(
         self, note_id: str, tenant_id: str, line_id: int, flagged: bool
     ) -> Optional[MeetingNote]:
@@ -191,6 +211,9 @@ class NotesService:
             recording_mode=note.recording_mode,
             duration_seconds=note.duration_seconds,
             transcript_lines=[l.model_dump() for l in note.transcript_lines],
+            polished_transcript=note.polished_transcript,
+            polished_transcript_language=note.polished_transcript_language,
+            polished_transcript_meta=note.polished_transcript_meta,
             summary_status=note.summary_status,
             ai_summary=note.ai_summary.model_dump() if note.ai_summary else None,
             fragment_ids=note.fragment_ids,
@@ -216,6 +239,9 @@ class NotesService:
             transcript_lines=[
                 TranscriptLine(**l) for l in (row.transcript_lines or [])
             ],
+            polished_transcript=row.polished_transcript,
+            polished_transcript_language=row.polished_transcript_language,
+            polished_transcript_meta=row.polished_transcript_meta,
             summary_status=SummaryStatus(row.summary_status or "none"),
             ai_summary=AISummary(**row.ai_summary) if row.ai_summary else None,
             fragment_ids=row.fragment_ids or [],

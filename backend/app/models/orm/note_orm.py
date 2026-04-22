@@ -40,6 +40,11 @@ class MeetingNoteORM(Base):
     # JSON list of TranscriptLine dicts
     transcript_lines = Column(JSON, default=list)
 
+    # Polished transcript from the post-meeting Gemini pass
+    polished_transcript = Column(Text, nullable=True)
+    polished_transcript_language = Column(String, nullable=True)
+    polished_transcript_meta = Column(JSON, nullable=True)
+
     # AI summary flow state
     summary_status = Column(String, default="none")
 
