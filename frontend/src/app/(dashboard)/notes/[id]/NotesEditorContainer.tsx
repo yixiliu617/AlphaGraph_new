@@ -8,7 +8,7 @@
 import { useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { Editor } from "@tiptap/react";
-import { notesClient, type PolishedSegment, type TranscriptLine } from "@/lib/api/notesClient";
+import { notesClient, type PolishedSegment, type TranscriptLine, type MeetingSummary } from "@/lib/api/notesClient";
 import { useNotesStore } from "@/store/useNotesStore";
 import { useNoteEditorStore } from "./store";
 import NotesEditorView from "./NotesEditorView";
@@ -16,6 +16,7 @@ import {
   buildRawTranscriptSectionNodes,
   buildPolishedTranscriptSectionNodes,
   buildUserNotesHeadingNodes,
+  buildAISummarySectionNodes,
   insertOrReplaceSection,
 } from "@/components/domain/notes/editorSectionBuilder";
 
@@ -151,6 +152,7 @@ export default function NotesEditorContainer({ noteId }: Props) {
         language: string;
         is_bilingual: boolean;
         key_topics: string[];
+        summary: MeetingSummary | null;
       } | null,
     ) => {
       if (!note) return;
@@ -163,18 +165,24 @@ export default function NotesEditorContainer({ noteId }: Props) {
         patchNote({
           transcript_lines: lines,
           duration_seconds: durationSeconds,
-          summary_status: "awaiting_speakers",
+          summary_status: "complete",
         });
       }
 
-      // Auto-insert the three sections into the main editor (both variants)
-      // so the raw transcript + polished transcript live alongside the user's
-      // notes. This fixes the prior A-variant bug where the polished output
-      // had no persistent display. The existing auto-save path picks up the
-      // resulting editor content change within ~1.5 s.
+      // Auto-insert the four sections into the main editor (both variants):
+      // user notes (heading only) -> AI summary -> raw transcript -> polished.
+      // insertOrReplaceSection appends new sections in call order, so the
+      // resulting layout matches the order of these calls.
       if (editorRef.current) {
         const editor = editorRef.current;
         insertOrReplaceSection(editor, "user_notes", buildUserNotesHeadingNodes());
+        if (polished && polished.summary) {
+          insertOrReplaceSection(
+            editor,
+            "ai_summary",
+            buildAISummarySectionNodes(polished.summary),
+          );
+        }
         insertOrReplaceSection(
           editor,
           "raw_transcript",

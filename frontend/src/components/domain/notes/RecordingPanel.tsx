@@ -21,7 +21,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { X, Mic, Monitor, Flag, Square, Wifi, Globe, Sparkles, Loader2 } from "lucide-react";
-import { notesClient, type TranscriptLine, type PolishedSegment } from "@/lib/api/notesClient";
+import { notesClient, type TranscriptLine, type PolishedSegment, type MeetingSummary } from "@/lib/api/notesClient";
 
 const LANGUAGES = [
   { value: "auto", label: "Auto-Detect" },
@@ -42,6 +42,7 @@ interface Props {
       language: string;
       is_bilingual: boolean;
       key_topics: string[];
+      summary: MeetingSummary | null;
     } | null,
   ) => void;
 }
@@ -62,6 +63,7 @@ export default function RecordingPanel({ noteId, onClose, onComplete }: Props) {
   const [polishedLanguage, setPolishedLanguage] = useState<string>("");
   const [polishedIsBilingual, setPolishedIsBilingual] = useState<boolean>(false);
   const [polishedKeyTopics, setPolishedKeyTopics] = useState<string[]>([]);
+  const [polishedSummary, setPolishedSummary] = useState<MeetingSummary | null>(null);
   const [bytesSent, setBytesSent] = useState(0);
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -154,6 +156,7 @@ export default function RecordingPanel({ noteId, onClose, onComplete }: Props) {
           setPolishedLanguage(typeof msg.language === "string" ? msg.language : "");
           setPolishedIsBilingual(Boolean(msg.is_bilingual));
           setPolishedKeyTopics(Array.isArray(msg.key_topics) ? msg.key_topics : []);
+          setPolishedSummary(msg.summary && typeof msg.summary === "object" ? msg.summary as MeetingSummary : null);
           setStatus("idle");
           setIsRecording(false);
         } else if (msg.type === "error") {
@@ -282,8 +285,9 @@ export default function RecordingPanel({ noteId, onClose, onComplete }: Props) {
       language: polishedLanguage,
       is_bilingual: polishedIsBilingual,
       key_topics: polishedKeyTopics,
+      summary: polishedSummary,
     });
-  }, [lines, duration, onComplete, polishedSegments, polishedLanguage, polishedIsBilingual, polishedKeyTopics]);
+  }, [lines, duration, onComplete, polishedSegments, polishedLanguage, polishedIsBilingual, polishedKeyTopics, polishedSummary]);
 
   const formatDuration = (s: number) => {
     const m = Math.floor(s / 60);

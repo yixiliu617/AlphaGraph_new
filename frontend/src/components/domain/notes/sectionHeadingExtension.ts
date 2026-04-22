@@ -26,4 +26,4 @@ export const SectionHeading = Heading.extend({
 });
 
 /** Valid section ids used by the editor auto-insert. */
-export type SectionId = "user_notes" | "raw_transcript" | "polished_transcript";
+export type SectionId = "user_notes" | "ai_summary" | "raw_transcript" | "polished_transcript";

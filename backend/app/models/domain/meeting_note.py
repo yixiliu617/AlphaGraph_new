@@ -112,6 +112,43 @@ class AISummary(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Detailed meeting summary (produced by the Gemini polish call alongside the
+# polished transcript; stored in polished_transcript_meta.summary).
+# ---------------------------------------------------------------------------
+
+class SubPoint(BaseModel):
+    """One sub-point under a key point. The supporting field is a 2-3 sentence
+    argument backing the sub-point, grounded in what was said in the meeting."""
+    text: str
+    supporting: str
+
+
+class KeyPoint(BaseModel):
+    """A top-level point in the meeting storyline, with its supporting sub-points."""
+    title: str
+    sub_points: List[SubPoint] = Field(default_factory=list)
+
+
+class FinancialMetrics(BaseModel):
+    """Revenue/profit/order-specific mentions pulled out of the transcript for
+    quick analyst scanning. Each list contains short strings like
+    'Q1 revenue $2.1B, up 20% YoY'."""
+    revenue: List[str] = Field(default_factory=list)
+    profit: List[str] = Field(default_factory=list)
+    orders: List[str] = Field(default_factory=list)
+
+
+class MeetingSummary(BaseModel):
+    """Detailed structured summary produced by Gemini at polish time.
+    Rendered into the main editor (between user notes and raw transcript)."""
+    storyline: str = ""
+    key_points: List[KeyPoint] = Field(default_factory=list)
+    all_numbers: List[str] = Field(default_factory=list)
+    recent_updates: List[str] = Field(default_factory=list)
+    financial_metrics: FinancialMetrics = Field(default_factory=FinancialMetrics)
+
+
+# ---------------------------------------------------------------------------
 # Core domain model
 # ---------------------------------------------------------------------------
 

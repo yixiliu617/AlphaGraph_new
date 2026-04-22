@@ -17,7 +17,7 @@
  */
 
 import type { Editor } from "@tiptap/react";
-import type { TranscriptLine, PolishedSegment } from "@/lib/api/notesClient";
+import type { TranscriptLine, PolishedSegment, MeetingSummary } from "@/lib/api/notesClient";
 import type { SectionId } from "./sectionHeadingExtension";
 
 type Json = Record<string, unknown>;
@@ -84,6 +84,136 @@ export function buildBilingualTableJson(
   );
 
   return { type: "table", content: [header, ...bodyRows] };
+}
+
+// ---------------------------------------------------------------------------
+// AI summary helpers
+// ---------------------------------------------------------------------------
+
+function heading3(text: string): Json {
+  return {
+    type: "heading",
+    attrs: { level: 3 },
+    content: [textNode(text)],
+  };
+}
+
+function heading4(text: string): Json {
+  return {
+    type: "heading",
+    attrs: { level: 4 },
+    content: [textNode(text)],
+  };
+}
+
+function boldText(text: string): Json {
+  return { type: "text", text, marks: [{ type: "bold" }] };
+}
+
+function bulletList(items: Json[][]): Json {
+  return {
+    type: "bulletList",
+    content: items.map((content) => ({
+      type: "listItem",
+      content,
+    })),
+  };
+}
+
+function orderedList(items: Json[][]): Json {
+  return {
+    type: "orderedList",
+    content: items.map((content) => ({
+      type: "listItem",
+      content,
+    })),
+  };
+}
+
+function simpleBullet(text: string): Json[] {
+  return [paragraph(text)];
+}
+
+/**
+ * Build the nodes for the AI Summary section, rendered between the user's
+ * notes and the raw live transcript. Expects a MeetingSummary object as
+ * produced by the Gemini polish call; every field is optional and missing
+ * ones are simply omitted from the rendered output.
+ */
+export function buildAISummarySectionNodes(summary: MeetingSummary): Json[] {
+  const nodes: Json[] = [
+    horizontalRule(),
+    sectionHeading("ai_summary", "AI Summary"),
+  ];
+
+  // Storyline
+  if (summary.storyline && summary.storyline.trim()) {
+    nodes.push(heading3("Storyline"));
+    nodes.push(paragraph(summary.storyline.trim()));
+  }
+
+  // Key Points — ordered list; each item has the title paragraph followed
+  // by a nested bullet list of sub-points (text in bold + supporting below).
+  if (summary.key_points && summary.key_points.length > 0) {
+    nodes.push(heading3("Key Points"));
+    const items: Json[][] = summary.key_points.map((kp) => {
+      const item: Json[] = [
+        {
+          type: "paragraph",
+          content: [boldText(kp.title || "(untitled)")],
+        },
+      ];
+      if (kp.sub_points && kp.sub_points.length > 0) {
+        const subItems: Json[][] = kp.sub_points.map((sp) => {
+          const content: Json[] = [paragraph(sp.text || "")];
+          if (sp.supporting && sp.supporting.trim()) {
+            content.push(paragraph(sp.supporting.trim()));
+          }
+          return content;
+        });
+        item.push(bulletList(subItems));
+      }
+      return item;
+    });
+    nodes.push(orderedList(items));
+  }
+
+  // All numbers
+  if (summary.all_numbers && summary.all_numbers.length > 0) {
+    nodes.push(heading3("All Numbers Mentioned"));
+    nodes.push(bulletList(summary.all_numbers.map((n) => simpleBullet(n))));
+  }
+
+  // Recent updates
+  if (summary.recent_updates && summary.recent_updates.length > 0) {
+    nodes.push(heading3("Recent Updates"));
+    nodes.push(bulletList(summary.recent_updates.map((u) => simpleBullet(u))));
+  }
+
+  // Financial metrics — three labelled sub-sections when present
+  const fm = summary.financial_metrics;
+  const hasFM = fm && (
+    (fm.revenue?.length ?? 0) > 0 ||
+    (fm.profit?.length ?? 0) > 0 ||
+    (fm.orders?.length ?? 0) > 0
+  );
+  if (hasFM) {
+    nodes.push(heading3("Financial Metrics"));
+    if (fm.revenue && fm.revenue.length > 0) {
+      nodes.push(heading4("Revenue"));
+      nodes.push(bulletList(fm.revenue.map((x) => simpleBullet(x))));
+    }
+    if (fm.profit && fm.profit.length > 0) {
+      nodes.push(heading4("Profit"));
+      nodes.push(bulletList(fm.profit.map((x) => simpleBullet(x))));
+    }
+    if (fm.orders && fm.orders.length > 0) {
+      nodes.push(heading4("Orders"));
+      nodes.push(bulletList(fm.orders.map((x) => simpleBullet(x))));
+    }
+  }
+
+  return nodes;
 }
 
 /**

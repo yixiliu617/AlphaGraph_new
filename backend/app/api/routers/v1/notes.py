@@ -1017,8 +1017,9 @@ async def _run_live_v2_session(
                 "type": "error", "message": f"Gemini error: {result['error']}",
             })
         else:
-            # Persist polished transcript + structured segments before notifying
-            # the client, so it's durable even if the client disconnects.
+            # Persist polished transcript + structured segments + summary
+            # before notifying the client, so it's durable even if the client
+            # disconnects.
             from backend.app.db.session import SessionLocal
             db2 = SessionLocal()
             try:
@@ -1036,6 +1037,7 @@ async def _run_live_v2_session(
                         "is_bilingual": result.get("is_bilingual", False),
                         "key_topics": result.get("key_topics", []),
                         "segments": result.get("segments", []),
+                        "summary": result.get("summary") or {},
                     },
                 )
             finally:
@@ -1048,6 +1050,7 @@ async def _run_live_v2_session(
                 "is_bilingual": result.get("is_bilingual", False),
                 "key_topics": result.get("key_topics", []),
                 "segments": result.get("segments", []),
+                "summary": result.get("summary") or {},
                 "input_tokens": result.get("input_tokens", 0),
                 "output_tokens": result.get("output_tokens", 0),
             })

@@ -7,7 +7,7 @@
 import { useRef, useEffect } from "react";
 import { ArrowLeft, Mic, Save, CheckCircle, Sparkles } from "lucide-react";
 import type { Editor } from "@tiptap/react";
-import type { NoteStub, TranscriptLine, PolishedSegment } from "@/lib/api/notesClient";
+import type { NoteStub, TranscriptLine, PolishedSegment, MeetingSummary } from "@/lib/api/notesClient";
 import RichTextEditor from "@/components/domain/notes/RichTextEditor";
 import NoteSearchPanel from "@/components/domain/notes/NoteSearchPanel";
 import RecordingPanel from "@/components/domain/notes/RecordingPanel";
@@ -52,6 +52,7 @@ interface Props {
       language: string;
       is_bilingual: boolean;
       key_topics: string[];
+      summary: MeetingSummary | null;
     } | null,
   ) => void;
   onSaveSpeakers: (mappings: { label: string; name: string; role?: string }[]) => Promise<void>;
@@ -211,7 +212,18 @@ export default function NotesEditorView({
           </div>
         </div>
 
-        {/* Right — Recording panel → wizard → B-only MeetingIntelligencePanel → search panel */}
+        {/* Right-sidebar branching
+         *
+         *   showRecordingPopup              -> RecordingPanel (live recording UI)
+         *   showWizard (legacy in-progress) -> PostMeetingWizard (backward-compat only;
+         *                                      new notes go straight from recording to
+         *                                      summary_status === "complete")
+         *   B + complete                    -> MeetingIntelligencePanel (simplified
+         *                                      metadata card + chat placeholder)
+         *   otherwise                       -> NoteSearchPanel (including A at complete;
+         *                                      the detailed AI summary lives in the
+         *                                      main editor, not in this panel)
+         */}
         <div className="flex-[1] flex flex-col overflow-hidden bg-slate-50 border-l border-slate-200 min-w-0">
           {showRecordingPopup ? (
             <RecordingPanel
@@ -229,17 +241,6 @@ export default function NotesEditorView({
             />
           ) : showMeetingIntelligence ? (
             <MeetingIntelligencePanel note={note} />
-          ) : note.summary_status === "complete" ? (
-            // Variant A: show the existing CompleteStep via the wizard so A users see
-            // the same "AI Summary & Polished Transcripts Finished" message they had
-            // before this plan.
-            <PostMeetingWizard
-              note={note}
-              onSaveSpeakers={onSaveSpeakers}
-              onExtractTopics={onExtractTopics}
-              onDelta={onDelta}
-              onMarkComplete={onMarkComplete}
-            />
           ) : (
             <NoteSearchPanel
               contextTickers={note.company_tickers}

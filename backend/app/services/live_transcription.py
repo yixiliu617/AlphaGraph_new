@@ -217,6 +217,7 @@ def gemini_batch_transcribe(
            "text_original": str, "text_english": str},
           ...
         ],
+        "summary": dict,           # detailed MeetingSummary structure (see _empty_summary)
         "text": str,               # flattened markdown form (for export/backup)
         "input_tokens": int,
         "output_tokens": int,
@@ -234,6 +235,7 @@ def gemini_batch_transcribe(
             "is_bilingual": False,
             "key_topics": [],
             "segments": [],
+            "summary": _empty_summary(),
             "text": "",
             "input_tokens": 0,
             "output_tokens": 0,
@@ -252,7 +254,8 @@ def gemini_batch_transcribe(
     lang_name = lang_names.get(language, "Chinese")
 
     prompt = f"""{vocab_context}
-Transcribe this financial meeting audio. Primary language: {lang_name} with English code-switching.
+Transcribe this financial meeting audio AND produce a detailed analyst-grade summary.
+Primary language: {lang_name} with English code-switching.
 
 Return ONLY valid JSON matching this exact schema:
 {{
@@ -266,7 +269,32 @@ Return ONLY valid JSON matching this exact schema:
       "text_original": "exact transcription in the meeting's primary language",
       "text_english": "English translation of this segment"
     }}
-  ]
+  ],
+  "summary": {{
+    "storyline": "1-2 paragraph narrative of how the meeting flowed, in English, tying together the main arc of what was discussed",
+    "key_points": [
+      {{
+        "title": "short title for this key point (3-8 words)",
+        "sub_points": [
+          {{
+            "text": "the sub-point itself, one sentence",
+            "supporting": "2-3 sentence supporting argument grounded in what was said. Quote specific numbers or claims where possible."
+          }}
+        ]
+      }}
+    ],
+    "all_numbers": [
+      "every numeric value mentioned in the meeting, with its brief context. Example: '$2.1B Q1 revenue', '42% gross margin', '3.8 trillion yen cash position'. Include currencies, percentages, counts, dates-as-numbers."
+    ],
+    "recent_updates": [
+      "recent events / news / launches / personnel changes / partnerships / acquisitions mentioned as having happened recently. One item per string."
+    ],
+    "financial_metrics": {{
+      "revenue": ["revenue-related mentions, one per string. Example: 'Q1 revenue $2.1B, up 20% YoY'"],
+      "profit": ["profit / margin / operating income mentions"],
+      "orders": ["backlog / order book / bookings mentions"]
+    }}
+  }}
 }}
 
 Rules:
@@ -274,7 +302,9 @@ Rules:
 2. Provide `text_english` for every segment. For English-only meetings, set `text_english` equal to `text_original`.
 3. For English-only meetings, set `is_bilingual` to false.
 4. NEVER repeat a segment. If audio is unclear, emit a single segment with text_original="[audio unclear]".
-5. Preserve financial terminology and proper nouns exactly as spoken."""
+5. Preserve financial terminology and proper nouns exactly as spoken.
+6. Summary fields should be in English regardless of meeting language.
+7. If the meeting is short or light on content, still produce at least storyline + key_points with whatever is available; it is OK for all_numbers / financial_metrics lists to be empty."""
 
     import requests
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
@@ -302,6 +332,7 @@ Rules:
             "is_bilingual": False,
             "key_topics": [],
             "segments": [],
+            "summary": _empty_summary(),
             "text": "",
             "input_tokens": 0,
             "output_tokens": 0,
@@ -321,6 +352,7 @@ Rules:
         "is_bilingual": parsed["is_bilingual"],
         "key_topics": parsed["key_topics"],
         "segments": parsed["segments"],
+        "summary": parsed["summary"],
         "text": text_md,
         "input_tokens": usage.get("promptTokenCount", 0),
         "output_tokens": usage.get("candidatesTokenCount", 0),
@@ -330,8 +362,8 @@ Rules:
 def _parse_polish_response(raw_text: str) -> dict:
     """
     Parse Gemini's structured-output response. Returns a dict with keys:
-    `language`, `is_bilingual`, `key_topics`, `segments`, and optionally
-    `text_markdown_fallback` when we couldn't parse JSON.
+    `language`, `is_bilingual`, `key_topics`, `segments`, `summary`, and
+    optionally `text_markdown_fallback` when we couldn't parse JSON.
     """
     import json as _json
     try:
@@ -359,6 +391,7 @@ def _parse_polish_response(raw_text: str) -> dict:
             "is_bilingual": bool(data.get("is_bilingual", False)),
             "key_topics": [str(t) for t in (data.get("key_topics") or []) if t],
             "segments": deduped,
+            "summary": _parse_summary(data.get("summary") or {}),
         }
     except (ValueError, KeyError, TypeError):
         return {
@@ -366,8 +399,63 @@ def _parse_polish_response(raw_text: str) -> dict:
             "is_bilingual": False,
             "key_topics": [],
             "segments": [],
+            "summary": _empty_summary(),
             "text_markdown_fallback": raw_text,
         }
+
+
+def _empty_summary() -> dict:
+    """Return a fully-populated empty MeetingSummary structure so frontend code
+    never has to guard against missing keys."""
+    return {
+        "storyline": "",
+        "key_points": [],
+        "all_numbers": [],
+        "recent_updates": [],
+        "financial_metrics": {"revenue": [], "profit": [], "orders": []},
+    }
+
+
+def _parse_summary(raw: dict) -> dict:
+    """Parse and sanitise the `summary` sub-object from a Gemini response.
+    Always returns a complete MeetingSummary shape — missing fields default
+    to empty lists / strings."""
+    if not isinstance(raw, dict):
+        return _empty_summary()
+
+    key_points = []
+    for kp in (raw.get("key_points") or []):
+        if not isinstance(kp, dict):
+            continue
+        sub_points = []
+        for sp in (kp.get("sub_points") or []):
+            if not isinstance(sp, dict):
+                continue
+            sub_points.append({
+                "text": str(sp.get("text", "")),
+                "supporting": str(sp.get("supporting", "")),
+            })
+        key_points.append({
+            "title": str(kp.get("title", "")),
+            "sub_points": sub_points,
+        })
+
+    fm_raw = raw.get("financial_metrics") or {}
+    if not isinstance(fm_raw, dict):
+        fm_raw = {}
+    financial_metrics = {
+        "revenue": [str(x) for x in (fm_raw.get("revenue") or []) if x],
+        "profit":  [str(x) for x in (fm_raw.get("profit")  or []) if x],
+        "orders":  [str(x) for x in (fm_raw.get("orders")  or []) if x],
+    }
+
+    return {
+        "storyline": str(raw.get("storyline", "")),
+        "key_points": key_points,
+        "all_numbers": [str(n) for n in (raw.get("all_numbers") or []) if n],
+        "recent_updates": [str(u) for u in (raw.get("recent_updates") or []) if u],
+        "financial_metrics": financial_metrics,
+    }
 
 
 def _flatten_segments_to_markdown(segments: list, is_bilingual: bool) -> str:

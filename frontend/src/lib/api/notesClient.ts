@@ -32,6 +32,18 @@ export interface NoteStub {
   recording_mode: string | null;
   duration_seconds: number | null;
   transcript_lines: TranscriptLine[];
+  polished_transcript: string | null;
+  polished_transcript_language: string | null;
+  polished_transcript_meta: {
+    input_tokens?: number;
+    output_tokens?: number;
+    model?: string;
+    ran_at?: string;
+    is_bilingual?: boolean;
+    key_topics?: string[];
+    segments?: PolishedSegment[];
+    summary?: MeetingSummary;
+  } | null;
   summary_status: string;
   ai_summary: AISummary | null;
   fragment_ids: string[];
@@ -52,6 +64,30 @@ export interface PolishedSegment {
   speaker: string;
   text_original: string;
   text_english: string;
+}
+
+export interface SubPoint {
+  text: string;
+  supporting: string;
+}
+
+export interface KeyPoint {
+  title: string;
+  sub_points: SubPoint[];
+}
+
+export interface FinancialMetrics {
+  revenue: string[];
+  profit: string[];
+  orders: string[];
+}
+
+export interface MeetingSummary {
+  storyline: string;
+  key_points: KeyPoint[];
+  all_numbers: string[];
+  recent_updates: string[];
+  financial_metrics: FinancialMetrics;
 }
 
 export interface SpeakerMapping {

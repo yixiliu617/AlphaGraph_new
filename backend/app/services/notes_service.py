@@ -142,7 +142,11 @@ class NotesService:
             return None
         row.transcript_lines = transcript_lines
         row.duration_seconds = duration_seconds
-        row.summary_status = SummaryStatus.AWAITING_SPEAKERS.value
+        # The post-meeting wizard (speakers -> topics -> extraction) has been
+        # retired from the default flow. A detailed MeetingSummary is now
+        # produced inline by the Gemini polish call and inserted into the main
+        # editor. Future extraction happens on-demand via the chat agent.
+        row.summary_status = SummaryStatus.COMPLETE.value
         row.updated_at = datetime.utcnow()
         self.db.commit()
         self.db.refresh(row)
