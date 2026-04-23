@@ -183,6 +183,7 @@ export const notesClient = {
     noteId: string,
     payload: {
       title?: string;
+      note_type?: string;
       editor_content?: Record<string, unknown>;
       editor_plain_text?: string;
       company_tickers?: string[];

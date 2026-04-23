@@ -60,6 +60,7 @@ export default function NotesEditorContainer({ noteId }: Props) {
       setSaving(true);
       const res = await notesClient.update(note.note_id, {
         title: note.title,
+        note_type: note.note_type,
         editor_content: note.editor_content,
         editor_plain_text: note.editor_plain_text,
         company_tickers: note.company_tickers,
@@ -88,6 +89,20 @@ export default function NotesEditorContainer({ noteId }: Props) {
 
   const handleTitleChange = useCallback(
     (title: string) => patchNote({ title }),
+    [patchNote]
+  );
+
+  // Notion-style header edits — all route through patchNote → isDirty → scheduleSave.
+  const handleMeetingDateChange = useCallback(
+    (date: string | null) => patchNote({ meeting_date: date }),
+    [patchNote]
+  );
+  const handleTickersChange = useCallback(
+    (tickers: string[]) => patchNote({ company_tickers: tickers }),
+    [patchNote]
+  );
+  const handleNoteTypeChange = useCallback(
+    (noteType: string) => patchNote({ note_type: noteType }),
     [patchNote]
   );
 
@@ -375,6 +390,9 @@ export default function NotesEditorContainer({ noteId }: Props) {
       showUrlIngestModal={showUrlIngestModal}
       onBack={() => router.push("/notes")}
       onTitleChange={handleTitleChange}
+      onMeetingDateChange={handleMeetingDateChange}
+      onTickersChange={handleTickersChange}
+      onNoteTypeChange={handleNoteTypeChange}
       onContentChange={handleContentChange}
       onOpenRecording={() => setShowRecordingPopup(true)}
       onCloseRecording={() => setShowRecordingPopup(false)}

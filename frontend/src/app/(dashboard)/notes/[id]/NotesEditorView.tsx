@@ -14,22 +14,7 @@ import RecordingPanel from "@/components/domain/notes/RecordingPanel";
 import PostMeetingWizard from "@/components/domain/notes/PostMeetingWizard";
 import MeetingIntelligencePanel from "@/components/domain/notes/MeetingIntelligencePanel";
 import UrlIngestModal from "@/components/domain/notes/UrlIngestModal";
-
-const NOTE_TYPE_LABELS: Record<string, string> = {
-  meeting_transcript: "Meeting Transcript",
-  earnings_call: "Earnings Call",
-  management_meeting: "Mgmt Meeting",
-  conference: "Conference",
-  internal: "Internal",
-};
-
-const NOTE_TYPE_COLORS: Record<string, string> = {
-  meeting_transcript: "bg-green-50 text-green-700 border border-green-100",
-  earnings_call: "bg-blue-50 text-blue-700 border border-blue-100",
-  management_meeting: "bg-violet-50 text-violet-700 border border-violet-100",
-  conference: "bg-amber-50 text-amber-700 border border-amber-100",
-  internal: "bg-slate-100 text-slate-600 border border-slate-200",
-};
+import NoteHeaderBlock from "@/components/domain/notes/NoteHeaderBlock";
 
 // The wizard UI is shown for every step before completion.
 const WIZARD_IN_PROGRESS_STATUSES = new Set([
@@ -42,6 +27,9 @@ interface Props {
   showRecordingPopup: boolean;
   onBack: () => void;
   onTitleChange: (title: string) => void;
+  onMeetingDateChange: (date: string | null) => void;
+  onTickersChange: (tickers: string[]) => void;
+  onNoteTypeChange: (noteType: string) => void;
   onContentChange: (json: Record<string, unknown>, plainText: string) => void;
   onOpenRecording: () => void;
   onCloseRecording: () => void;
@@ -84,7 +72,8 @@ interface Props {
 
 export default function NotesEditorView({
   note, isSaving, showRecordingPopup, showUrlIngestModal,
-  onBack, onTitleChange, onContentChange,
+  onBack, onTitleChange, onMeetingDateChange, onTickersChange, onNoteTypeChange,
+  onContentChange,
   onOpenRecording, onCloseRecording, onRecordingComplete,
   onOpenUrlIngest, onCloseUrlIngest, onUrlIngestComplete, onRegenerateSections,
   onRegenerateSummary, isRegeneratingSummary,
@@ -107,58 +96,22 @@ export default function NotesEditorView({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Top bar */}
+      {/* Top bar — navigation + actions only. Title + metadata live in the
+       * NoteHeaderBlock below, Notion-style. */}
       <div className="flex items-center justify-between px-6 py-3 border-b border-slate-200 bg-white shrink-0 shadow-sm">
         <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={onBack}
             className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+            title="Back to Notes library"
           >
             <ArrowLeft size={16} />
           </button>
-
-          {/* Editable title */}
-          <input
-            type="text"
-            value={note.title}
-            onChange={(e) => onTitleChange(e.target.value)}
-            className="text-base font-semibold text-slate-900 bg-transparent border-none outline-none focus:bg-slate-50 focus:px-2 rounded-md transition-all min-w-0 flex-1 max-w-sm"
-          />
-
-          {/* Meeting date */}
-          {note.meeting_date && (
-            <span className="text-[11px] text-slate-400 shrink-0 tabular-nums">
-              {new Date(note.meeting_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-            </span>
-          )}
-
-          {/* Company pills */}
-          <div className="flex items-center gap-1.5">
-            {note.company_tickers.map((t) => (
-              <span key={t} className="px-2 py-0.5 text-[10px] font-mono font-semibold bg-indigo-50 text-indigo-700 rounded border border-indigo-100">
-                {t}
-              </span>
-            ))}
-          </div>
-
-          {/* Note type badge */}
-          <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${NOTE_TYPE_COLORS[note.note_type] ?? "bg-slate-100 text-slate-500"}`}>
-            {NOTE_TYPE_LABELS[note.note_type] ?? note.note_type}
+          {/* Small breadcrumb title — helps orientate when scrolled.
+           * Full editable title lives in NoteHeaderBlock. */}
+          <span className="text-sm font-medium text-slate-500 truncate max-w-md">
+            {note.title || "Untitled"}
           </span>
-
-          {/* Ingested-from chip — present when the note was populated from a URL */}
-          {note.source_url && (
-            <a
-              href={note.source_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium bg-slate-50 text-slate-600 border border-slate-200 rounded-full hover:bg-slate-100 hover:text-indigo-700 transition-colors max-w-[220px] truncate"
-              title={note.source_url}
-            >
-              <Link2 size={10} />
-              <span className="truncate">Ingested from URL</span>
-            </a>
-          )}
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
@@ -244,6 +197,17 @@ export default function NotesEditorView({
       <div className="flex flex-1 overflow-hidden">
         {/* Left — Rich text editor (2/3) */}
         <div className="flex-[2] border-r border-slate-200 overflow-y-auto bg-white">
+          {/* Notion-style header block with inline-editable title + metadata.
+           * Sits above the audio player and editor so the user sees a clear
+           * page title when the note opens. */}
+          <NoteHeaderBlock
+            note={note}
+            onTitleChange={onTitleChange}
+            onMeetingDateChange={onMeetingDateChange}
+            onTickersChange={onTickersChange}
+            onNoteTypeChange={onNoteTypeChange}
+          />
+
           {/* Audio player for meeting recordings */}
           {note.recording_path && (
             <div className="px-6 pt-4 pb-2 border-b border-slate-100 bg-slate-50 sticky top-0 z-10">

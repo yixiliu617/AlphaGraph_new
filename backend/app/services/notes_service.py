@@ -79,6 +79,7 @@ class NotesService:
         tenant_id: str,
         *,
         title: Optional[str] = None,
+        note_type: Optional[str] = None,
         editor_content: Optional[dict] = None,
         editor_plain_text: Optional[str] = None,
         company_tickers: Optional[List[str]] = None,
@@ -91,6 +92,8 @@ class NotesService:
             return None
         if title is not None:
             row.title = title
+        if note_type is not None:
+            row.note_type = note_type
         if editor_content is not None:
             row.editor_content = editor_content
         if editor_plain_text is not None:

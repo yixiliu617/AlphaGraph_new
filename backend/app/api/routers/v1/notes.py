@@ -64,6 +64,7 @@ class CreateNoteRequest(BaseModel):
 
 class UpdateNoteRequest(BaseModel):
     title: Optional[str] = None
+    note_type: Optional[str] = None
     editor_content: Optional[dict] = None
     editor_plain_text: Optional[str] = None
     company_tickers: Optional[List[str]] = None
@@ -143,6 +144,8 @@ def update_note(note_id: str, request: UpdateNoteRequest, db: Session = Depends(
     kwargs = {}
     if request.title is not None:
         kwargs["title"] = request.title
+    if request.note_type is not None:
+        kwargs["note_type"] = request.note_type
     if request.editor_content is not None:
         kwargs["editor_content"] = request.editor_content
     if request.editor_plain_text is not None:
