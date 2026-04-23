@@ -383,5 +383,9 @@ export function insertOrReplaceSection(
   const end = findNextSectionIndex(doc, matchIndex);
 
   const newContent = [...content.slice(0, start), ...nodes, ...content.slice(end)];
-  editor.commands.setContent({ ...doc, content: newContent } as Json, false);
+  // emitUpdate=true so the editor's onUpdate fires → container's
+  // handleContentChange → patchNote → isDirty → auto-save. Without this, the
+  // replacement is visible on screen but never reaches the DB, so reopening
+  // the note shows the pre-replace content.
+  editor.commands.setContent({ ...doc, content: newContent } as Json, true);
 }
