@@ -52,32 +52,56 @@ export default function NotesEditorContainer({ noteId }: Props) {
     });
   }, [noteId, setNote, clearNote]);
 
-  // Auto-save whenever content changes
+  // Core save — called by both the debounced auto-save and the Ctrl+S
+  // force-save. Sends every editable field; the backend patches whatever
+  // is present. Using a ref so the keybinding effect below doesn't have to
+  // re-register on every note change.
+  const runSave = useCallback(async () => {
+    if (!note) return;
+    setSaving(true);
+    const res = await notesClient.update(note.note_id, {
+      title: note.title,
+      note_type: note.note_type,
+      editor_content: note.editor_content,
+      editor_plain_text: note.editor_plain_text,
+      company_tickers: note.company_tickers,
+      meeting_date: note.meeting_date ?? undefined,
+    });
+    if (res.success && res.data) {
+      updateNote(res.data);
+      setDirty(false);
+    }
+    setSaving(false);
+  }, [note, setSaving, updateNote, setDirty]);
+
+  // Auto-save whenever the note is dirty (debounced).
   const scheduleSave = useCallback(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      if (!note) return;
-      setSaving(true);
-      const res = await notesClient.update(note.note_id, {
-        title: note.title,
-        note_type: note.note_type,
-        editor_content: note.editor_content,
-        editor_plain_text: note.editor_plain_text,
-        company_tickers: note.company_tickers,
-        meeting_date: note.meeting_date ?? undefined,
-      });
-      if (res.success && res.data) {
-        updateNote(res.data);
-        setDirty(false);
-      }
-      setSaving(false);
-    }, AUTO_SAVE_DELAY_MS);
-  }, [note, setSaving, updateNote, setDirty]);
+    saveTimer.current = setTimeout(runSave, AUTO_SAVE_DELAY_MS);
+  }, [runSave]);
 
   useEffect(() => {
     if (isDirty) scheduleSave();
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [isDirty, scheduleSave]);
+
+  // Ctrl+S / Cmd+S force-save — flushes the pending debounced save
+  // immediately, also fires when the note is clean (cheap no-op PUT that
+  // gives the user the visual "Saved" confirmation).
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "S")) {
+        e.preventDefault();
+        if (saveTimer.current) {
+          clearTimeout(saveTimer.current);
+          saveTimer.current = null;
+        }
+        runSave();
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [runSave]);
 
   // Editor content change
   const handleContentChange = useCallback(

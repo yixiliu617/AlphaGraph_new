@@ -115,8 +115,11 @@ export default function NotesEditorView({
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          {/* Save indicator */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+          {/* Save indicator — click "Saved" / "Saving" text or hit Ctrl/Cmd+S to force-save */}
+          <div
+            className="flex items-center gap-1.5 text-xs text-slate-400"
+            title="Auto-saves as you type. Press Ctrl+S (or ⌘+S on Mac) to save immediately."
+          >
             {isSaving ? (
               <>
                 <Save size={12} className="animate-pulse text-indigo-400" />
