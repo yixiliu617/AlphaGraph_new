@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
-from backend.app.api.routers.v1 import ingest, chat, ledger, topology, insights, notes, data, earnings, research, pricing, social
+from backend.app.api.routers.v1 import ingest, chat, ledger, topology, insights, notes, data, earnings, research, pricing, social, taiwan
 from backend.app.core.config import settings
 from backend.app.db.session import init_db
 
@@ -50,6 +50,7 @@ app.include_router(research.router, prefix=f"{settings.API_V1_STR}/research", ta
 app.include_router(data.router,    prefix=f"{settings.API_V1_STR}",         tags=["data"])
 app.include_router(pricing.router, prefix=f"{settings.API_V1_STR}/pricing", tags=["pricing"])
 app.include_router(social.router,  prefix=f"{settings.API_V1_STR}/social",  tags=["social"])
+app.include_router(taiwan.router,  prefix=f"{settings.API_V1_STR}/taiwan",  tags=["taiwan"])
 
 
 @app.on_event("startup")
