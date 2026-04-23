@@ -83,10 +83,21 @@ export interface FinancialMetrics {
   orders: string[];
 }
 
+/** A number mentioned in the meeting with its context. Produced by
+ * `gemini_generate_summary`. The `quote` is a verbatim sentence from the
+ * transcript so the analyst can see where the number came from. */
+export interface NumberMention {
+  label: string;
+  value: string;
+  quote: string;
+}
+
 export interface MeetingSummary {
   storyline: string;
   key_points: KeyPoint[];
-  all_numbers: string[];
+  /** Either the new structured form (preferred) or legacy plain strings from
+   * pre-refactor notes. The builder / renderer handles both. */
+  all_numbers: NumberMention[] | string[];
   recent_updates: string[];
   financial_metrics: FinancialMetrics;
 }
@@ -223,6 +234,9 @@ export const notesClient = {
 
   markSummaryComplete: (noteId: string) =>
     apiRequest<AR<NoteStub>>(`${BASE}/${noteId}/summary/complete`, "POST", {}),
+
+  regenerateSummary: (noteId: string) =>
+    apiRequest<AR<NoteStub>>(`${BASE}/${noteId}/summary/regenerate`, "POST", {}),
 
   // ------------------------------------------------------------------
   // WebSocket helper — returns the WS URL (connection opened in component)

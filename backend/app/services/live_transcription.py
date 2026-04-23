@@ -256,8 +256,7 @@ def gemini_batch_transcribe(
     lang_name = lang_names.get(language, "Chinese")
 
     prompt = f"""{vocab_context}
-Transcribe this financial meeting audio AND produce a detailed analyst-grade summary.
-Primary language: {lang_name} with English code-switching.
+Transcribe this financial meeting audio. Primary language: {lang_name} with English code-switching.
 
 Return ONLY valid JSON matching this exact schema:
 {{
@@ -271,32 +270,7 @@ Return ONLY valid JSON matching this exact schema:
       "text_original": "exact transcription in the meeting's primary language",
       "text_english": "English translation of this segment"
     }}
-  ],
-  "summary": {{
-    "storyline": "1-2 paragraph narrative of how the meeting flowed, in English, tying together the main arc of what was discussed",
-    "key_points": [
-      {{
-        "title": "short title for this key point (3-8 words)",
-        "sub_points": [
-          {{
-            "text": "the sub-point itself, one sentence",
-            "supporting": "2-3 sentence supporting argument grounded in what was said. Quote specific numbers or claims where possible."
-          }}
-        ]
-      }}
-    ],
-    "all_numbers": [
-      "every numeric value mentioned in the meeting, with its brief context. Example: '$2.1B Q1 revenue', '42% gross margin', '3.8 trillion yen cash position'. Include currencies, percentages, counts, dates-as-numbers."
-    ],
-    "recent_updates": [
-      "recent events / news / launches / personnel changes / partnerships / acquisitions mentioned as having happened recently. One item per string."
-    ],
-    "financial_metrics": {{
-      "revenue": ["revenue-related mentions, one per string. Example: 'Q1 revenue $2.1B, up 20% YoY'"],
-      "profit": ["profit / margin / operating income mentions"],
-      "orders": ["backlog / order book / bookings mentions"]
-    }}
-  }}
+  ]
 }}
 
 Rules:
@@ -305,10 +279,9 @@ Rules:
 3. For English-only meetings, set `is_bilingual` to false.
 4. NEVER repeat a segment. If audio is unclear, emit a single segment with text_original="[audio unclear]".
 5. Preserve financial terminology and proper nouns exactly as spoken.
-6. Summary fields should be in English regardless of meeting language.
-7. If the meeting is short or light on content, still produce at least storyline + key_points with whatever is available; it is OK for all_numbers / financial_metrics lists to be empty.
-8. CRITICAL — no repetition loops: each entry in `all_numbers`, `recent_updates`, and `financial_metrics.*` must be unique. If you find yourself about to repeat a value, stop the list. Each list should be at most ~40 entries. The goal is a concise analyst-grade summary, NOT exhaustive enumeration.
-9. CRITICAL — keep JSON well-formed: if you are approaching the output-token budget, CUT the summary short (fewer segments, fewer bullets) rather than truncating mid-value. A short, complete JSON beats a long, truncated one."""
+6. key_topics: 5-10 short strings capturing the main topics discussed.
+7. Do NOT include any summary / key_points / numbers / financial_metrics output — the downstream stage handles that separately from the transcript text.
+8. CRITICAL — keep JSON well-formed: if approaching the token budget, cut the transcript short rather than truncating mid-value. A short, complete JSON beats a long, truncated one."""
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
 
@@ -489,6 +462,38 @@ def _dedupe_preserving_order(items: list) -> list:
     return out
 
 
+def _normalize_number_mention(raw) -> dict:
+    """Coerce one all_numbers entry into the {label, value, quote} shape.
+    Accepts either the new structured dict or the legacy plain string for
+    backwards compatibility with notes written before the refactor."""
+    if isinstance(raw, dict):
+        return {
+            "label": str(raw.get("label", "") or ""),
+            "value": str(raw.get("value", "") or ""),
+            "quote": str(raw.get("quote", "") or ""),
+        }
+    if isinstance(raw, str):
+        # Legacy format — no label/quote context; promote the bare value.
+        return {"label": "", "value": raw, "quote": ""}
+    return {"label": "", "value": "", "quote": ""}
+
+
+def _dedupe_number_mentions(items: list) -> list:
+    """Dedupe NumberMention dicts by (value, label) pair. Preserves first-seen
+    order. Empty {label:'', value:'', quote:''} entries are dropped."""
+    seen = set()
+    out = []
+    for m in items:
+        key = (m.get("value", ""), m.get("label", ""))
+        if key == ("", ""):
+            continue
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(m)
+    return out
+
+
 def _parse_summary(raw: dict) -> dict:
     """Parse and sanitise the `summary` sub-object from a Gemini response.
     Always returns a complete MeetingSummary shape — missing fields default
@@ -523,10 +528,18 @@ def _parse_summary(raw: dict) -> dict:
         "orders":  _dedupe_preserving_order([str(x) for x in (fm_raw.get("orders")  or []) if x]),
     }
 
+    # all_numbers: new {label, value, quote} schema. Legacy string entries get
+    # coerced so old notes still render sensibly.
+    numbers = [
+        _normalize_number_mention(n)
+        for n in (raw.get("all_numbers") or [])
+        if n
+    ]
+
     return {
         "storyline": str(raw.get("storyline", "")),
         "key_points": key_points,
-        "all_numbers": _dedupe_preserving_order([str(n) for n in (raw.get("all_numbers") or []) if n]),
+        "all_numbers": _dedupe_number_mentions(numbers),
         "recent_updates": _dedupe_preserving_order([str(u) for u in (raw.get("recent_updates") or []) if u]),
         "financial_metrics": financial_metrics,
     }
@@ -559,20 +572,27 @@ def _flatten_segments_to_markdown(segments: list, is_bilingual: bool) -> str:
         return "\n".join(lines)
 
 
-def gemini_polish_text(
+def gemini_generate_summary(
     segments: list,
     language_hint: str = "en",
     note_id: str = "",
 ) -> dict:
     """
-    Produce the full structured meeting-intelligence output from an already-
-    transcribed text (typically captions extracted from a YouTube video).
+    Produce ONLY the MeetingSummary from a list of already-transcribed
+    segments. No audio processing — this is a cheap text-only Gemini call
+    (~$0.001-0.01 vs ~$0.05-0.20 for an audio pass) that can be re-run freely
+    when the summary prompt is improved.
 
-    Input: segments in the same shape the rest of the pipeline uses, typically
-    from _parse_vtt in url_ingest_service — {timestamp, speaker, text_original,
-    text_english} (text_english can be blank; Gemini will fill it for non-EN).
+    Input: segments in the standard shape used by the rest of the pipeline:
+    {timestamp, speaker, text_original, text_english}.
 
-    Output: the same dict shape gemini_batch_transcribe returns.
+    Output: dict with keys:
+      {
+        "summary": MeetingSummary shape,
+        "input_tokens": int,
+        "output_tokens": int,
+        "error": str (optional),
+      }
     """
     from dotenv import load_dotenv
     load_dotenv(PROJECT_ROOT / ".env")
@@ -581,12 +601,7 @@ def gemini_polish_text(
     if not api_key:
         return {
             "error": "GEMINI_API_KEY not set",
-            "language": language_hint,
-            "is_bilingual": False,
-            "key_topics": [],
-            "segments": [],
             "summary": _empty_summary(),
-            "text": "",
             "input_tokens": 0,
             "output_tokens": 0,
         }
@@ -594,75 +609,88 @@ def gemini_polish_text(
     lang_names = {"zh": "Chinese", "ja": "Japanese", "ko": "Korean", "en": "English"}
     lang_name = lang_names.get(language_hint, "English")
 
-    # Format the segments as a plain-text transcript that Gemini can reason over.
+    # Format the segments as a plain-text transcript Gemini can reason over.
+    # Prefer English translation when present so non-EN meetings still produce
+    # an English summary grounded in specific phrasing.
     transcript_lines = []
     for s in segments:
         ts = s.get("timestamp", "")
-        text = s.get("text_original", "")
-        if text:
-            transcript_lines.append(f"[{ts}] {text}" if ts else text)
+        original = (s.get("text_original") or "").strip()
+        english = (s.get("text_english") or "").strip()
+        if english and english != original:
+            line = f"[{ts}] {english}" if ts else english
+        elif original:
+            line = f"[{ts}] {original}" if ts else original
+        else:
+            continue
+        transcript_lines.append(line)
     transcript_text = "\n".join(transcript_lines)
+    if not transcript_text.strip():
+        return {
+            "error": "No transcript content to summarise.",
+            "summary": _empty_summary(),
+            "input_tokens": 0,
+            "output_tokens": 0,
+        }
 
     vocab_context = load_vocabulary(language_hint)
 
     prompt = f"""{vocab_context}
-You are given a raw transcript extracted from subtitles / captions of a
-financial meeting, interview, or conference talk. The captions may contain
-minor errors (auto-generated or manually authored). Polish the transcript
-AND produce a detailed analyst-grade summary.
+You are an expert financial-analyst assistant. Produce a detailed
+analyst-grade summary of the following meeting / interview / conference-call
+transcript. Primary source language: {lang_name}.
 
-Primary language: {lang_name} with possible English code-switching.
-
-RAW TRANSCRIPT (timestamps in brackets):
-{transcript_text[:30000]}
+TRANSCRIPT (timestamps in brackets):
+{transcript_text[:60000]}
 
 Return ONLY valid JSON matching this exact schema:
 {{
-  "language": "{language_hint}",
-  "is_bilingual": true,
-  "key_topics": ["topic1", "topic2", ...],
-  "segments": [
+  "storyline": "1-2 paragraph narrative of how the meeting flowed, tying together the main arc in English",
+  "key_points": [
     {{
-      "timestamp": "MM:SS",
-      "speaker": "speaker name or role if you can infer one, else empty string",
-      "text_original": "the transcript segment in its primary language",
-      "text_english": "English translation of this segment"
+      "title": "short title (3-8 words)",
+      "sub_points": [
+        {{
+          "text": "the sub-point itself, one sentence",
+          "supporting": "2-3 sentence supporting argument grounded in what was said. Quote specific numbers or claims where possible."
+        }}
+      ]
     }}
   ],
-  "summary": {{
-    "storyline": "1-2 paragraph narrative of how the meeting flowed, in English",
-    "key_points": [
-      {{
-        "title": "short title (3-8 words)",
-        "sub_points": [
-          {{
-            "text": "the sub-point itself, one sentence",
-            "supporting": "2-3 sentence supporting argument grounded in what was said"
-          }}
-        ]
-      }}
-    ],
-    "all_numbers": ["every numeric value mentioned with brief context"],
-    "recent_updates": ["recent events / launches / partnerships / personnel changes"],
-    "financial_metrics": {{
-      "revenue": ["revenue-related mentions"],
-      "profit": ["profit / margin / operating income mentions"],
-      "orders": ["backlog / order book / bookings mentions"]
+  "all_numbers": [
+    {{
+      "label": "short description of what the number refers to (e.g., 'Stargate datacenter capacity', 'Q1 revenue', 'ARM partnership value')",
+      "value": "the number with units (e.g., '1.2 gigawatt', '$2.1B', '20% YoY')",
+      "quote": "the exact verbatim sentence from the transcript containing this number"
     }}
+  ],
+  "recent_updates": ["recent events / launches / partnerships / personnel changes / acquisitions mentioned as having happened recently. One item per string."],
+  "financial_metrics": {{
+    "revenue": ["revenue-related mentions, one per string. Example: 'Q1 revenue $2.1B, up 20% YoY'"],
+    "profit": ["profit / margin / operating income mentions"],
+    "orders": ["backlog / order book / bookings mentions"]
   }}
 }}
 
 Rules:
-1. Preserve the original timestamps from the input. Adjust or merge only if two
-   consecutive segments belong to the same thought.
-2. Provide `text_english` for every segment. For English input, set
-   `text_english` equal to `text_original` and `is_bilingual` to false.
-3. NEVER fabricate numbers or quotes that weren't in the input. Summary fields
-   must be grounded in the raw transcript.
+1. Summary fields are all in English regardless of source language.
+2. all_numbers: include every meaningful numeric value mentioned. Each entry
+   MUST populate all three fields (label, value, quote). The quote must be
+   VERBATIM from the transcript — do not paraphrase. If a number appears
+   multiple times for the same concept, include it once. Aim for ~10-60
+   entries depending on content density.
+3. NEVER fabricate numbers or quotes that weren't in the input. Every claim
+   in every field must be traceable to the transcript.
 4. Preserve financial terminology and proper nouns exactly as spoken.
-5. Summary fields should be in English regardless of meeting language.
-6. If the transcript is short or light on content, still produce storyline +
-   key_points; it is OK for all_numbers / financial_metrics lists to be empty.
+5. If the transcript is short / light on content, still produce storyline +
+   key_points with what's there. Empty lists for all_numbers / financial_metrics
+   / recent_updates are acceptable.
+6. CRITICAL — no repetition loops: each all_numbers entry must be unique
+   (different label OR different value). recent_updates entries must be
+   unique strings. Dedupe before returning.
+7. CRITICAL — keep JSON well-formed. If approaching the token budget, CUT
+   the lists short (fewer entries) rather than truncating mid-value. A
+   shorter complete JSON beats a longer truncated one.
 """
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
@@ -683,12 +711,7 @@ Rules:
     if resp.status_code != 200:
         return {
             "error": f"Gemini API error: {resp.status_code}",
-            "language": language_hint,
-            "is_bilingual": False,
-            "key_topics": [],
-            "segments": [],
             "summary": _empty_summary(),
-            "text": "",
             "input_tokens": 0,
             "output_tokens": 0,
         }
@@ -697,17 +720,19 @@ Rules:
     raw_text = result["candidates"][0]["content"]["parts"][0]["text"]
     usage = result.get("usageMetadata", {})
 
-    parsed = _parse_polish_response(raw_text)
-    text_md = _flatten_segments_to_markdown(parsed["segments"], parsed["is_bilingual"]) \
-        if parsed["segments"] else parsed.get("text_markdown_fallback", "")
+    # Re-use the hardened parser — it knows how to repair truncated JSON and
+    # dedupe loops. We wrap the raw summary body so it parses through the same
+    # path as the old polish response.
+    import json as _json
+    try:
+        data = _json.loads(raw_text)
+    except (ValueError, TypeError):
+        data = _repair_and_parse(raw_text) or {}
+
+    summary = _parse_summary(data if isinstance(data, dict) else {})
 
     return {
-        "language": parsed["language"] or language_hint,
-        "is_bilingual": parsed["is_bilingual"],
-        "key_topics": parsed["key_topics"],
-        "segments": parsed["segments"],
-        "summary": parsed["summary"],
-        "text": text_md,
+        "summary": summary,
         "input_tokens": usage.get("promptTokenCount", 0),
         "output_tokens": usage.get("candidatesTokenCount", 0),
     }

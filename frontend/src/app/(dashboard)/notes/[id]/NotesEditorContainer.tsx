@@ -5,7 +5,7 @@
 // Fetches the note, handles auto-save, coordinates wizard state.
 // ---------------------------------------------------------------------------
 
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Editor } from "@tiptap/react";
 import { notesClient, type PolishedSegment, type TranscriptLine, type MeetingSummary } from "@/lib/api/notesClient";
@@ -203,6 +203,62 @@ export default function NotesEditorContainer({ noteId }: Props) {
     [note, setNote, updateNote, patchNote, setShowRecordingPopup]
   );
 
+  // Re-run the text-only summary Gemini call against the note's existing
+  // transcript segments. Cheap (~$0.001-0.01, no audio). After the backend
+  // updates polished_transcript_meta.summary, pull the fresh note and
+  // regenerate the editor sections from it.
+  const [isRegeneratingSummary, setIsRegeneratingSummary] = useState(false);
+  const handleRegenerateSummary = useCallback(async () => {
+    if (!note) return;
+    setIsRegeneratingSummary(true);
+    try {
+      const res = await notesClient.regenerateSummary(note.note_id);
+      if (res.success && res.data) {
+        setNote(res.data);
+        updateNote(res.data);
+
+        // Re-render the editor sections from the fresh data without another
+        // round-trip. Reuses the same builders used by recording/ingest.
+        if (editorRef.current) {
+          const editor = editorRef.current;
+          const meta = res.data.polished_transcript_meta;
+          const segments = (meta?.segments ?? []) as PolishedSegment[];
+          const summary = (meta?.summary ?? null) as MeetingSummary | null;
+          const isBilingual = Boolean(meta?.is_bilingual);
+
+          const lines: TranscriptLine[] = segments.map((s, idx) => ({
+            line_id: idx + 1,
+            timestamp: s.timestamp,
+            speaker_label: s.speaker || "",
+            speaker_name: null,
+            text: s.text_original,
+            is_flagged: false,
+            is_interim: false,
+          }));
+
+          insertOrReplaceSection(editor, "user_notes", buildUserNotesHeadingNodes());
+          if (summary) {
+            insertOrReplaceSection(editor, "ai_summary", buildAISummarySectionNodes(summary));
+          }
+          if (lines.length > 0) {
+            insertOrReplaceSection(editor, "raw_transcript", buildRawTranscriptSectionNodes(lines));
+          }
+          if (segments.length > 0) {
+            insertOrReplaceSection(
+              editor,
+              "polished_transcript",
+              buildPolishedTranscriptSectionNodes(segments, isBilingual),
+            );
+          }
+        }
+      } else {
+        console.error("regenerate-summary failed", res);
+      }
+    } finally {
+      setIsRegeneratingSummary(false);
+    }
+  }, [note, setNote, updateNote]);
+
   // Rebuild the editor's AI sections from the already-saved polished data.
   // Used when a previous ingest completed but the editor didn't get populated
   // (e.g. Gemini returned truncated JSON and only later got repaired server-side).
@@ -327,6 +383,8 @@ export default function NotesEditorContainer({ noteId }: Props) {
       onCloseUrlIngest={() => setShowUrlIngestModal(false)}
       onUrlIngestComplete={handleUrlIngestComplete}
       onRegenerateSections={handleRegenerateSections}
+      onRegenerateSummary={handleRegenerateSummary}
+      isRegeneratingSummary={isRegeneratingSummary}
       onSaveSpeakers={handleSaveSpeakers}
       onExtractTopics={handleExtractTopics}
       onDelta={handleDelta}

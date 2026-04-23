@@ -78,6 +78,8 @@ interface Props {
     sourceUrl: string,
   ) => void;
   onRegenerateSections: () => Promise<void>;
+  onRegenerateSummary: () => Promise<void>;
+  isRegeneratingSummary: boolean;
 }
 
 export default function NotesEditorView({
@@ -85,6 +87,7 @@ export default function NotesEditorView({
   onBack, onTitleChange, onContentChange,
   onOpenRecording, onCloseRecording, onRecordingComplete,
   onOpenUrlIngest, onCloseUrlIngest, onUrlIngestComplete, onRegenerateSections,
+  onRegenerateSummary, isRegeneratingSummary,
   onSaveSpeakers, onExtractTopics, onDelta, onMarkComplete, onStartAISummary,
   onEditorReady,
 }: Props) {
@@ -192,14 +195,29 @@ export default function NotesEditorView({
            * NO token spend. */}
           {((note.polished_transcript_meta?.segments?.length ?? 0) > 0 ||
             Boolean(note.polished_transcript_meta?.summary?.storyline)) && (
-            <button
-              onClick={onRegenerateSections}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-50 text-slate-700 border border-slate-200 rounded-md hover:bg-slate-100 transition-colors"
-              title="Re-render AI summary + transcript sections from saved data (no Gemini call)"
-            >
-              <RefreshCw size={13} />
-              Re-render
-            </button>
+            <>
+              <button
+                onClick={onRegenerateSections}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-50 text-slate-700 border border-slate-200 rounded-md hover:bg-slate-100 transition-colors"
+                title="Re-render AI summary + transcript sections from saved data (no Gemini call)"
+              >
+                <RefreshCw size={13} />
+                Re-render
+              </button>
+              {/* Re-generate Summary — fresh text-only Gemini call on the saved
+               * transcript segments. ~$0.001-0.01 per click, no audio re-run.
+               * Useful after prompt improvements or on legacy notes whose
+               * all_numbers entries are still plain strings. */}
+              <button
+                onClick={onRegenerateSummary}
+                disabled={isRegeneratingSummary}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 rounded-md hover:bg-amber-100 disabled:opacity-60 transition-colors"
+                title="Re-run AI summary via Gemini on the existing transcript (cheap text-only call)"
+              >
+                <Sparkles size={13} className={isRegeneratingSummary ? "animate-pulse" : ""} />
+                {isRegeneratingSummary ? "Re-generating…" : "Re-generate Summary"}
+              </button>
+            </>
           )}
 
           {/* Ingest URL button */}

@@ -291,6 +291,64 @@ def mark_summary_complete(
     return APIResponse(success=True, data=note.model_dump())
 
 
+@router.post("/{note_id}/summary/regenerate", response_model=APIResponse)
+def regenerate_summary(
+    note_id: str,
+    db: Session = Depends(get_db_session),
+):
+    """Re-run the structured AI summary against the note's existing transcript
+    segments. NO audio cost — this is a text-only Gemini call (~$0.001-0.01).
+    Overwrites polished_transcript_meta.summary with the fresh result.
+
+    Callers: the frontend's [Re-generate Summary] button + future chat-agent
+    tool. Useful after tweaking the summary prompt, or to promote legacy
+    string-shaped all_numbers entries to the new NumberMention schema."""
+    from backend.app.services.live_transcription import gemini_generate_summary
+
+    svc = NotesService(db)
+    note = svc.get_note(note_id, TENANT_ID)
+    if note is None:
+        raise HTTPException(status_code=404, detail="Note not found.")
+
+    meta = note.polished_transcript_meta or {}
+    segments = meta.get("segments") or []
+    if not segments:
+        raise HTTPException(
+            status_code=400,
+            detail="Note has no transcript segments to summarise. Run a recording or URL ingest first.",
+        )
+
+    language = note.polished_transcript_language or meta.get("language") or "en"
+    summary_result = gemini_generate_summary(
+        segments=segments,
+        language_hint=language,
+        note_id=note_id,
+    )
+
+    if summary_result.get("error"):
+        raise HTTPException(status_code=502, detail=summary_result["error"])
+
+    # Merge the new summary + updated token usage into the existing meta dict.
+    new_meta = {
+        **meta,
+        "summary": summary_result["summary"],
+        "summary_regenerated_at": datetime.utcnow().isoformat(),
+        "summary_input_tokens": summary_result.get("input_tokens", 0),
+        "summary_output_tokens": summary_result.get("output_tokens", 0),
+    }
+    updated = svc.save_polished_transcript(
+        note_id=note_id,
+        tenant_id=TENANT_ID,
+        markdown=note.polished_transcript or "",
+        language=language,
+        meta=new_meta,
+    )
+    if updated is None:
+        raise HTTPException(status_code=500, detail="Failed to persist regenerated summary.")
+
+    return APIResponse(success=True, data=updated.model_dump())
+
+
 @router.post("/{note_id}/summary/delta/{delta_id}", response_model=APIResponse)
 def process_delta(
     note_id: str,
@@ -660,7 +718,7 @@ async def _run_live_v2_session(
     Option B: SenseVoice live draft + Gemini batch polish.
     audio_source: "mic" = browser sends PCM, "system" = server captures WASAPI loopback
     """
-    from backend.app.services.live_transcription import gemini_batch_transcribe
+    from backend.app.services.live_transcription import gemini_batch_transcribe, gemini_generate_summary
     from backend.app.services.asr_worker import transcribe_audio_bytes, is_model_ready, is_model_loading
     import numpy as np
     import scipy.io.wavfile as wavfile
@@ -1010,13 +1068,35 @@ async def _run_live_v2_session(
         final_lang = detected_lang if detected_lang != "auto" else "zh"
         source = opus_path if os.path.exists(opus_path) else wav_path
 
-        result = await asyncio.to_thread(gemini_batch_transcribe, source, final_lang, note_id)
+        transcribe_result = await asyncio.to_thread(gemini_batch_transcribe, source, final_lang, note_id)
 
-        if result.get("error"):
+        if transcribe_result.get("error"):
             await websocket.send_json({
-                "type": "error", "message": f"Gemini error: {result['error']}",
+                "type": "error", "message": f"Gemini error: {transcribe_result['error']}",
             })
         else:
+            # Stage 2 — cheap text-only Gemini call for the structured summary.
+            # Runs only on success of the transcribe stage, on the resulting
+            # segments. Kept separate so users can re-run summary later without
+            # re-paying the audio cost.
+            await websocket.send_json({
+                "type": "status", "status": "summarising",
+                "message": f"Generating AI summary from {len(transcribe_result.get('segments') or [])} segments...",
+            })
+            summary_result = await asyncio.to_thread(
+                gemini_generate_summary,
+                transcribe_result.get("segments") or [],
+                transcribe_result.get("language", final_lang),
+                note_id,
+            )
+            # Compose the legacy-shape response dict so the downstream persist
+            # / WS send code is unchanged.
+            result = {
+                **transcribe_result,
+                "summary": summary_result.get("summary") or {},
+                "input_tokens": transcribe_result.get("input_tokens", 0) + summary_result.get("input_tokens", 0),
+                "output_tokens": transcribe_result.get("output_tokens", 0) + summary_result.get("output_tokens", 0),
+            }
             # Persist polished transcript + structured segments + summary
             # before notifying the client, so it's durable even if the client
             # disconnects.

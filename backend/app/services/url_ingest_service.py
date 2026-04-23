@@ -215,33 +215,96 @@ def ingest_url(
     audio_dir: Path,
     progress: ProgressCallback,
 ) -> dict:
-    """End-to-end URL ingest. Returns the same dict shape as
-    gemini_batch_transcribe (language, is_bilingual, key_topics, segments,
-    summary, text, input_tokens, output_tokens)."""
+    """End-to-end URL ingest. Two-stage pipeline:
+
+    Stage 1 — get transcript segments:
+      (a) Manual captions via yt-dlp, OR
+      (b) Audio download + Gemini audio transcription.
+
+    Stage 2 — summary: text-only Gemini call over the segments from stage 1.
+    Cheap (~$0.001-0.01) and re-runnable without touching audio.
+
+    Returns the full combined dict (language, is_bilingual, key_topics,
+    segments, summary, text, input_tokens, output_tokens)."""
     from backend.app.services.live_transcription import (
         gemini_batch_transcribe,
-        gemini_polish_text,
+        gemini_generate_summary,
+        _flatten_segments_to_markdown,
+        _empty_summary,
     )
 
     progress("Checking for manual captions...")
     captions = try_fetch_manual_captions(url, language_hint)
 
     if captions:
+        # Stage 1a — captions.
         n = len(captions["segments"])
         lang = captions["language"]
-        progress(f"Manual captions found ({lang}, {n} segments). Running Gemini polish...")
-        result = gemini_polish_text(
-            segments=captions["segments"],
-            language_hint=lang,
-            note_id=note_id,
-        )
-        return result
+        progress(f"Manual captions found ({lang}, {n} segments).")
+        segments = captions["segments"]
+        # Captions arrive with text_english empty; since summary generation
+        # prefers text_english over text_original, mirror text_original when
+        # the source language is English so the summary has something to read.
+        if lang == "en":
+            for s in segments:
+                if not s.get("text_english"):
+                    s["text_english"] = s.get("text_original", "")
+        is_bilingual = lang != "en"  # captions don't auto-translate; summary below still works off text_original
+        key_topics: list = []
+        transcribe_tokens_in = 0
+        transcribe_tokens_out = 0
+    else:
+        # Stage 1b — audio download + transcribe.
+        progress("No manual captions. Downloading audio (this may take ~30s)...")
+        out_stem = audio_dir / f"{note_id}_url"
+        audio_path = download_audio(url, out_stem)
 
-    progress("No manual captions. Downloading audio (this may take ~30s)...")
-    out_stem = audio_dir / f"{note_id}_url"
-    audio_path = download_audio(url, out_stem)
+        progress("Audio downloaded. Running Gemini transcription (can take 1-5 min)...")
+        final_lang = language_hint if language_hint in ("zh", "ja", "ko", "en") else "en"
+        transcribe_result = gemini_batch_transcribe(audio_path, final_lang, note_id)
 
-    progress("Audio downloaded. Running Gemini transcription (can take 1-5 min)...")
-    final_lang = language_hint if language_hint in ("zh", "ja", "ko", "en") else "en"
-    result = gemini_batch_transcribe(audio_path, final_lang, note_id)
-    return result
+        if transcribe_result.get("error"):
+            # Bubble up the error without running summary on an empty transcript.
+            return {
+                "error": transcribe_result["error"],
+                "language": final_lang,
+                "is_bilingual": False,
+                "key_topics": [],
+                "segments": [],
+                "summary": _empty_summary(),
+                "text": "",
+                "input_tokens": transcribe_result.get("input_tokens", 0),
+                "output_tokens": transcribe_result.get("output_tokens", 0),
+            }
+
+        segments = transcribe_result.get("segments", []) or []
+        lang = transcribe_result.get("language", final_lang)
+        is_bilingual = bool(transcribe_result.get("is_bilingual", False))
+        key_topics = transcribe_result.get("key_topics", []) or []
+        transcribe_tokens_in = transcribe_result.get("input_tokens", 0)
+        transcribe_tokens_out = transcribe_result.get("output_tokens", 0)
+
+    # Stage 2 — summary (text-only, cheap).
+    progress(f"Generating AI summary from {len(segments)} segments...")
+    summary_result = gemini_generate_summary(
+        segments=segments,
+        language_hint=lang,
+        note_id=note_id,
+    )
+    summary = summary_result.get("summary") or _empty_summary()
+    summary_tokens_in = summary_result.get("input_tokens", 0)
+    summary_tokens_out = summary_result.get("output_tokens", 0)
+
+    # Build the flattened markdown form for polished_transcript storage / export.
+    text_md = _flatten_segments_to_markdown(segments, is_bilingual) if segments else ""
+
+    return {
+        "language": lang,
+        "is_bilingual": is_bilingual,
+        "key_topics": key_topics,
+        "segments": segments,
+        "summary": summary,
+        "text": text_md,
+        "input_tokens": transcribe_tokens_in + summary_tokens_in,
+        "output_tokens": transcribe_tokens_out + summary_tokens_out,
+    }

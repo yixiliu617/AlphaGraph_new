@@ -138,12 +138,22 @@ class FinancialMetrics(BaseModel):
     orders: List[str] = Field(default_factory=list)
 
 
+class NumberMention(BaseModel):
+    """A number mentioned in the meeting with its context.
+    - label: short description of what the number refers to
+    - value: the number itself (with units)
+    - quote: verbatim sentence from the transcript containing the number."""
+    label: str = ""
+    value: str = ""
+    quote: str = ""
+
+
 class MeetingSummary(BaseModel):
-    """Detailed structured summary produced by Gemini at polish time.
+    """Detailed structured summary produced by Gemini from a transcript.
     Rendered into the main editor (between user notes and raw transcript)."""
     storyline: str = ""
     key_points: List[KeyPoint] = Field(default_factory=list)
-    all_numbers: List[str] = Field(default_factory=list)
+    all_numbers: List[NumberMention] = Field(default_factory=list)
     recent_updates: List[str] = Field(default_factory=list)
     financial_metrics: FinancialMetrics = Field(default_factory=FinancialMetrics)
 

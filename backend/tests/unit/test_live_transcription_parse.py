@@ -102,7 +102,11 @@ SAMPLE_WITH_SUMMARY = {
                 ],
             }
         ],
-        "all_numbers": ["$2.1B Q1 revenue", "20% YoY growth", "42% gross margin"],
+        "all_numbers": [
+            {"label": "Q1 revenue", "value": "$2.1B", "quote": "Our Q1 revenue was $2.1B."},
+            {"label": "YoY growth rate", "value": "20%", "quote": "Revenue grew 20% year-over-year."},
+            {"label": "gross margin", "value": "42%", "quote": "Gross margin came in at 42%, up 200bps."},
+        ],
         "recent_updates": ["Closed the X acquisition last month", "Announced ARM partnership expansion"],
         "financial_metrics": {
             "revenue": ["Q1 revenue $2.1B, up 20% YoY"],
@@ -121,11 +125,53 @@ def test_parse_polish_response_extracts_summary():
     assert summary["key_points"][0]["title"] == "Revenue growth driven by ARM"
     assert len(summary["key_points"][0]["sub_points"]) == 1
     assert "ARM partnership shipments" in summary["key_points"][0]["sub_points"][0]["supporting"]
-    assert "$2.1B Q1 revenue" in summary["all_numbers"]
+    # all_numbers now carries {label, value, quote} entries.
+    assert len(summary["all_numbers"]) == 3
+    values = [n["value"] for n in summary["all_numbers"]]
+    assert "$2.1B" in values
+    assert "20%" in values
+    assert "42%" in values
+    # Label + quote preserved.
+    first = next(n for n in summary["all_numbers"] if n["value"] == "$2.1B")
+    assert first["label"] == "Q1 revenue"
+    assert "Our Q1 revenue was $2.1B" in first["quote"]
     assert "Closed the X acquisition last month" in summary["recent_updates"]
     assert summary["financial_metrics"]["revenue"] == ["Q1 revenue $2.1B, up 20% YoY"]
     assert summary["financial_metrics"]["profit"] == ["Operating margin 28%, up 200bps YoY"]
     assert summary["financial_metrics"]["orders"] == ["Backlog $8.5B, up 30% QoQ"]
+
+
+def test_parse_summary_coerces_legacy_string_numbers():
+    """Notes written before the NumberMention refactor had all_numbers as a
+    list of plain strings. The parser must still handle them by promoting each
+    string into a {label: '', value: str, quote: ''} object so rendering
+    doesn't crash on existing data."""
+    legacy = {"summary": {"all_numbers": ["$2.1B", "20% YoY", "42%"]}}
+    parsed = _parse_polish_response(json.dumps(legacy))
+    nums = parsed["summary"]["all_numbers"]
+    assert len(nums) == 3
+    assert all(set(n.keys()) == {"label", "value", "quote"} for n in nums)
+    assert nums[0] == {"label": "", "value": "$2.1B", "quote": ""}
+    assert nums[1]["value"] == "20% YoY"
+    assert nums[2]["value"] == "42%"
+
+
+def test_parse_summary_dedupes_number_mentions_by_label_and_value():
+    """Repetition spirals should collapse — but only when both value AND label
+    match. Two mentions of '50%' with different labels (e.g. 'gross margin' vs
+    'market share') should both be kept."""
+    data = {"summary": {"all_numbers": [
+        {"label": "Q1 revenue", "value": "$2.1B", "quote": "q1"},
+        {"label": "Q1 revenue", "value": "$2.1B", "quote": "q1 dup"},  # dup — dropped
+        {"label": "Q1 revenue", "value": "$2.1B", "quote": "q1 dup2"}, # dup — dropped
+        {"label": "gross margin", "value": "50%", "quote": "gm"},
+        {"label": "market share", "value": "50%", "quote": "ms"},      # same value, different label — kept
+    ]}}
+    parsed = _parse_polish_response(json.dumps(data))
+    nums = parsed["summary"]["all_numbers"]
+    assert len(nums) == 3, f"Expected 3 after dedupe, got {len(nums)}"
+    labels = sorted(n["label"] for n in nums)
+    assert labels == ["Q1 revenue", "gross margin", "market share"]
 
 
 def test_parse_polish_response_missing_summary_returns_empty_shape():
@@ -169,34 +215,37 @@ def test_parse_polish_response_repairs_truncated_json():
         "key_points": [
           {"title": "Point one", "sub_points": [{"text": "a", "supporting": "b"}]}
         ],
-        "all_numbers": ["$2.1B", "42%", "17 tri"""
+        "all_numbers": [
+          {"label": "Q1 revenue", "value": "$2.1B", "quote": "Q1 revenue was $2.1B."},
+          {"label": "gross margin", "value": "42%", "quote": "Margin hit 42%."},
+          {"label": "cash position", "value": "17 tri"""
     parsed = _parse_polish_response(truncated)
-    # Repair should recover the well-formed parts even though the last string was cut off.
+    # Repair should recover the well-formed parts even though the last entry was cut off.
     assert parsed["language"] == "en"
     assert parsed["key_topics"] == ["ARM", "AI"]
     assert len(parsed["segments"]) == 1
     assert parsed["summary"]["storyline"] == "Management walked through Q1."
     assert len(parsed["summary"]["key_points"]) == 1
-    # The all_numbers list should have recovered the first two complete entries
-    # plus possibly the truncated third as a best-effort.
-    assert "$2.1B" in parsed["summary"]["all_numbers"]
-    assert "42%" in parsed["summary"]["all_numbers"]
+    values = [n["value"] for n in parsed["summary"]["all_numbers"]]
+    assert "$2.1B" in values
+    assert "42%" in values
 
 
-def test_parse_polish_response_strips_repetition_loop():
-    """If Gemini spirals into a repetition loop in all_numbers, the repair
-    step should collapse the loop."""
+def test_parse_polish_response_strips_repetition_loop_on_legacy_string_numbers():
+    """Legacy notes (before NumberMention refactor) may still carry string-shaped
+    all_numbers with repetition loops. Dedupe should collapse them."""
     looped = '{"language":"en","is_bilingual":false,"key_topics":[],"segments":[],' \
              '"summary":{"storyline":"","key_points":[],' \
              '"all_numbers":["$1","$2","50%","50%","50%","50%","50%","50%","50%","50%","50%","50%"],' \
              '"recent_updates":[],"financial_metrics":{"revenue":[],"profit":[],"orders":[]}}}'
     parsed = _parse_polish_response(looped)
     numbers = parsed["summary"]["all_numbers"]
-    # Repetition of "50%" collapsed, but "$1" and "$2" preserved.
-    assert "$1" in numbers
-    assert "$2" in numbers
-    fifty_count = sum(1 for n in numbers if n == "50%")
-    assert fifty_count == 1, f"Expected exactly one '50%' after collapse, got {fifty_count}"
+    # After coercion + dedupe: one "$1", one "$2", one "50%".
+    assert len(numbers) == 3
+    values = [n["value"] for n in numbers]
+    assert "$1" in values
+    assert "$2" in values
+    assert "50%" in values
 
 
 def test_parse_polish_response_skips_malformed_sub_points():
@@ -223,39 +272,39 @@ def test_parse_polish_response_skips_malformed_sub_points():
 
 
 # ---------------------------------------------------------------------------
-# gemini_polish_text — text-input polish (URL ingest captions path)
+# gemini_generate_summary — text-only summary generation (stage 2 of the split
+# transcribe→summarise pipeline). Re-runnable without re-paying audio cost.
 # ---------------------------------------------------------------------------
 
-def test_gemini_polish_text_returns_same_shape_as_audio_path():
-    """gemini_polish_text produces a dict with the same keys that
-    gemini_batch_transcribe returns, so the downstream pipeline doesn't care
-    where the text came from. We mock the HTTP call so this runs offline."""
+def test_gemini_generate_summary_returns_summary_only():
+    """gemini_generate_summary returns ONLY the summary + token usage. It no
+    longer produces transcript fields — those come from gemini_batch_transcribe
+    in stage 1 of the pipeline."""
     from unittest.mock import patch
-    from backend.app.services.live_transcription import gemini_polish_text
+    from backend.app.services.live_transcription import gemini_generate_summary
 
-    # A canned Gemini response carrying a complete MeetingSummary.
     canned_response_json = {
         "candidates": [{
             "content": {"parts": [{"text": json.dumps({
-                "language": "en",
-                "is_bilingual": False,
-                "key_topics": ["test topic"],
-                "segments": [{
-                    "timestamp": "00:05",
-                    "speaker": "",
-                    "text_original": "Hello world.",
-                    "text_english": "Hello world.",
-                }],
-                "summary": {
-                    "storyline": "Short meeting.",
-                    "key_points": [],
-                    "all_numbers": [],
-                    "recent_updates": [],
-                    "financial_metrics": {"revenue": [], "profit": [], "orders": []},
+                "storyline": "A short test meeting.",
+                "key_points": [
+                    {"title": "Revenue growth", "sub_points": [
+                        {"text": "Grew 20%", "supporting": "Driven by ARM."}
+                    ]}
+                ],
+                "all_numbers": [
+                    {"label": "Q1 revenue", "value": "$2.1B", "quote": "Our Q1 revenue was $2.1B."},
+                    {"label": "growth rate", "value": "20%", "quote": "Revenue grew 20% year-over-year."},
+                ],
+                "recent_updates": ["Closed X acquisition"],
+                "financial_metrics": {
+                    "revenue": ["Q1 revenue $2.1B"],
+                    "profit": [],
+                    "orders": [],
                 },
             })}]}
         }],
-        "usageMetadata": {"promptTokenCount": 100, "candidatesTokenCount": 50},
+        "usageMetadata": {"promptTokenCount": 500, "candidatesTokenCount": 300},
     }
 
     class FakeResp:
@@ -265,47 +314,41 @@ def test_gemini_polish_text_returns_same_shape_as_audio_path():
     def fake_post(url, json=None, timeout=None):
         return FakeResp()
 
-    input_segments = [
-        {"timestamp": "00:05", "speaker": "", "text_original": "Hello world.", "text_english": ""},
-    ]
-
-    # Ensure API key is set so we don't trip the missing-key guard.
     import os
     os.environ["GEMINI_API_KEY"] = "test-key-for-unit-test"
     try:
         with patch("backend.app.services.live_transcription.requests.post", fake_post):
-            result = gemini_polish_text(
-                segments=input_segments,
+            result = gemini_generate_summary(
+                segments=[
+                    {"timestamp": "00:05", "speaker": "", "text_original": "Hello.", "text_english": "Hello."},
+                ],
                 language_hint="en",
                 note_id="test-note",
             )
     finally:
-        # Don't leak the stub key to other tests.
         os.environ.pop("GEMINI_API_KEY", None)
 
-    # Same keys as gemini_batch_transcribe returns.
-    assert "language" in result
-    assert "is_bilingual" in result
-    assert "key_topics" in result
-    assert "segments" in result
-    assert "summary" in result
-    assert "text" in result
-    assert "input_tokens" in result
-    assert "output_tokens" in result
+    # Shape: summary + token counts only. No transcript fields.
+    assert set(result.keys()) >= {"summary", "input_tokens", "output_tokens"}
+    assert "segments" not in result   # not this function's job
+    assert "language" not in result   # also not this function's job
 
-    # Parsed values survived the round-trip.
-    assert result["language"] == "en"
-    assert result["key_topics"] == ["test topic"]
-    assert len(result["segments"]) == 1
-    assert result["summary"]["storyline"] == "Short meeting."
+    summary = result["summary"]
+    assert summary["storyline"] == "A short test meeting."
+    assert len(summary["key_points"]) == 1
+    assert len(summary["all_numbers"]) == 2
+    first = summary["all_numbers"][0]
+    assert first["label"] == "Q1 revenue"
+    assert first["value"] == "$2.1B"
+    assert "$2.1B" in first["quote"]
 
 
-def test_gemini_polish_text_handles_no_api_key():
-    """Degrades to empty shape when GEMINI_API_KEY is unset. We patch the
-    os.environ lookup directly because load_dotenv() would otherwise rehydrate
-    the real key from the dev .env file."""
+def test_gemini_generate_summary_handles_no_api_key():
+    """Degrades to empty summary shape when GEMINI_API_KEY is unset. We patch
+    the os.environ lookup directly because load_dotenv() would otherwise
+    rehydrate the real key from the dev .env file."""
     from unittest.mock import patch
-    from backend.app.services.live_transcription import gemini_polish_text
+    from backend.app.services.live_transcription import gemini_generate_summary
 
     real_getenv = __import__("os").environ.get
 
@@ -315,7 +358,7 @@ def test_gemini_polish_text_handles_no_api_key():
         return real_getenv(key, default)
 
     with patch("backend.app.services.live_transcription.os.environ.get", side_effect=fake_getenv):
-        result = gemini_polish_text(
+        result = gemini_generate_summary(
             segments=[{"timestamp": "00:00", "speaker": "", "text_original": "x", "text_english": ""}],
             language_hint="en",
             note_id="test",
@@ -323,4 +366,25 @@ def test_gemini_polish_text_handles_no_api_key():
 
     assert "error" in result
     assert result["summary"]["storyline"] == ""
-    assert result["segments"] == []
+    assert result["summary"]["all_numbers"] == []
+
+
+def test_gemini_generate_summary_handles_empty_segments():
+    """No transcript content means nothing to summarise. Return empty without
+    burning a token."""
+    from backend.app.services.live_transcription import gemini_generate_summary
+
+    import os
+    os.environ["GEMINI_API_KEY"] = "test-key-for-unit-test"
+    try:
+        result = gemini_generate_summary(
+            segments=[{"timestamp": "", "speaker": "", "text_original": "", "text_english": ""}],
+            language_hint="en",
+            note_id="test",
+        )
+    finally:
+        os.environ.pop("GEMINI_API_KEY", None)
+
+    assert "error" in result
+    assert "No transcript content" in result["error"]
+    assert result["summary"]["storyline"] == ""

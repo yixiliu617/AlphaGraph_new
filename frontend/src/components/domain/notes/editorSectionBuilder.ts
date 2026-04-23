@@ -17,7 +17,12 @@
  */
 
 import type { Editor } from "@tiptap/react";
-import type { TranscriptLine, PolishedSegment, MeetingSummary } from "@/lib/api/notesClient";
+import type {
+  TranscriptLine,
+  PolishedSegment,
+  MeetingSummary,
+  NumberMention,
+} from "@/lib/api/notesClient";
 import type { SectionId } from "./sectionHeadingExtension";
 
 type Json = Record<string, unknown>;
@@ -178,10 +183,34 @@ export function buildAISummarySectionNodes(summary: MeetingSummary): Json[] {
     nodes.push(orderedList(items));
   }
 
-  // All numbers
+  // All numbers — new structured form: bold "label: value" line + blockquote
+  // of the verbatim transcript sentence. Legacy string entries (from notes
+  // written before the NumberMention refactor) are rendered as a single
+  // paragraph with just the value.
   if (summary.all_numbers && summary.all_numbers.length > 0) {
     nodes.push(heading3("All Numbers Mentioned"));
-    nodes.push(bulletList(summary.all_numbers.map((n) => simpleBullet(n))));
+    const items: Json[][] = (summary.all_numbers as Array<string | NumberMention>).map((entry) => {
+      // Legacy plain-string form.
+      if (typeof entry === "string") {
+        return [paragraph(entry)];
+      }
+      // New structured form: { label, value, quote }.
+      const n = entry as NumberMention;
+      const labelText = n.label ? `${n.label}: ${n.value}` : n.value;
+      const headerPara: Json = {
+        type: "paragraph",
+        content: [boldText(labelText || "(untitled)")],
+      };
+      const content: Json[] = [headerPara];
+      if (n.quote && n.quote.trim()) {
+        content.push({
+          type: "blockquote",
+          content: [paragraph(n.quote.trim())],
+        });
+      }
+      return content;
+    });
+    nodes.push(bulletList(items));
   }
 
   // Recent updates
