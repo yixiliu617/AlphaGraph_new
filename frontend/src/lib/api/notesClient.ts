@@ -31,6 +31,7 @@ export interface NoteStub {
   recording_path: string | null;
   recording_mode: string | null;
   duration_seconds: number | null;
+  source_url: string | null;
   transcript_lines: TranscriptLine[];
   polished_transcript: string | null;
   polished_transcript_language: string | null;
@@ -230,5 +231,11 @@ export const notesClient = {
   recordingWsUrl: (noteId: string, mode: "wasapi" | "browser" | "live_v2", language = "en-US") => {
     const base = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000";
     return `${base}/api/v1/notes/ws/recording/${noteId}?mode=${mode}&language=${language}`;
+  },
+
+  ingestUrlWsUrl: (noteId: string, sourceUrl: string, language = "auto") => {
+    const base = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000";
+    const qs = new URLSearchParams({ url: sourceUrl, language });
+    return `${base}/api/v1/notes/ws/ingest-url/${noteId}?${qs}`;
   },
 };

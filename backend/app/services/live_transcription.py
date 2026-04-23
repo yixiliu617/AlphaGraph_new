@@ -25,6 +25,8 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
+import requests
+
 VOCAB_DIR = Path(__file__).resolve().parents[2] / "tools" / "audio_recorder"
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
@@ -304,9 +306,10 @@ Rules:
 4. NEVER repeat a segment. If audio is unclear, emit a single segment with text_original="[audio unclear]".
 5. Preserve financial terminology and proper nouns exactly as spoken.
 6. Summary fields should be in English regardless of meeting language.
-7. If the meeting is short or light on content, still produce at least storyline + key_points with whatever is available; it is OK for all_numbers / financial_metrics lists to be empty."""
+7. If the meeting is short or light on content, still produce at least storyline + key_points with whatever is available; it is OK for all_numbers / financial_metrics lists to be empty.
+8. CRITICAL — no repetition loops: each entry in `all_numbers`, `recent_updates`, and `financial_metrics.*` must be unique. If you find yourself about to repeat a value, stop the list. Each list should be at most ~40 entries. The goal is a concise analyst-grade summary, NOT exhaustive enumeration.
+9. CRITICAL — keep JSON well-formed: if you are approaching the output-token budget, CUT the summary short (fewer segments, fewer bullets) rather than truncating mid-value. A short, complete JSON beats a long, truncated one."""
 
-    import requests
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
 
     resp = requests.post(
@@ -322,7 +325,7 @@ Rules:
                 "responseMimeType": "application/json",
             },
         },
-        timeout=900,
+        timeout=3600,  # 60 min — covers long earnings calls and podcasts (Q3 from plan)
     )
 
     if resp.status_code != 200:
@@ -363,37 +366,24 @@ def _parse_polish_response(raw_text: str) -> dict:
     """
     Parse Gemini's structured-output response. Returns a dict with keys:
     `language`, `is_bilingual`, `key_topics`, `segments`, `summary`, and
-    optionally `text_markdown_fallback` when we couldn't parse JSON.
+    optionally `text_markdown_fallback` when we couldn't parse JSON even after
+    repair.
+
+    Handles two common Gemini failure modes:
+      1. Valid JSON — fast path via `json.loads`.
+      2. Truncated JSON (output hit `maxOutputTokens`) — `json_repair` closes
+         dangling strings/arrays/objects and returns best-effort parse. Also
+         strips trailing repetition loops before repairing.
     """
     import json as _json
+
+    # Fast path: strict parse.
     try:
         data = _json.loads(raw_text)
-        segments = [
-            {
-                "timestamp": str(s.get("timestamp", "")),
-                "speaker": str(s.get("speaker", "")),
-                "text_original": str(s.get("text_original", "")),
-                "text_english": str(s.get("text_english", "")),
-            }
-            for s in (data.get("segments") or [])
-            if isinstance(s, dict)
-        ]
-        # Anti-repetition pass on the assembled segments (kept here rather than
-        # in the prompt because Gemini sometimes produces duplicates anyway).
-        deduped: list[dict] = []
-        for seg in segments:
-            if deduped and seg["text_original"] == deduped[-1]["text_original"]:
-                continue
-            deduped.append(seg)
+    except (ValueError, TypeError):
+        data = _repair_and_parse(raw_text)
 
-        return {
-            "language": str(data.get("language", "")),
-            "is_bilingual": bool(data.get("is_bilingual", False)),
-            "key_topics": [str(t) for t in (data.get("key_topics") or []) if t],
-            "segments": deduped,
-            "summary": _parse_summary(data.get("summary") or {}),
-        }
-    except (ValueError, KeyError, TypeError):
+    if not isinstance(data, dict):
         return {
             "language": "",
             "is_bilingual": False,
@@ -402,6 +392,74 @@ def _parse_polish_response(raw_text: str) -> dict:
             "summary": _empty_summary(),
             "text_markdown_fallback": raw_text,
         }
+
+    segments = [
+        {
+            "timestamp": str(s.get("timestamp", "")),
+            "speaker": str(s.get("speaker", "")),
+            "text_original": str(s.get("text_original", "")),
+            "text_english": str(s.get("text_english", "")),
+        }
+        for s in (data.get("segments") or [])
+        if isinstance(s, dict)
+    ]
+    # Anti-repetition pass on the assembled segments (kept here rather than
+    # in the prompt because Gemini sometimes produces duplicates anyway).
+    deduped: list[dict] = []
+    for seg in segments:
+        if deduped and seg["text_original"] == deduped[-1]["text_original"]:
+            continue
+        deduped.append(seg)
+
+    return {
+        "language": str(data.get("language", "")),
+        "is_bilingual": bool(data.get("is_bilingual", False)),
+        "key_topics": [str(t) for t in (data.get("key_topics") or []) if t],
+        "segments": deduped,
+        "summary": _parse_summary(data.get("summary") or {}),
+    }
+
+
+def _repair_and_parse(raw_text: str):
+    """Best-effort recovery when strict JSON parsing fails. Uses the
+    `json_repair` library, which handles common cases:
+      - truncated output (dangling strings, arrays, objects)
+      - trailing commas
+      - unquoted keys
+
+    Also strips trailing repetition loops before repairing, because Gemini
+    occasionally spirals on a short phrase (`"50%", "50%", ...`) and the
+    repair library treats each repetition as valid data.
+    """
+    try:
+        import json_repair
+    except ImportError:
+        return None
+
+    # Strip trailing repetition loops: if the last ~40 non-whitespace tokens
+    # are the same quoted string repeated, chop them back to a single copy.
+    cleaned = _strip_repetition_loop(raw_text)
+
+    try:
+        return json_repair.loads(cleaned)
+    except Exception:
+        return None
+
+
+def _strip_repetition_loop(raw: str) -> str:
+    """Heuristic: if the tail of the response is a quoted string repeated
+    at least 4 times (e.g. `"50%", "50%", "50%", "50%"`), collapse the tail
+    back to a single copy. Prevents the repair step from preserving the loop."""
+    import re as _re
+    # Match 4+ consecutive identical quoted strings (possibly with trailing comma/whitespace).
+    pattern = _re.compile(r'("([^"\\]|\\.)*?")(\s*,\s*\1){3,}')
+    while True:
+        m = pattern.search(raw)
+        if not m:
+            break
+        # Replace the whole matched loop with a single copy of the string.
+        raw = raw[: m.start()] + m.group(1) + raw[m.end():]
+    return raw
 
 
 def _empty_summary() -> dict:
@@ -416,10 +474,26 @@ def _empty_summary() -> dict:
     }
 
 
+def _dedupe_preserving_order(items: list) -> list:
+    """Remove duplicate strings while preserving first-seen order. Protects
+    against Gemini's occasional repetition loops in the list-valued summary
+    fields (all_numbers, recent_updates, financial_metrics.*)."""
+    seen = set()
+    out = []
+    for x in items:
+        key = str(x)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(x)
+    return out
+
+
 def _parse_summary(raw: dict) -> dict:
     """Parse and sanitise the `summary` sub-object from a Gemini response.
     Always returns a complete MeetingSummary shape — missing fields default
-    to empty lists / strings."""
+    to empty lists / strings. All list fields are de-duplicated (Gemini
+    occasionally emits the same value 10+ times in a repetition spiral)."""
     if not isinstance(raw, dict):
         return _empty_summary()
 
@@ -444,16 +518,16 @@ def _parse_summary(raw: dict) -> dict:
     if not isinstance(fm_raw, dict):
         fm_raw = {}
     financial_metrics = {
-        "revenue": [str(x) for x in (fm_raw.get("revenue") or []) if x],
-        "profit":  [str(x) for x in (fm_raw.get("profit")  or []) if x],
-        "orders":  [str(x) for x in (fm_raw.get("orders")  or []) if x],
+        "revenue": _dedupe_preserving_order([str(x) for x in (fm_raw.get("revenue") or []) if x]),
+        "profit":  _dedupe_preserving_order([str(x) for x in (fm_raw.get("profit")  or []) if x]),
+        "orders":  _dedupe_preserving_order([str(x) for x in (fm_raw.get("orders")  or []) if x]),
     }
 
     return {
         "storyline": str(raw.get("storyline", "")),
         "key_points": key_points,
-        "all_numbers": [str(n) for n in (raw.get("all_numbers") or []) if n],
-        "recent_updates": [str(u) for u in (raw.get("recent_updates") or []) if u],
+        "all_numbers": _dedupe_preserving_order([str(n) for n in (raw.get("all_numbers") or []) if n]),
+        "recent_updates": _dedupe_preserving_order([str(u) for u in (raw.get("recent_updates") or []) if u]),
         "financial_metrics": financial_metrics,
     }
 
@@ -483,3 +557,157 @@ def _flatten_segments_to_markdown(segments: list, is_bilingual: bool) -> str:
             txt = (s.get("text_original", "") or "").replace("|", "\\|").replace("\n", " ")
             lines.append(f"| {ts} | {txt} |")
         return "\n".join(lines)
+
+
+def gemini_polish_text(
+    segments: list,
+    language_hint: str = "en",
+    note_id: str = "",
+) -> dict:
+    """
+    Produce the full structured meeting-intelligence output from an already-
+    transcribed text (typically captions extracted from a YouTube video).
+
+    Input: segments in the same shape the rest of the pipeline uses, typically
+    from _parse_vtt in url_ingest_service — {timestamp, speaker, text_original,
+    text_english} (text_english can be blank; Gemini will fill it for non-EN).
+
+    Output: the same dict shape gemini_batch_transcribe returns.
+    """
+    from dotenv import load_dotenv
+    load_dotenv(PROJECT_ROOT / ".env")
+
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        return {
+            "error": "GEMINI_API_KEY not set",
+            "language": language_hint,
+            "is_bilingual": False,
+            "key_topics": [],
+            "segments": [],
+            "summary": _empty_summary(),
+            "text": "",
+            "input_tokens": 0,
+            "output_tokens": 0,
+        }
+
+    lang_names = {"zh": "Chinese", "ja": "Japanese", "ko": "Korean", "en": "English"}
+    lang_name = lang_names.get(language_hint, "English")
+
+    # Format the segments as a plain-text transcript that Gemini can reason over.
+    transcript_lines = []
+    for s in segments:
+        ts = s.get("timestamp", "")
+        text = s.get("text_original", "")
+        if text:
+            transcript_lines.append(f"[{ts}] {text}" if ts else text)
+    transcript_text = "\n".join(transcript_lines)
+
+    vocab_context = load_vocabulary(language_hint)
+
+    prompt = f"""{vocab_context}
+You are given a raw transcript extracted from subtitles / captions of a
+financial meeting, interview, or conference talk. The captions may contain
+minor errors (auto-generated or manually authored). Polish the transcript
+AND produce a detailed analyst-grade summary.
+
+Primary language: {lang_name} with possible English code-switching.
+
+RAW TRANSCRIPT (timestamps in brackets):
+{transcript_text[:30000]}
+
+Return ONLY valid JSON matching this exact schema:
+{{
+  "language": "{language_hint}",
+  "is_bilingual": true,
+  "key_topics": ["topic1", "topic2", ...],
+  "segments": [
+    {{
+      "timestamp": "MM:SS",
+      "speaker": "speaker name or role if you can infer one, else empty string",
+      "text_original": "the transcript segment in its primary language",
+      "text_english": "English translation of this segment"
+    }}
+  ],
+  "summary": {{
+    "storyline": "1-2 paragraph narrative of how the meeting flowed, in English",
+    "key_points": [
+      {{
+        "title": "short title (3-8 words)",
+        "sub_points": [
+          {{
+            "text": "the sub-point itself, one sentence",
+            "supporting": "2-3 sentence supporting argument grounded in what was said"
+          }}
+        ]
+      }}
+    ],
+    "all_numbers": ["every numeric value mentioned with brief context"],
+    "recent_updates": ["recent events / launches / partnerships / personnel changes"],
+    "financial_metrics": {{
+      "revenue": ["revenue-related mentions"],
+      "profit": ["profit / margin / operating income mentions"],
+      "orders": ["backlog / order book / bookings mentions"]
+    }}
+  }}
+}}
+
+Rules:
+1. Preserve the original timestamps from the input. Adjust or merge only if two
+   consecutive segments belong to the same thought.
+2. Provide `text_english` for every segment. For English input, set
+   `text_english` equal to `text_original` and `is_bilingual` to false.
+3. NEVER fabricate numbers or quotes that weren't in the input. Summary fields
+   must be grounded in the raw transcript.
+4. Preserve financial terminology and proper nouns exactly as spoken.
+5. Summary fields should be in English regardless of meeting language.
+6. If the transcript is short or light on content, still produce storyline +
+   key_points; it is OK for all_numbers / financial_metrics lists to be empty.
+"""
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+
+    resp = requests.post(
+        url,
+        json={
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0.2,
+                "maxOutputTokens": 65536,
+                "responseMimeType": "application/json",
+            },
+        },
+        timeout=600,
+    )
+
+    if resp.status_code != 200:
+        return {
+            "error": f"Gemini API error: {resp.status_code}",
+            "language": language_hint,
+            "is_bilingual": False,
+            "key_topics": [],
+            "segments": [],
+            "summary": _empty_summary(),
+            "text": "",
+            "input_tokens": 0,
+            "output_tokens": 0,
+        }
+
+    result = resp.json()
+    raw_text = result["candidates"][0]["content"]["parts"][0]["text"]
+    usage = result.get("usageMetadata", {})
+
+    parsed = _parse_polish_response(raw_text)
+    text_md = _flatten_segments_to_markdown(parsed["segments"], parsed["is_bilingual"]) \
+        if parsed["segments"] else parsed.get("text_markdown_fallback", "")
+
+    return {
+        "language": parsed["language"] or language_hint,
+        "is_bilingual": parsed["is_bilingual"],
+        "key_topics": parsed["key_topics"],
+        "segments": parsed["segments"],
+        "summary": parsed["summary"],
+        "text": text_md,
+        "input_tokens": usage.get("promptTokenCount", 0),
+        "output_tokens": usage.get("candidatesTokenCount", 0),
+    }

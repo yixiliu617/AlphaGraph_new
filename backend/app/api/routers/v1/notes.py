@@ -1084,3 +1084,139 @@ async def _run_live_v2_session(
             await websocket.send_json({"type": "error", "message": str(e)})
         except Exception:
             pass
+
+
+# ---------------------------------------------------------------------------
+# URL Ingest — populate a note from a YouTube / podcast / video URL
+# ---------------------------------------------------------------------------
+
+@router.websocket("/ws/ingest-url/{note_id}")
+async def ingest_url_websocket(
+    websocket: WebSocket,
+    note_id: str,
+    url: str = Query(...),
+    language: str = Query(default="auto"),
+):
+    """
+    Stream URL-ingest progress + final polished transcript to the client.
+
+    Protocol (identical to the live_v2 recording flow where overlapping):
+      server -> client: {type: "status", message: str}
+      server -> client: {type: "polished_transcript", text, language,
+                         is_bilingual, key_topics, segments, summary,
+                         input_tokens, output_tokens}
+      server -> client: {type: "status", status: "complete", message: str}
+      server -> client: {type: "error", message: str}
+    """
+    await websocket.accept()
+
+    import logging
+    from backend.app.services.url_ingest_service import ingest_url
+
+    logger = logging.getLogger("ingest_url_ws")
+
+    # Re-use the audio dir the recording path uses so we don't sprawl.
+    audio_dir = Path(__file__).resolve().parents[5] / "tools" / "audio_recorder" / "recordings"
+    audio_dir.mkdir(parents=True, exist_ok=True)
+
+    loop = asyncio.get_event_loop()
+    progress_queue: asyncio.Queue = asyncio.Queue()
+
+    def progress_cb(message: str) -> None:
+        """Called from the worker thread — hands status strings to the event loop."""
+        loop.call_soon_threadsafe(progress_queue.put_nowait, message)
+
+    async def drain_progress_until(done_event: asyncio.Event):
+        """Forward any queued progress messages to the client until the worker signals done."""
+        while not done_event.is_set() or not progress_queue.empty():
+            try:
+                msg = await asyncio.wait_for(progress_queue.get(), timeout=0.2)
+                await websocket.send_json({"type": "status", "message": msg})
+            except asyncio.TimeoutError:
+                continue
+
+    try:
+        done = asyncio.Event()
+        result_holder: dict = {}
+        error_holder: dict = {}
+
+        def worker():
+            try:
+                result_holder["result"] = ingest_url(
+                    url=url,
+                    note_id=note_id,
+                    language_hint=language,
+                    audio_dir=audio_dir,
+                    progress=progress_cb,
+                )
+            except Exception as exc:
+                logger.exception("URL ingest failed")
+                error_holder["error"] = str(exc)
+            finally:
+                loop.call_soon_threadsafe(done.set)
+
+        worker_task = asyncio.create_task(asyncio.to_thread(worker))
+        drain_task = asyncio.create_task(drain_progress_until(done))
+
+        await worker_task
+        await drain_task
+
+        if "error" in error_holder:
+            await websocket.send_json({"type": "error", "message": error_holder["error"]})
+            return
+
+        result = result_holder.get("result") or {}
+        if result.get("error"):
+            await websocket.send_json({"type": "error", "message": result["error"]})
+            return
+
+        # Persist polished transcript + summary + source_url.
+        from backend.app.db.session import SessionLocal
+        db2 = SessionLocal()
+        try:
+            svc = NotesService(db2)
+            svc.save_polished_transcript(
+                note_id=note_id,
+                tenant_id=TENANT_ID,
+                markdown=result.get("text", ""),
+                language=result.get("language", language),
+                meta={
+                    "input_tokens": result.get("input_tokens", 0),
+                    "output_tokens": result.get("output_tokens", 0),
+                    "model": "gemini-2.5-flash",
+                    "ran_at": datetime.utcnow().isoformat(),
+                    "is_bilingual": result.get("is_bilingual", False),
+                    "key_topics": result.get("key_topics", []),
+                    "segments": result.get("segments", []),
+                    "summary": result.get("summary") or {},
+                    "source_url": url,
+                },
+            )
+            svc.update_note(note_id, TENANT_ID, source_url=url)
+        finally:
+            db2.close()
+
+        await websocket.send_json({
+            "type": "polished_transcript",
+            "text": result.get("text", ""),
+            "language": result.get("language", language),
+            "is_bilingual": result.get("is_bilingual", False),
+            "key_topics": result.get("key_topics", []),
+            "segments": result.get("segments", []),
+            "summary": result.get("summary") or {},
+            "input_tokens": result.get("input_tokens", 0),
+            "output_tokens": result.get("output_tokens", 0),
+        })
+        await websocket.send_json({
+            "type": "status", "status": "complete",
+            "message": "URL ingest complete.",
+        })
+
+    except WebSocketDisconnect:
+        pass
+    except Exception as exc:
+        logger.exception("URL ingest WS error")
+        try:
+            await websocket.send_json({"type": "error", "message": str(exc)})
+        except Exception:
+            pass

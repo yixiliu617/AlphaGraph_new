@@ -36,6 +36,9 @@ class MeetingNoteORM(Base):
     recording_path = Column(String, nullable=True)
     recording_mode = Column(String, nullable=True)   # "wasapi" | "browser"
     duration_seconds = Column(Integer, nullable=True)
+    # Set when the note was populated from a URL (YouTube / podcast / video).
+    # null for mic/system-audio recordings.
+    source_url = Column(String, nullable=True)
 
     # JSON list of TranscriptLine dicts
     transcript_lines = Column(JSON, default=list)

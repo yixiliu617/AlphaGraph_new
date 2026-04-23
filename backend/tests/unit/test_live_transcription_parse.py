@@ -153,6 +153,52 @@ def test_parse_polish_response_non_json_includes_empty_summary():
     }
 
 
+def test_parse_polish_response_repairs_truncated_json():
+    """Gemini occasionally hits maxOutputTokens mid-output and truncates the
+    JSON. Our repair path (json_repair) should recover everything up to the
+    truncation point."""
+    truncated = """{
+      "language": "en",
+      "is_bilingual": false,
+      "key_topics": ["ARM", "AI"],
+      "segments": [
+        {"timestamp": "00:05", "speaker": "CEO", "text_original": "Hello.", "text_english": "Hello."}
+      ],
+      "summary": {
+        "storyline": "Management walked through Q1.",
+        "key_points": [
+          {"title": "Point one", "sub_points": [{"text": "a", "supporting": "b"}]}
+        ],
+        "all_numbers": ["$2.1B", "42%", "17 tri"""
+    parsed = _parse_polish_response(truncated)
+    # Repair should recover the well-formed parts even though the last string was cut off.
+    assert parsed["language"] == "en"
+    assert parsed["key_topics"] == ["ARM", "AI"]
+    assert len(parsed["segments"]) == 1
+    assert parsed["summary"]["storyline"] == "Management walked through Q1."
+    assert len(parsed["summary"]["key_points"]) == 1
+    # The all_numbers list should have recovered the first two complete entries
+    # plus possibly the truncated third as a best-effort.
+    assert "$2.1B" in parsed["summary"]["all_numbers"]
+    assert "42%" in parsed["summary"]["all_numbers"]
+
+
+def test_parse_polish_response_strips_repetition_loop():
+    """If Gemini spirals into a repetition loop in all_numbers, the repair
+    step should collapse the loop."""
+    looped = '{"language":"en","is_bilingual":false,"key_topics":[],"segments":[],' \
+             '"summary":{"storyline":"","key_points":[],' \
+             '"all_numbers":["$1","$2","50%","50%","50%","50%","50%","50%","50%","50%","50%","50%"],' \
+             '"recent_updates":[],"financial_metrics":{"revenue":[],"profit":[],"orders":[]}}}'
+    parsed = _parse_polish_response(looped)
+    numbers = parsed["summary"]["all_numbers"]
+    # Repetition of "50%" collapsed, but "$1" and "$2" preserved.
+    assert "$1" in numbers
+    assert "$2" in numbers
+    fifty_count = sum(1 for n in numbers if n == "50%")
+    assert fifty_count == 1, f"Expected exactly one '50%' after collapse, got {fifty_count}"
+
+
 def test_parse_polish_response_skips_malformed_sub_points():
     """Resilience: non-dict sub_points entries are filtered out."""
     data = {
@@ -174,3 +220,107 @@ def test_parse_polish_response_skips_malformed_sub_points():
     kp = parsed["summary"]["key_points"][0]
     assert len(kp["sub_points"]) == 1
     assert kp["sub_points"][0]["text"] == "good sub"
+
+
+# ---------------------------------------------------------------------------
+# gemini_polish_text — text-input polish (URL ingest captions path)
+# ---------------------------------------------------------------------------
+
+def test_gemini_polish_text_returns_same_shape_as_audio_path():
+    """gemini_polish_text produces a dict with the same keys that
+    gemini_batch_transcribe returns, so the downstream pipeline doesn't care
+    where the text came from. We mock the HTTP call so this runs offline."""
+    from unittest.mock import patch
+    from backend.app.services.live_transcription import gemini_polish_text
+
+    # A canned Gemini response carrying a complete MeetingSummary.
+    canned_response_json = {
+        "candidates": [{
+            "content": {"parts": [{"text": json.dumps({
+                "language": "en",
+                "is_bilingual": False,
+                "key_topics": ["test topic"],
+                "segments": [{
+                    "timestamp": "00:05",
+                    "speaker": "",
+                    "text_original": "Hello world.",
+                    "text_english": "Hello world.",
+                }],
+                "summary": {
+                    "storyline": "Short meeting.",
+                    "key_points": [],
+                    "all_numbers": [],
+                    "recent_updates": [],
+                    "financial_metrics": {"revenue": [], "profit": [], "orders": []},
+                },
+            })}]}
+        }],
+        "usageMetadata": {"promptTokenCount": 100, "candidatesTokenCount": 50},
+    }
+
+    class FakeResp:
+        status_code = 200
+        def json(self): return canned_response_json
+
+    def fake_post(url, json=None, timeout=None):
+        return FakeResp()
+
+    input_segments = [
+        {"timestamp": "00:05", "speaker": "", "text_original": "Hello world.", "text_english": ""},
+    ]
+
+    # Ensure API key is set so we don't trip the missing-key guard.
+    import os
+    os.environ["GEMINI_API_KEY"] = "test-key-for-unit-test"
+    try:
+        with patch("backend.app.services.live_transcription.requests.post", fake_post):
+            result = gemini_polish_text(
+                segments=input_segments,
+                language_hint="en",
+                note_id="test-note",
+            )
+    finally:
+        # Don't leak the stub key to other tests.
+        os.environ.pop("GEMINI_API_KEY", None)
+
+    # Same keys as gemini_batch_transcribe returns.
+    assert "language" in result
+    assert "is_bilingual" in result
+    assert "key_topics" in result
+    assert "segments" in result
+    assert "summary" in result
+    assert "text" in result
+    assert "input_tokens" in result
+    assert "output_tokens" in result
+
+    # Parsed values survived the round-trip.
+    assert result["language"] == "en"
+    assert result["key_topics"] == ["test topic"]
+    assert len(result["segments"]) == 1
+    assert result["summary"]["storyline"] == "Short meeting."
+
+
+def test_gemini_polish_text_handles_no_api_key():
+    """Degrades to empty shape when GEMINI_API_KEY is unset. We patch the
+    os.environ lookup directly because load_dotenv() would otherwise rehydrate
+    the real key from the dev .env file."""
+    from unittest.mock import patch
+    from backend.app.services.live_transcription import gemini_polish_text
+
+    real_getenv = __import__("os").environ.get
+
+    def fake_getenv(key, default=None):
+        if key == "GEMINI_API_KEY":
+            return None
+        return real_getenv(key, default)
+
+    with patch("backend.app.services.live_transcription.os.environ.get", side_effect=fake_getenv):
+        result = gemini_polish_text(
+            segments=[{"timestamp": "00:00", "speaker": "", "text_original": "x", "text_english": ""}],
+            language_hint="en",
+            note_id="test",
+        )
+
+    assert "error" in result
+    assert result["summary"]["storyline"] == ""
+    assert result["segments"] == []

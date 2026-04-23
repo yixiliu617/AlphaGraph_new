@@ -5,7 +5,7 @@
 // ---------------------------------------------------------------------------
 
 import { useRef, useEffect } from "react";
-import { ArrowLeft, Mic, Save, CheckCircle, Sparkles } from "lucide-react";
+import { ArrowLeft, Mic, Save, CheckCircle, Sparkles, Link2, RefreshCw } from "lucide-react";
 import type { Editor } from "@tiptap/react";
 import type { NoteStub, TranscriptLine, PolishedSegment, MeetingSummary } from "@/lib/api/notesClient";
 import RichTextEditor from "@/components/domain/notes/RichTextEditor";
@@ -13,6 +13,7 @@ import NoteSearchPanel from "@/components/domain/notes/NoteSearchPanel";
 import RecordingPanel from "@/components/domain/notes/RecordingPanel";
 import PostMeetingWizard from "@/components/domain/notes/PostMeetingWizard";
 import MeetingIntelligencePanel from "@/components/domain/notes/MeetingIntelligencePanel";
+import UrlIngestModal from "@/components/domain/notes/UrlIngestModal";
 
 const NOTE_TYPE_LABELS: Record<string, string> = {
   meeting_transcript: "Meeting Transcript",
@@ -61,12 +62,29 @@ interface Props {
   onMarkComplete: () => Promise<void>;
   onStartAISummary: () => void;
   onEditorReady: (editor: Editor) => void;
+  showUrlIngestModal: boolean;
+  onOpenUrlIngest: () => void;
+  onCloseUrlIngest: () => void;
+  onUrlIngestComplete: (
+    lines: TranscriptLine[],
+    durationSeconds: number,
+    polished: {
+      segments: PolishedSegment[];
+      language: string;
+      is_bilingual: boolean;
+      key_topics: string[];
+      summary: MeetingSummary | null;
+    } | null,
+    sourceUrl: string,
+  ) => void;
+  onRegenerateSections: () => Promise<void>;
 }
 
 export default function NotesEditorView({
-  note, isSaving, showRecordingPopup,
+  note, isSaving, showRecordingPopup, showUrlIngestModal,
   onBack, onTitleChange, onContentChange,
   onOpenRecording, onCloseRecording, onRecordingComplete,
+  onOpenUrlIngest, onCloseUrlIngest, onUrlIngestComplete, onRegenerateSections,
   onSaveSpeakers, onExtractTopics, onDelta, onMarkComplete, onStartAISummary,
   onEditorReady,
 }: Props) {
@@ -124,6 +142,20 @@ export default function NotesEditorView({
           <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${NOTE_TYPE_COLORS[note.note_type] ?? "bg-slate-100 text-slate-500"}`}>
             {NOTE_TYPE_LABELS[note.note_type] ?? note.note_type}
           </span>
+
+          {/* Ingested-from chip — present when the note was populated from a URL */}
+          {note.source_url && (
+            <a
+              href={note.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium bg-slate-50 text-slate-600 border border-slate-200 rounded-full hover:bg-slate-100 hover:text-indigo-700 transition-colors max-w-[220px] truncate"
+              title={note.source_url}
+            >
+              <Link2 size={10} />
+              <span className="truncate">Ingested from URL</span>
+            </a>
+          )}
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
@@ -152,6 +184,32 @@ export default function NotesEditorView({
               AI Summary
             </button>
           )}
+
+          {/* Regenerate-from-saved button — only shown when the note has saved
+           * polished data but the editor might be out of sync (e.g. truncated
+           * initial parse, or user cleared the sections). Pulls polished_transcript_meta
+           * from the DB and re-runs the client-side section builders — NO Gemini call,
+           * NO token spend. */}
+          {((note.polished_transcript_meta?.segments?.length ?? 0) > 0 ||
+            Boolean(note.polished_transcript_meta?.summary?.storyline)) && (
+            <button
+              onClick={onRegenerateSections}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-50 text-slate-700 border border-slate-200 rounded-md hover:bg-slate-100 transition-colors"
+              title="Re-render AI summary + transcript sections from saved data (no Gemini call)"
+            >
+              <RefreshCw size={13} />
+              Re-render
+            </button>
+          )}
+
+          {/* Ingest URL button */}
+          <button
+            onClick={onOpenUrlIngest}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-md hover:bg-indigo-100 transition-colors"
+          >
+            <Link2 size={13} />
+            Ingest URL
+          </button>
 
           {/* Record button */}
           <button
@@ -249,6 +307,15 @@ export default function NotesEditorView({
           )}
         </div>
       </div>
+
+      {/* URL ingest modal */}
+      {showUrlIngestModal && (
+        <UrlIngestModal
+          noteId={note.note_id}
+          onClose={onCloseUrlIngest}
+          onComplete={onUrlIngestComplete}
+        />
+      )}
     </div>
   );
 }

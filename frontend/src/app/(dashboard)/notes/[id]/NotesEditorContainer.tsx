@@ -30,8 +30,9 @@ export default function NotesEditorContainer({ noteId }: Props) {
   const router = useRouter();
   const { updateNote } = useNotesStore();
   const {
-    note, isSaving, isDirty, showRecordingPopup,
-    setNote, clearNote, setSaving, setDirty, setShowRecordingPopup, patchNote,
+    note, isSaving, isDirty, showRecordingPopup, showUrlIngestModal,
+    setNote, clearNote, setSaving, setDirty, setShowRecordingPopup,
+    setShowUrlIngestModal, patchNote,
   } = useNoteEditorStore();
 
   // Auto-save timer
@@ -202,6 +203,106 @@ export default function NotesEditorContainer({ noteId }: Props) {
     [note, setNote, updateNote, patchNote, setShowRecordingPopup]
   );
 
+  // Rebuild the editor's AI sections from the already-saved polished data.
+  // Used when a previous ingest completed but the editor didn't get populated
+  // (e.g. Gemini returned truncated JSON and only later got repaired server-side).
+  // NO Gemini call, NO token spend — just re-runs the client-side builders.
+  const handleRegenerateSections = useCallback(async () => {
+    if (!note) return;
+    // Pull the freshest copy of the note in case fields were updated server-side
+    // (e.g. after running the backend repair script).
+    const fresh = await notesClient.get(note.note_id);
+    const source = fresh.success && fresh.data ? fresh.data : note;
+    if (fresh.success && fresh.data) {
+      setNote(fresh.data);
+      updateNote(fresh.data);
+    }
+
+    const meta = source.polished_transcript_meta;
+    const segments = (meta?.segments ?? []) as PolishedSegment[];
+    const summary = (meta?.summary ?? null) as MeetingSummary | null;
+    const isBilingual = Boolean(meta?.is_bilingual);
+
+    // Synthesise transcript lines from the polished segments so the raw
+    // transcript section gets populated too.
+    const lines: TranscriptLine[] = segments.map((s, idx) => ({
+      line_id: idx + 1,
+      timestamp: s.timestamp,
+      speaker_label: s.speaker || "",
+      speaker_name: null,
+      text: s.text_original,
+      is_flagged: false,
+      is_interim: false,
+    }));
+
+    if (editorRef.current) {
+      const editor = editorRef.current;
+      insertOrReplaceSection(editor, "user_notes", buildUserNotesHeadingNodes());
+      if (summary) {
+        insertOrReplaceSection(editor, "ai_summary", buildAISummarySectionNodes(summary));
+      }
+      if (lines.length > 0) {
+        insertOrReplaceSection(editor, "raw_transcript", buildRawTranscriptSectionNodes(lines));
+      }
+      if (segments.length > 0) {
+        insertOrReplaceSection(
+          editor,
+          "polished_transcript",
+          buildPolishedTranscriptSectionNodes(segments, isBilingual),
+        );
+      }
+    }
+  }, [note, setNote, updateNote]);
+
+  // URL ingest: same output shape as recording, plus a source_url to persist.
+  // The backend already wrote polished_transcript + meta + source_url, so we
+  // refresh from the server and then run the same editor-insert flow recording
+  // uses.
+  const handleUrlIngestComplete = useCallback(
+    async (
+      lines: TranscriptLine[],
+      durationSeconds: number,
+      polished: {
+        segments: PolishedSegment[];
+        language: string;
+        is_bilingual: boolean;
+        key_topics: string[];
+        summary: MeetingSummary | null;
+      } | null,
+      _sourceUrl: string,
+    ) => {
+      if (!note) return;
+
+      const fresh = await notesClient.get(note.note_id);
+      if (fresh.success && fresh.data) {
+        setNote(fresh.data);
+        updateNote(fresh.data);
+      }
+
+      if (editorRef.current) {
+        const editor = editorRef.current;
+        insertOrReplaceSection(editor, "user_notes", buildUserNotesHeadingNodes());
+        if (polished && polished.summary) {
+          insertOrReplaceSection(editor, "ai_summary", buildAISummarySectionNodes(polished.summary));
+        }
+        insertOrReplaceSection(editor, "raw_transcript", buildRawTranscriptSectionNodes(lines));
+        if (polished && polished.segments.length > 0) {
+          insertOrReplaceSection(
+            editor,
+            "polished_transcript",
+            buildPolishedTranscriptSectionNodes(polished.segments, polished.is_bilingual),
+          );
+        }
+      }
+
+      setShowUrlIngestModal(false);
+      // Silence the unused-duration lint; recording carries duration but URL
+      // ingest doesn't (yet). Kept for signature parity.
+      void durationSeconds;
+    },
+    [note, setNote, updateNote, setShowUrlIngestModal],
+  );
+
   if (!note) {
     return (
       <div className="flex items-center justify-center h-full text-sm text-slate-400">
@@ -215,12 +316,17 @@ export default function NotesEditorContainer({ noteId }: Props) {
       note={note}
       isSaving={isSaving}
       showRecordingPopup={showRecordingPopup}
+      showUrlIngestModal={showUrlIngestModal}
       onBack={() => router.push("/notes")}
       onTitleChange={handleTitleChange}
       onContentChange={handleContentChange}
       onOpenRecording={() => setShowRecordingPopup(true)}
       onCloseRecording={() => setShowRecordingPopup(false)}
       onRecordingComplete={handleRecordingComplete}
+      onOpenUrlIngest={() => setShowUrlIngestModal(true)}
+      onCloseUrlIngest={() => setShowUrlIngestModal(false)}
+      onUrlIngestComplete={handleUrlIngestComplete}
+      onRegenerateSections={handleRegenerateSections}
       onSaveSpeakers={handleSaveSpeakers}
       onExtractTopics={handleExtractTopics}
       onDelta={handleDelta}

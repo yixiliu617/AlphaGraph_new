@@ -84,6 +84,7 @@ class NotesService:
         company_tickers: Optional[List[str]] = None,
         meeting_date: Optional[str] = None,
         recording_path: Optional[str] = None,
+        source_url: Optional[str] = None,
     ) -> Optional[MeetingNote]:
         row = self._fetch(note_id, tenant_id)
         if not row:
@@ -100,6 +101,8 @@ class NotesService:
             row.meeting_date = meeting_date
         if recording_path is not None:
             row.recording_path = recording_path
+        if source_url is not None:
+            row.source_url = source_url
         row.updated_at = datetime.utcnow()
         self.db.commit()
         self.db.refresh(row)
@@ -217,6 +220,7 @@ class NotesService:
             recording_path=note.recording_path,
             recording_mode=note.recording_mode,
             duration_seconds=note.duration_seconds,
+            source_url=note.source_url,
             transcript_lines=[l.model_dump() for l in note.transcript_lines],
             polished_transcript=note.polished_transcript,
             polished_transcript_language=note.polished_transcript_language,
@@ -244,6 +248,7 @@ class NotesService:
             recording_path=row.recording_path,
             recording_mode=row.recording_mode,
             duration_seconds=row.duration_seconds,
+            source_url=row.source_url,
             transcript_lines=[
                 TranscriptLine(**l) for l in (row.transcript_lines or [])
             ],

@@ -175,6 +175,8 @@ class MeetingNote(BaseModel):
     recording_mode: Optional[RecordingMode] = None
     duration_seconds: Optional[int] = None
     transcript_lines: List[TranscriptLine] = Field(default_factory=list)
+    # Set when the note was populated from a URL (YouTube / podcast / video).
+    source_url: Optional[str] = None
 
     # Polished transcript from the post-meeting Gemini pass
     polished_transcript: Optional[str] = None
