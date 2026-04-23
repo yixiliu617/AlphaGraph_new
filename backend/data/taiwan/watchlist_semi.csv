@@ -1,0 +1,52 @@
+ticker,name,market,sector,subsector,notes
+2330,TSMC,TWSE,Semiconductors,Foundry,
+2303,UMC,TWSE,Semiconductors,Foundry,
+5347,VIS,TWSE,Semiconductors,Foundry,Vanguard International Semiconductor
+6770,PSMC,TWSE,Semiconductors,Foundry,Powerchip Semiconductor Manufacturing
+2454,MediaTek,TWSE,Semiconductors,IC Design,
+2379,Realtek,TWSE,Semiconductors,IC Design,
+3034,Novatek,TWSE,Semiconductors,IC Design,
+8299,Phison,TPEx,Semiconductors,IC Design,NAND controllers
+6415,Silergy,TWSE,Semiconductors,IC Design,Analog / power
+3443,Global Unichip,TWSE,Semiconductors,IC Design,ASIC design services (GUC)
+3035,Faraday Technology,TWSE,Semiconductors,IC Design,ASIC / IP
+3014,Elan Microelectronics,TWSE,Semiconductors,IC Design,Touch controllers
+4961,Ali Corporation,TWSE,Semiconductors,IC Design,STB / display
+3257,Himax Technologies,TWSE,Semiconductors,IC Design,Display driver IC (also NASDAQ:HIMX)
+2408,Nanya Technology,TWSE,Semiconductors,Memory,Commodity DRAM
+2337,Macronix,TWSE,Semiconductors,Memory,NOR / NAND
+2344,Winbond,TWSE,Semiconductors,Memory,Specialty DRAM / MCU / NOR
+8110,Walton Advanced,TPEx,Semiconductors,Memory,Memory packaging / module
+6239,Powertech Technology,TWSE,Semiconductors,Memory,Memory assembly / test
+3260,Adata Technology,TWSE,Semiconductors,DRAM Module,
+2451,Transcend Information,TWSE,Semiconductors,DRAM Module,
+4967,Team Group,TWSE,Semiconductors,DRAM Module,
+3711,ASE Technology Holding,TWSE,Semiconductors,OSAT,Packaging / assembly / test
+8150,ChipMos Technologies,TWSE,Semiconductors,OSAT,LCD driver / memory test
+2449,King Yuan Electronics,TWSE,Semiconductors,OSAT,Testing specialist (KYEC)
+3264,Ardentec,TWSE,Semiconductors,OSAT,Testing
+2441,Greatek Electronics,TWSE,Semiconductors,OSAT,Packaging / lead frame
+6147,Chipbond Technology,TPEx,Semiconductors,OSAT,Driver IC bumping / packaging
+6488,GlobalWafers,TPEx,Semiconductors,Wafer,Silicon wafers
+5483,Sino-American Silicon,TPEx,Semiconductors,Wafer,SAS — silicon wafers
+3105,WIN Semiconductors,TPEx,Semiconductors,Wafer,GaAs / compound semi
+3680,Gudeng Precision,TWSE,Semiconductors,Equipment,Wafer carriers / EUV pods
+6643,M31 Technology,TPEx,Semiconductors,Equipment,Silicon IP
+8021,Topoint Technology,TPEx,Semiconductors,Equipment,PCB drilling / semi equipment
+2338,Taiwan Mask,TWSE,Semiconductors,Equipment,Photomask
+3037,Unimicron,TWSE,Semiconductors,PCB/Substrate,ABF substrate
+8046,Nan Ya PCB,TWSE,Semiconductors,PCB/Substrate,ABF substrate
+3189,Kinsus Interconnect,TWSE,Semiconductors,PCB/Substrate,ABF substrate
+2368,Gold Circuit Electronics,TWSE,Semiconductors,PCB/Substrate,
+3044,Tripod Technology,TWSE,Semiconductors,PCB/Substrate,
+2316,WUS Printed Circuit,TWSE,Semiconductors,PCB/Substrate,
+1717,Eternal Materials,TWSE,Semiconductors,Materials,Photoresist / specialty chemicals
+8070,Chang Wah Electromaterials,TWSE,Semiconductors,Materials,Leadframes
+3008,Largan Precision,TWSE,Semiconductors,Optical,Lens modules
+3406,Genius Electronic Optical,TWSE,Semiconductors,Optical,Lens modules (GSEO)
+2317,Hon Hai,TWSE,Semiconductors,Server EMS,Foxconn — semi-adjacent via AI-server assembly
+4938,Pegatron,TWSE,Semiconductors,Server EMS,
+2382,Quanta Computer,TWSE,Semiconductors,Server EMS,AI-server ODM
+3231,Wistron,TWSE,Semiconductors,Server EMS,AI-server ODM
+2356,Inventec,TWSE,Semiconductors,Server EMS,
+2357,ASUS,TWSE,Semiconductors,Server EMS,
