@@ -11,6 +11,7 @@ import {
   NotebookPen,
   Settings,
   MessageSquare,
+  Flag,
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -25,6 +26,7 @@ const TABS = [
   { name: "Library", href: "/library", icon: Library },
   { name: "Notes", href: "/notes", icon: NotebookPen },
   { name: "Social Media", href: "/social-media", icon: MessageSquare },
+  { name: "Taiwan", href: "/taiwan", icon: Flag },
   { name: "Synthesis", href: "/synthesis", icon: PenTool },
   { name: "Monitors", href: "/monitors", icon: Activity },
 ];

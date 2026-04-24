@@ -1,0 +1,17 @@
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/node_modules
+frontend/.next
+!frontend/.next/standalone
+.git
+.venv
+venv
+*.pyc
+*.pyo
+backend/data/**/_raw
+backend/data/**/data.parquet
+backend/data/**/history.parquet
+tools/audio_recorder/recordings
+tools/web_scraper/scrape_log.txt
+.claude/
