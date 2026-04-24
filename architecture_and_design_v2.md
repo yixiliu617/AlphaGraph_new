@@ -621,3 +621,164 @@ tools/audio_recorder/
 - Frontend: `app/(dashboard)/notes/` with Container/View pattern
 - Backend: `api/routers/v1/notes.py` for transcript storage/retrieval
 - AI Summary: LLM extraction of key points, action items, searchable metadata
+
+---
+
+## 12. Taiwan Monthly-Revenue Subsystem
+
+Ingests monthly revenue (月營收) for a curated 51-ticker Taiwan
+semiconductor-ecosystem watchlist. End-to-end coverage: 1999-03 → live
+current month, both TWSE (上市) and TPEx (上櫃) listings, with amendment
+history tracked per ticker-month.
+
+### 12.1 Three-Source Blend
+
+One parquet dataset, three complementary sources:
+
+```
+┌──────────────────────┬─────────────────────────┬────────────────────────────┐
+│ Source               │ Coverage                │ Role                       │
+├──────────────────────┼─────────────────────────┼────────────────────────────┤
+│ MOPS t146sb05_detail │ rolling last 12 months  │ LIVE — regulatory source   │
+│ (Playwright/CDP)     │ per ticker              │ of truth; all watchlist    │
+│                      │                         │ companies, authoritative   │
+├──────────────────────┼─────────────────────────┼────────────────────────────┤
+│ TWSE C04003 ZIP      │ 1999-03 → prior month   │ BACKFILL — bulk, domestic  │
+│ /staticFiles/...zip  │ (325 months)            │ TWSE main board only       │
+├──────────────────────┼─────────────────────────┼────────────────────────────┤
+│ TPEx O_YYYYMM.xls    │ 2009-12 → prior month   │ BACKFILL — bulk, TPEx      │
+│ /storage/...xls      │ (196 months)            │ (上櫃) companies only       │
+├──────────────────────┼─────────────────────────┼────────────────────────────┤
+│ MOPS t05st02         │ one day at a time       │ SUPPLEMENT — voluntary     │
+│ (material info)      │                         │ early-warning signal       │
+│                      │                         │ (~5% of tickers, not       │
+│                      │                         │  required for filing)      │
+└──────────────────────┴─────────────────────────┴────────────────────────────┘
+```
+
+### 12.2 Storage Layout
+
+```
+backend/data/taiwan/
+├── watchlist_semi.csv                 # 51-ticker input (committed)
+├── monthly_revenue/
+│   ├── data.parquet                   # the analytical dataset (gitignored)
+│   └── history.parquet                # amendment trail (older row versions)
+├── _raw/                              # raw captures — gitignored; rebuildable
+│   ├── twse_zip/{YYYYMM}_C04003.zip
+│   ├── tpex_xls/O_{YYYYMM}.xls
+│   └── monthly_revenue/{ticker}/{YM}_detail.json
+└── _registry/
+    └── mops_company_master.parquet    # ticker → market + sector cache
+```
+
+### 12.3 Parquet Schema (one row = one ticker-month)
+
+| column | type | example |
+|---|---|---|
+| ticker | str | `2330` |
+| market | str | `TWSE` / `TPEx` / `Emerging` |
+| fiscal_ym | str | `2026-03` |
+| revenue_twd | int64 | `415_191_699_000` (full TWD) |
+| yoy_pct | float64 | `0.4519` (1.0 = 100%) |
+| mom_pct | float64 | `0.3070` |
+| ytd_pct | float64 | `0.3513` |
+| cumulative_ytd_twd | int64 | `1_134_103_440_000` |
+| prior_year_month_twd | int64 | `285_956_830_000` |
+| first_seen_at | datetime UTC | `2026-04-24T02:17:33Z` |
+| last_seen_at | datetime UTC | `2026-04-24T02:17:33Z` |
+| content_hash | str | `sha256(canonical row JSON)` |
+| amended | bool | `false` |
+
+**Upsert semantics** (backend/app/services/taiwan/amendments.py):
+- `(ticker, fiscal_ym)` not seen before → INSERT, hash the value
+- seen before with same hash → TOUCH_ONLY (bump `last_seen_at`, nothing else)
+- seen before with different hash → AMEND (copy prior row to `history.parquet`, overwrite primary, set `amended=True`)
+
+### 12.4 Live-Tracking Architecture
+
+Monthly revenue must be filed to MOPS **by the 10th of the following
+month** (Taiwan Securities and Exchange Act). Peak publication spans the
+1st-15th. Our scheduler matches that cadence:
+
+```
+                           publication window (1st-15th TPE)
+                           │ bursty 17:00-23:00 TPE weekdays │
+      daily 10:00 TPE      │                                 │
+─────●─────────────────────●─────────────────────────────────●────────────────
+     │                     │                                 │
+     │       window-active poll: every 30 min @ :00,:30       │
+     │       via same t146sb05_detail per-ticker call         │
+     │                                                        │
+     └─ fallback daily tick outside the window (16th-31st)   ┘
+```
+
+Cadence details:
+
+- **Daily 10:00 TPE (always):** `monthly_revenue_daily` — poll
+  `t146sb05_detail` for all 51 tickers. Each ticker is ~500ms inside a
+  warmed CDP browser context; total tick ~25-45s.
+- **Every 30 min, 1st-15th of each month:** `monthly_revenue_window` —
+  same endpoint, same code, higher frequency because that's when
+  companies actually file. A file that lands at 19:47 TPE is visible
+  to users within 30 min.
+- **Monthly 1st @ 03:00 TPE:** `company_master_refresh` — re-resolve
+  watchlist via `KeywordsQuery` (market + sector drift).
+- **Weekly Sun 03:00 TPE:** `twse_weekly_patch` + `tpex_weekly_patch` —
+  download prior-month bulk files; catch amendments the per-ticker
+  endpoint missed.
+- **Hourly:** `health_check` — reads `taiwan_scraper_heartbeat` SQLite
+  table; logs WARN on any scraper stale beyond 2× its cadence.
+
+### 12.5 Why we do NOT use material-info (t05st02) as primary live source
+
+An 11-day scan of April 2026 material-info announcements (our watchlist
+filing-window measurement) found:
+
+- 2,104 total announcements from all Taiwan issuers
+- 94 revenue-flavored (keywords: 營業額 / 營業收入 / 月份營收 / 自結 / 合併營收) = **4.5%**
+- **Only 1 of our 51 watchlist tickers** (2454 MediaTek) posted a
+  revenue-flavored material-info announcement in the entire window
+- 75 unique tickers market-wide filed voluntary revenue material info
+
+Material information is **elective, not the mandatory filing**. The
+authoritative monthly-revenue filing is the structured `t05st10` form,
+which surfaces in `t146sb05_detail` within minutes of submission.
+Material info is a supplement — useful for tickers who posted
+material info BEFORE filing the formal record (rare in our watchlist),
+but it misses ~98% of filings.
+
+**Decision:** `t146sb05_detail` is the primary live source.
+`t05st02` is kept in the scraper suite as an optional supplement for
+future per-ticker early-warning use cases, not as a required channel.
+
+### 12.6 Observability
+
+- **SQLite `taiwan_scraper_heartbeat`** — one row per scraper name, updated on every run with `rows_inserted`, `rows_updated`, `rows_amended`, `last_error_msg`, `status ∈ {ok, degraded, failed}`, `last_run_at`, `last_success_at`.
+- **`GET /api/v1/taiwan/health`** — returns the heartbeat rows annotated with `lag_seconds` since last success.
+- **Frontend `TaiwanHealthIndicator`** in `/taiwan` tab header — coloured dot + tooltip listing each scraper's status.
+- **Amendment signal (TODO):** emit a distinct event when `amended=True` upserts occur so the UI can surface "TSMC restated Feb 2026 at 2026-04-15".
+
+### 12.7 Module Layout
+
+```
+backend/app/services/taiwan/
+├── mops_client.py               # Playwright/CDP JSON client (persistent ctx)
+├── mops_client_browser.py       # CDP Chrome launcher
+├── storage.py                   # parquet + raw capture + S3 mirror (opt)
+├── amendments.py                # content-hash upsert decisions
+├── validation.py                # schema invariants as flags (never drop)
+├── registry.py                  # watchlist CSV + ticker→market cache
+├── health.py                    # SQLite heartbeat table
+├── scheduler.py                 # APScheduler entry (TPE timezone)
+└── scrapers/
+    ├── company_master.py        # KeywordsQuery-driven market/sector resolver
+    ├── monthly_revenue.py       # live: t146sb05_detail per ticker
+    ├── twse_historical.py       # backfill: TWSE C04003 ZIPs → XLS
+    └── tpex_historical.py       # backfill: TPEx O_YYYYMM.xls
+```
+
+Full endpoint catalog, corner-case playbook (28 items across MOPS,
+TWSE, TPEx, and Python-3.13 TLS quirks), and a step-by-step
+rediscovery guide for when MOPS or TWSE redesigns next are in
+`.claude/skills/taiwan-monthly-data-extraction/SKILL.md`.

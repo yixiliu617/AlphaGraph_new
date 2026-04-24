@@ -418,6 +418,77 @@ A ticker not yet in the bulk archives (e.g. just IPO'd) still gets
 coverage from MOPS's 12-month window, and the bulk archives pick it up
 from the next publication.
 
+## Material-Information (t05st02) — SUPPLEMENT, not primary
+
+MOPS's 重大訊息 / material-information announcement stream at
+`/mops/api/t05st02` looks like a live signal at first glance (filings
+like "公告本公司2026年3月合併營業額" appear there seconds after submission).
+**It is elective, not the regulatory filing channel.**
+
+Measured coverage (April 2026 publication window, 1st-11th):
+
+| metric | count | % |
+|---|---|---|
+| total material-info announcements, all issuers, 11 days | 2,104 | 100% |
+| revenue-flavored (營業額 / 營業收入 / 月份營收 / 自結 / 合併營收) | 94 | 4.5% |
+| market-wide unique tickers that filed revenue material info | 75 | ~4% of all listings |
+| **our 51-ticker watchlist that used this channel** | **1 (MediaTek)** | **2%** |
+
+Peak activity is 1st–10th; 4th–6th (weekend) drops nearly to zero; the
+10th explodes (421 announcements, 28 revenue) because it's the filing
+deadline. Everyone files, but almost no one files via material info.
+
+### When to still use t05st02
+
+- **Early-warning for specific tickers** — a small subset of tickers
+  (MediaTek in our watchlist, others market-wide) reliably post
+  material info a few hours to a day BEFORE the formal filing hits
+  t146sb05_detail. Running a lightweight t05st02 poll every 15-30 min
+  during the window gives a head-start on those specific tickers.
+- **Out-of-band amendment announcements** — a company may post
+  material info explaining a restated prior-month figure BEFORE the
+  amended row surfaces in t146sb05_detail.
+
+### API shape
+
+```
+POST /mops/api/t05st02
+body:   {"year": "115", "month": "04", "day": "10"}  # ROC year as string; month + day zero-padded
+→ result.data: list of [announce_date, time, ticker, name, subject, {parameters, apiName}]
+  Subjects for revenue filings look like:
+    "公告本公司115年3月合併營業額"
+    "公告本公司自行結算115年03月合併營收"
+    "公告本公司115年3月份營業收入"
+```
+
+### Filter heuristic
+
+```python
+_REVENUE_KEYWORDS = ("營業額", "營業收入", "月份營收", "自結", "合併營收")
+is_revenue_filing = any(k in subject for k in _REVENUE_KEYWORDS)
+```
+
+Catch with fuzzy-OR; don't try to be too strict — filers use
+inconsistent phrasing. False positives are harmless because the row
+gets cross-checked against `t146sb05_detail` anyway.
+
+### Why the filing SHOWS in MOPS but NOT in material info
+
+The official monthly-revenue filing goes through the structured form
+`t05st10` (the one MOPS pushes issuers to use). It does NOT
+automatically post to 重大訊息 — that's a separate, company-elected
+channel used for items the filer wants to call extra attention to.
+Most companies just file via `t05st10` and let the data surface
+through `t146sb05_detail` (and the downstream TWSE/TPEx archives).
+
+### Design implication
+
+t05st02 is now documented as a **supplement** in the three-source
+blend, not the primary live channel. The primary live source remains
+`t146sb05_detail` polled per-ticker on a 30-minute cadence during the
+1st-15th publication window. This is cheap (51 calls × ~500ms in a
+warmed CDP context ≈ 25s/tick) and captures 100% of filings, not 2%.
+
 ## Minimal Fetch Template
 
 ```python
