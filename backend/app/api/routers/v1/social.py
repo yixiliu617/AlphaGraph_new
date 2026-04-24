@@ -251,24 +251,40 @@ def news_articles(
     if group and has_cluster:
         # Cluster-aware mode: one row per cluster_id = the is_primary row.
         # sibling_count = articles_in_cluster - 1.
-        counts = df.groupby("cluster_id").size().rename("_sibling_plus_one")
-        # Primary per cluster = is_primary True, fallback to earliest article
-        primary_mask = df["is_primary"].fillna(False).astype(bool)
-        primaries = df[primary_mask].copy()
+        # Rows without a cluster_id (e.g. historical data that predates the
+        # clustering migration) pass through as singletons so nothing gets
+        # dropped from the UI while the recluster backfill is still running.
+        with_cluster = df[df["cluster_id"].notna()].copy()
+        without_cluster = df[df["cluster_id"].isna()].copy()
+
+        counts = with_cluster.groupby("cluster_id").size().rename("_sibling_plus_one")
+        primary_mask = with_cluster["is_primary"].fillna(False).astype(bool)
+        primaries = with_cluster[primary_mask].copy()
 
         # Edge case: some clusters may have zero is_primary=True rows (e.g.
         # old rows with no primary flag). Fall back to the first row of
         # each such cluster.
-        missing_cids = set(df["cluster_id"].unique()) - set(primaries["cluster_id"].unique())
+        missing_cids = (
+            set(with_cluster["cluster_id"].unique())
+            - set(primaries["cluster_id"].unique())
+        )
         if missing_cids:
             fallback = (
-                df[df["cluster_id"].isin(missing_cids)]
+                with_cluster[with_cluster["cluster_id"].isin(missing_cids)]
                 .sort_values("pub_iso", ascending=False)
                 .drop_duplicates(subset=["cluster_id"], keep="first")
             )
             primaries = pd.concat([primaries, fallback], ignore_index=True)
 
         primaries = primaries.merge(counts, on="cluster_id", how="left")
+
+        # Append un-clustered singletons with sibling_count = 0 (themselves).
+        if len(without_cluster) > 0:
+            without_cluster["_sibling_plus_one"] = 1
+            primaries = pd.concat([primaries, without_cluster], ignore_index=True)
+
+        # Defensive: any residual NaN in the count → treat as singleton.
+        primaries["_sibling_plus_one"] = primaries["_sibling_plus_one"].fillna(1).astype(int)
 
         if not feed and not keyword and not source:
             per_feed = max(limit // max(primaries["feed_label"].nunique(), 1), 20)
@@ -283,7 +299,8 @@ def news_articles(
         out = []
         for _, r in primaries.iterrows():
             art = _article_dict(r, has_title_en=has_title_en)
-            art["sibling_count"] = max(int(r["_sibling_plus_one"]) - 1, 0)
+            sib_plus_one = r["_sibling_plus_one"]
+            art["sibling_count"] = max(int(sib_plus_one) - 1, 0) if pd.notna(sib_plus_one) else 0
             out.append(art)
         return {"articles": out, "total": len(out), "grouped": True}
 
