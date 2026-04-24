@@ -21,8 +21,8 @@
       "region": "US"
     },
     "ai_bottlenecks": {
-      "label": "AI bottlenecks",
-      "query": "\"AI bottleneck\" AI shortage",
+      "label": "AI Bottlenecks, Shortages & Delays",
+      "query": "(AI OR GPU OR HBM OR \"AI chip\" OR \"AI infrastructure\" OR \"data center\" OR training OR inference OR \"AI compute\") (bottleneck OR shortage OR constraint OR delay OR \"ramp delay\" OR \"supply constraint\" OR \"capacity constraint\" OR backlog OR \"lead time\" OR \"production delay\" OR \"shipment delay\" OR \"ship date slip\" OR allocation OR undersupply)",
       "region": "US"
     },
     "datacenter_cooling": {
@@ -32,7 +32,7 @@
     },
     "ai_power": {
       "label": "AI Power & Energy",
-      "query": "\"AI power\" OR \"data center\" power deal OR PPA OR nuclear OR \"small modular reactor\" OR \"natural gas\" AI OR \"grid capacity\" OR \"power purchase\" datacenter OR Vistra OR Constellation OR NRG OR \"energy infrastructure\" AI OR transformer utility OR \"electricity demand\" AI",
+      "query": "\"AI power\" OR \"data center power\" power deal OR PPA OR nuclear OR \"small modular reactor\" OR \"natural gas\" AI OR \"grid capacity\" OR \"power purchase\" datacenter OR Vistra OR Constellation OR NRG OR \"energy infrastructure\" AI OR transformer utility OR \"electricity demand\" AI",
       "region": "US"
     },
     "gpu_datacenter": {
@@ -82,22 +82,22 @@
     },
     "taiwan_semi_en": {
       "label": "Taiwan Semi (English)",
-      "query": "MediaTek OR UMC OR \"ASE Technology\" OR \"Hon Hai\" OR Foxconn semiconductor OR \"Taiwan chip\" OR \"Taiwan semiconductor industry\" OR \"Taiwan MOEA\" semiconductor OR \"Taiwan CHIPS\"",
+      "query": "(TSMC OR MediaTek OR UMC OR \"ASE Technology\" OR \"Hon Hai\" OR Foxconn OR Realtek OR Nanya OR Phison OR GlobalWafers OR \"Silergy\" OR \"Vanguard International\" OR \"Sino-American Silicon\" OR \"Taiwan semiconductor\" OR \"Taiwan chip\") (ramp OR fab OR \"new product\" OR \"product launch\" OR \"production start\" OR \"mass production\" OR capacity OR campus OR \"ground breaking\" OR \"groundbreaking\" OR \"customer win\" OR \"design win\" OR partnership OR supplier OR \"deal with\" OR expansion OR investment OR yield OR \"Arizona fab\" OR \"US fab\" OR \"Japan fab\" OR \"Kumamoto\" OR \"new foundry\" OR \"supply agreement\" OR \"joint venture\" OR \"TPU supplier\" OR \"AI chip\" partnership OR acquires OR acquisition) -stock -shares -surge -surges -fell -rally -jumps",
       "region": "US"
     },
     "taiwan_semi_tw": {
       "label": "Taiwan Semi (Chinese)",
-      "query": "台積電 OR 聯發科 OR 日月光 OR 聯電 OR 半導體 OR 先進封裝",
+      "query": "(台積電 OR 聯發科 OR 日月光 OR 聯電 OR 鴻海 OR 瑞昱 OR 南亞科 OR 群聯 OR 環球晶圓 OR 矽力-KY OR 台灣半導體 OR 世界先進 OR 中美晶 OR 半導體 OR 先進封裝) (量產 OR 擴廠 OR 新廠 OR 新產品 OR 產品發表 OR 合作 OR 客戶 OR 供應鏈 OR 產能 OR 設計 OR 亞利桑那 OR 熊本 OR 美國廠 OR 日本廠 OR 2奈米 OR 3奈米 OR 投資 OR 良率 OR 併購 OR 收購 OR 合資 OR 拿下訂單) -股價 -股價跌 -股價漲 -外資 -內資",
       "region": "CN"
     },
     "japan_semi_en": {
       "label": "Japan Semi (English)",
-      "query": "Rapidus OR \"Tokyo Electron\" OR Renesas OR Kioxia OR \"Japan semiconductor\" OR \"Disco Corporation\" OR \"Screen Holdings\"",
+      "query": "(Rapidus OR \"Tokyo Electron\" OR Renesas OR Kioxia OR Sony OR \"Disco Corporation\" OR \"Screen Holdings\" OR \"Shin-Etsu\" OR SUMCO OR Murata OR \"Japan semiconductor\" OR Kumamoto OR Hokkaido) (ramp OR fab OR \"mass production\" OR \"production start\" OR capacity OR campus OR \"customer win\" OR \"supply agreement\" OR partnership OR \"2nm\" OR \"2 nm\" OR \"fab expansion\" OR \"government subsidy\" OR METI OR \"new foundry\" OR \"new product\" OR yield OR acquires OR acquisition OR \"joint venture\") -stock -shares -surge -fell -rally",
       "region": "US"
     },
     "japan_semi_jp": {
       "label": "Japan Semi (Japanese)",
-      "query": "ラピダス OR 東京エレクトロン OR ルネサス OR キオクシア OR 半導体 OR ディスコ",
+      "query": "(ラピダス OR 東京エレクトロン OR ルネサス OR キオクシア OR ソニー OR ディスコ OR スクリーン OR 信越化学 OR SUMCO OR 村田製作所 OR 半導体 OR 熊本工場 OR 北海道工場) (量産 OR 増設 OR 新工場 OR 新製品 OR 投資 OR 顧客 OR 供給 OR 提携 OR 受注 OR 拡張 OR 立ち上げ OR 補助金 OR 経産省 OR 2ナノ OR 3ナノ OR 歩留まり OR 買収 OR 合弁) -株価 -決算",
       "region": "JP"
     },
     "korea_semi_en": {
