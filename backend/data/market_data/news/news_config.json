@@ -10,14 +10,9 @@
       "query": "\"AI tool\" OR \"AI feature\" OR \"AI-powered\" OR \"generative AI\" enterprise OR Canva AI OR Adobe AI OR Atlassian AI OR Salesforce AI OR Microsoft Copilot OR \"Apple Intelligence\" OR Siri AI OR \"AI SaaS\" OR \"agentic\" software OR \"AI security\" OR \"AI healthcare\" OR \"AI coding\" OR Cursor OR Windsurf",
       "region": "US"
     },
-    "ai_startup_funding": {
-      "label": "AI Funding / VC / IPO / M&A",
-      "query": "\"AI startup\" OR \"AI company\" funding OR raised OR acquisition OR merger OR IPO OR SPAC OR valuation OR \"Series A\" OR \"Series B\" OR \"venture capital\" AI OR \"AI unicorn\"",
-      "region": "US"
-    },
-    "ai_startup_revenue": {
-      "label": "AI Startup Revenue & ARR",
-      "query": "\"AI startup\" OR \"AI company\" ARR OR revenue OR growth OR customers OR \"annual recurring\" OR adoption OR market share OR churn",
+    "ai_business_dynamics": {
+      "label": "AI Business Dynamics (Funding + Revenue + M&A)",
+      "query": "\"AI startup\" OR \"AI company\" funding OR raised OR acquisition OR merger OR IPO OR SPAC OR valuation OR \"Series A\" OR \"Series B\" OR \"Series C\" OR \"venture capital\" AI OR \"AI unicorn\" OR ARR OR revenue OR \"annual recurring\" OR adoption OR \"market share\" OR churn",
       "region": "US"
     },
     "datacenter_neocloud": {
@@ -87,7 +82,7 @@
     },
     "taiwan_semi_en": {
       "label": "Taiwan Semi (English)",
-      "query": "TSMC OR UMC OR ASE OR MediaTek OR \"Taiwan semiconductor\" OR CoWoS",
+      "query": "MediaTek OR UMC OR \"ASE Technology\" OR \"Hon Hai\" OR Foxconn semiconductor OR \"Taiwan chip\" OR \"Taiwan semiconductor industry\" OR \"Taiwan MOEA\" semiconductor OR \"Taiwan CHIPS\"",
       "region": "US"
     },
     "taiwan_semi_tw": {
@@ -107,7 +102,7 @@
     },
     "korea_semi_en": {
       "label": "Korea Semi (English)",
-      "query": "Samsung OR \"SK Hynix\" semiconductor OR DRAM OR NAND OR HBM OR foundry",
+      "query": "Samsung Electronics chip OR \"SK Hynix\" foundry OR \"Korea semiconductor\" policy OR Gyeonggi fab OR \"Yongin cluster\" OR \"Korean chip exports\"",
       "region": "US"
     },
     "korea_semi_kr": {
@@ -123,21 +118,6 @@
     "regulation_ai": {
       "label": "Regulation: AI Policy",
       "query": "\"AI regulation\" OR \"AI policy\" OR \"AI safety\" legislation OR \"executive order\" AI OR \"EU AI Act\" OR \"AI governance\" OR \"AI ethics\" law",
-      "region": "US"
-    },
-    "regulation_healthcare": {
-      "label": "Regulation: Healthcare & Biotech",
-      "query": "FDA AI OR \"healthcare regulation\" OR \"drug pricing\" OR \"biotech regulation\" OR \"medical device\" AI OR \"clinical trial\" AI OR \"digital health\" regulation",
-      "region": "US"
-    },
-    "macro_geopolitics": {
-      "label": "Macro: Geopolitics & Trade",
-      "query": "\"US China\" technology OR trade OR \"Middle East\" oil OR Iran sanctions OR \"Taiwan strait\" OR \"chip war\" geopolitics OR BRICS semiconductor",
-      "region": "US"
-    },
-    "macro_economy": {
-      "label": "Macro: Economy & Markets",
-      "query": "CPI OR inflation OR \"interest rate\" Fed OR \"oil price\" OR recession OR \"economic outlook\" OR \"market crash\" OR \"bond yield\" OR \"dollar\" currency OR \"GDP growth\"",
       "region": "US"
     }
   },

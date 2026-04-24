@@ -56,3 +56,4 @@ NUL
 
 # Misc
 *.log
+logs/
