@@ -1,0 +1,592 @@
+{
+  "validated_at": "2026-04-24T10:49:16.627143+00:00",
+  "valid": [
+    {
+      "handle": "Alibaba_Qwen",
+      "requested_handle": "Alibaba_Qwen",
+      "user_id": "1753339277386342400",
+      "name": "Qwen",
+      "followers": 203343,
+      "tweet_count": 862,
+      "tier": "ai_model_companies_china",
+      "note": "Qwen (Alibaba)"
+    },
+    {
+      "handle": "deepseek_ai",
+      "requested_handle": "deepseek_ai",
+      "user_id": "1714580962569588736",
+      "name": "DeepSeek",
+      "followers": 985100,
+      "tweet_count": 164,
+      "tier": "ai_model_companies_china",
+      "note": "DeepSeek"
+    },
+    {
+      "handle": "Kimi_Moonshot",
+      "requested_handle": "Kimi_Moonshot",
+      "user_id": "1863959670169501696",
+      "name": "Kimi.ai",
+      "followers": 163612,
+      "tweet_count": 350,
+      "tier": "ai_model_companies_china",
+      "note": "Moonshot (Kimi)"
+    },
+    {
+      "handle": "MiniMax_AI",
+      "requested_handle": "MiniMax_AI",
+      "user_id": "1875078099538423808",
+      "name": "MiniMax (official)",
+      "followers": 88228,
+      "tweet_count": 1282,
+      "tier": "ai_model_companies_china",
+      "note": "MiniMax"
+    },
+    {
+      "handle": "ZhipuAI",
+      "requested_handle": "ZhipuAI",
+      "user_id": "1716260935805841408",
+      "name": "ZhipuAI by BigModel",
+      "followers": 633,
+      "tweet_count": 1,
+      "tier": "ai_model_companies_china",
+      "note": "Zhipu AI / GLM"
+    },
+    {
+      "handle": "AIatMeta",
+      "requested_handle": "AIatMeta",
+      "user_id": "1034844617261248512",
+      "name": "AI at Meta",
+      "followers": 789026,
+      "tweet_count": 2606,
+      "tier": "ai_model_companies_us",
+      "note": "Meta AI / FAIR"
+    },
+    {
+      "handle": "AnthropicAI",
+      "requested_handle": "AnthropicAI",
+      "user_id": "1353836358901501952",
+      "name": "Anthropic",
+      "followers": 1194681,
+      "tweet_count": 1499,
+      "tier": "ai_model_companies_us",
+      "note": "Anthropic corporate"
+    },
+    {
+      "handle": "cohere",
+      "requested_handle": "cohere",
+      "user_id": "1326237414025801729",
+      "name": "Cohere",
+      "followers": 110760,
+      "tweet_count": 1871,
+      "tier": "ai_model_companies_us",
+      "note": "Cohere (Canada)"
+    },
+    {
+      "handle": "GoogleDeepMind",
+      "requested_handle": "GoogleDeepMind",
+      "user_id": "4783690002",
+      "name": "Google DeepMind",
+      "followers": 1408410,
+      "tweet_count": 4351,
+      "tier": "ai_model_companies_us",
+      "note": "DeepMind"
+    },
+    {
+      "handle": "huggingface",
+      "requested_handle": "HuggingFace",
+      "user_id": "778764142412984320",
+      "name": "Hugging Face",
+      "followers": 672238,
+      "tweet_count": 13324,
+      "tier": "ai_model_companies_us",
+      "note": "HuggingFace"
+    },
+    {
+      "handle": "inflectionAI",
+      "requested_handle": "inflectionAI",
+      "user_id": "1483922739488600064",
+      "name": "Inflection AI",
+      "followers": 49163,
+      "tweet_count": 80,
+      "tier": "ai_model_companies_us",
+      "note": "Inflection AI"
+    },
+    {
+      "handle": "MistralAI",
+      "requested_handle": "MistralAI",
+      "user_id": "1667249535519805451",
+      "name": "Mistral AI",
+      "followers": 179777,
+      "tweet_count": 137,
+      "tier": "ai_model_companies_us",
+      "note": "Mistral AI (France)"
+    },
+    {
+      "handle": "OpenAI",
+      "requested_handle": "OpenAI",
+      "user_id": "4398626122",
+      "name": "OpenAI",
+      "followers": 4768026,
+      "tweet_count": 1787,
+      "tier": "ai_model_companies_us",
+      "note": "OpenAI corporate"
+    },
+    {
+      "handle": "perplexity_ai",
+      "requested_handle": "perplexity_ai",
+      "user_id": "1599587232175849472",
+      "name": "Perplexity",
+      "followers": 481039,
+      "tweet_count": 1032,
+      "tier": "ai_model_companies_us",
+      "note": "Perplexity"
+    },
+    {
+      "handle": "runwayml",
+      "requested_handle": "runwayml",
+      "user_id": "1001114465692200960",
+      "name": "Runway",
+      "followers": 274902,
+      "tweet_count": 2738,
+      "tier": "ai_model_companies_us",
+      "note": "Runway"
+    },
+    {
+      "handle": "StabilityAI",
+      "requested_handle": "StabilityAI",
+      "user_id": "1281048162602369024",
+      "name": "Stability AI",
+      "followers": 253382,
+      "tweet_count": 846,
+      "tier": "ai_model_companies_us",
+      "note": "Stability AI"
+    },
+    {
+      "handle": "xai",
+      "requested_handle": "xai",
+      "user_id": "1661523610111193088",
+      "name": "xAI",
+      "followers": 1960169,
+      "tweet_count": 262,
+      "tier": "ai_model_companies_us",
+      "note": "xAI"
+    },
+    {
+      "handle": "AndrewYNg",
+      "requested_handle": "AndrewYNg",
+      "user_id": "216939636",
+      "name": "Andrew Ng",
+      "followers": 1484960,
+      "tweet_count": 1993,
+      "tier": "ai_researchers_thought_leaders",
+      "note": "Andrew Ng (DeepLearning.AI, Coursera)"
+    },
+    {
+      "handle": "eladgil",
+      "requested_handle": "eladgil",
+      "user_id": "6535212",
+      "name": "Elad Gil",
+      "followers": 307827,
+      "tweet_count": 2115,
+      "tier": "ai_researchers_thought_leaders",
+      "note": "Elad Gil (solo GP, AI commentary)"
+    },
+    {
+      "handle": "emollick",
+      "requested_handle": "emollick",
+      "user_id": "39125788",
+      "name": "Ethan Mollick",
+      "followers": 348825,
+      "tweet_count": 35250,
+      "tier": "ai_researchers_thought_leaders",
+      "note": "Ethan Mollick (AI-in-workflow researcher)"
+    },
+    {
+      "handle": "fchollet",
+      "requested_handle": "fchollet",
+      "user_id": "68746721",
+      "name": "François Chollet",
+      "followers": 650113,
+      "tweet_count": 25262,
+      "tier": "ai_researchers_thought_leaders",
+      "note": "François Chollet (Keras creator)"
+    },
+    {
+      "handle": "hardmaru",
+      "requested_handle": "hardmaru",
+      "user_id": "2895499182",
+      "name": "hardmaru",
+      "followers": 399921,
+      "tweet_count": 25838,
+      "tier": "ai_researchers_thought_leaders",
+      "note": "David Ha (ex-Stability, AI researcher)"
+    },
+    {
+      "handle": "karpathy",
+      "requested_handle": "karpathy",
+      "user_id": "33836629",
+      "name": "Andrej Karpathy",
+      "followers": 2306250,
+      "tweet_count": 10098,
+      "tier": "ai_researchers_thought_leaders",
+      "note": "Andrej Karpathy"
+    },
+    {
+      "handle": "nathanbenaich",
+      "requested_handle": "nathanbenaich",
+      "user_id": "422388777",
+      "name": "Nathan Benaich",
+      "followers": 69281,
+      "tweet_count": 30638,
+      "tier": "ai_researchers_thought_leaders",
+      "note": "Nathan Benaich (State of AI Report)"
+    },
+    {
+      "handle": "packyM",
+      "requested_handle": "packyM",
+      "user_id": "21306324",
+      "name": "Packy McCormick",
+      "followers": 223421,
+      "tweet_count": 46409,
+      "tier": "ai_researchers_thought_leaders",
+      "note": "Packy McCormick (Not Boring)"
+    },
+    {
+      "handle": "sarahtavel",
+      "requested_handle": "sarahtavel",
+      "user_id": "14887150",
+      "name": "Sarah Tavel",
+      "followers": 50875,
+      "tweet_count": 9365,
+      "tier": "ai_researchers_thought_leaders",
+      "note": "Sarah Tavel (Benchmark)"
+    },
+    {
+      "handle": "ylecun",
+      "requested_handle": "ylecun",
+      "user_id": "48008938",
+      "name": "Yann LeCun",
+      "followers": 1134488,
+      "tweet_count": 25915,
+      "tier": "ai_researchers_thought_leaders",
+      "note": "Yann LeCun (Meta Chief AI)"
+    },
+    {
+      "handle": "benthompson",
+      "requested_handle": "benthompson",
+      "user_id": "40273",
+      "name": "Ben Thompson",
+      "followers": 267201,
+      "tweet_count": 72699,
+      "tier": "datacenter",
+      "note": "Ben Thompson (Stratechery)"
+    },
+    {
+      "handle": "CoreWeave",
+      "requested_handle": "CoreWeave",
+      "user_id": "979803443681349632",
+      "name": "CoreWeave",
+      "followers": 18972,
+      "tweet_count": 1395,
+      "tier": "datacenter",
+      "note": "CoreWeave corporate"
+    },
+    {
+      "handle": "Equinix",
+      "requested_handle": "Equinix",
+      "user_id": "29336816",
+      "name": "Equinix, Inc.",
+      "followers": 27916,
+      "tweet_count": 18872,
+      "tier": "datacenter",
+      "note": "Equinix corporate"
+    },
+    {
+      "handle": "IREN_Ltd",
+      "requested_handle": "IREN_Ltd",
+      "user_id": "1390095803771867137",
+      "name": "IREN",
+      "followers": 58917,
+      "tweet_count": 1259,
+      "tier": "datacenter",
+      "note": "IREN / Iris Energy — alt handle"
+    },
+    {
+      "handle": "zerohedge",
+      "requested_handle": "zerohedge",
+      "user_id": "18856867",
+      "name": "zerohedge",
+      "followers": 2680456,
+      "tweet_count": 621033,
+      "tier": "finance_macro",
+      "note": "ZeroHedge"
+    },
+    {
+      "handle": "ClementDelangue",
+      "requested_handle": "ClementDelangue",
+      "user_id": "186420551",
+      "name": "clem 🤗",
+      "followers": 261709,
+      "tweet_count": 29642,
+      "tier": "key_individuals",
+      "note": "Clement Delangue (HuggingFace CEO)"
+    },
+    {
+      "handle": "DanielaAmodei",
+      "requested_handle": "DanielaAmodei",
+      "user_id": "373531234",
+      "name": "Daniela Amodei",
+      "followers": 25188,
+      "tweet_count": 29,
+      "tier": "key_individuals",
+      "note": "Daniela Amodei (Anthropic President)"
+    },
+    {
+      "handle": "DarioAmodei",
+      "requested_handle": "darioamodei",
+      "user_id": "874126509245476864",
+      "name": "Dario Amodei",
+      "followers": 307594,
+      "tweet_count": 15,
+      "tier": "key_individuals",
+      "note": "Dario Amodei (Anthropic CEO)"
+    },
+    {
+      "handle": "demishassabis",
+      "requested_handle": "demishassabis",
+      "user_id": "1482581556",
+      "name": "Demis Hassabis",
+      "followers": 838540,
+      "tweet_count": 3033,
+      "tier": "key_individuals",
+      "note": "Demis Hassabis (DeepMind CEO)"
+    },
+    {
+      "handle": "elonmusk",
+      "requested_handle": "elonmusk",
+      "user_id": "44196397",
+      "name": "Elon Musk",
+      "followers": 238892433,
+      "tweet_count": 101724,
+      "tier": "key_individuals",
+      "note": "Elon Musk"
+    },
+    {
+      "handle": "gdb",
+      "requested_handle": "gdb",
+      "user_id": "162124540",
+      "name": "Greg Brockman",
+      "followers": 961497,
+      "tweet_count": 5973,
+      "tier": "key_individuals",
+      "note": "Greg Brockman (OpenAI co-founder)"
+    },
+    {
+      "handle": "ilyasut",
+      "requested_handle": "ilyasut",
+      "user_id": "1720046887",
+      "name": "Ilya Sutskever",
+      "followers": 656625,
+      "tweet_count": 1196,
+      "tier": "key_individuals",
+      "note": "Ilya Sutskever (ex-OpenAI, now SSI)"
+    },
+    {
+      "handle": "jackclarkSF",
+      "requested_handle": "jackclarkSF",
+      "user_id": "86351835",
+      "name": "Jack Clark",
+      "followers": 121678,
+      "tweet_count": 32068,
+      "tier": "key_individuals",
+      "note": "Jack Clark (Anthropic co-founder)"
+    },
+    {
+      "handle": "JeffDean",
+      "requested_handle": "jeffdean",
+      "user_id": "911297187664949248",
+      "name": "Jeff Dean",
+      "followers": 433621,
+      "tweet_count": 9281,
+      "tier": "key_individuals",
+      "note": "Jeff Dean (Google AI chief)"
+    },
+    {
+      "handle": "johnschulman2",
+      "requested_handle": "johnschulman2",
+      "user_id": "1388977636618080256",
+      "name": "John Schulman",
+      "followers": 73788,
+      "tweet_count": 177,
+      "tier": "key_individuals",
+      "note": "John Schulman (OpenAI co-founder, Anthropic)"
+    },
+    {
+      "handle": "koraykv",
+      "requested_handle": "koraykv",
+      "user_id": "915239533",
+      "name": "koray kavukcuoglu",
+      "followers": 22837,
+      "tweet_count": 256,
+      "tier": "key_individuals",
+      "note": "Koray Kavukcuoglu (DeepMind CTO)"
+    },
+    {
+      "handle": "miramurati",
+      "requested_handle": "miramurati",
+      "user_id": "180115578",
+      "name": "Mira Murati",
+      "followers": 488210,
+      "tweet_count": 346,
+      "tier": "key_individuals",
+      "note": "Mira Murati (ex-OpenAI, now Thinking Machines)"
+    },
+    {
+      "handle": "realDonaldTrump",
+      "requested_handle": "realDonaldTrump",
+      "user_id": "25073877",
+      "name": "Donald J. Trump",
+      "followers": 111419113,
+      "tweet_count": 59829,
+      "tier": "key_individuals",
+      "note": "Donald Trump"
+    },
+    {
+      "handle": "sama",
+      "requested_handle": "sama",
+      "user_id": "1605",
+      "name": "Sam Altman",
+      "followers": 4681811,
+      "tweet_count": 7561,
+      "tier": "key_individuals",
+      "note": "Sam Altman (OpenAI CEO)"
+    },
+    {
+      "handle": "satyanadella",
+      "requested_handle": "satyanadella",
+      "user_id": "20571756",
+      "name": "Satya Nadella",
+      "followers": 4282719,
+      "tweet_count": 2264,
+      "tier": "key_individuals",
+      "note": "Satya Nadella (Microsoft CEO)"
+    },
+    {
+      "handle": "sundarpichai",
+      "requested_handle": "sundarpichai",
+      "user_id": "14130366",
+      "name": "Sundar Pichai",
+      "followers": 6452087,
+      "tweet_count": 2680,
+      "tier": "key_individuals",
+      "note": "Sundar Pichai (Google CEO)"
+    },
+    {
+      "handle": "woj_zaremba",
+      "requested_handle": "woj_zaremba",
+      "user_id": "977687191202693125",
+      "name": "Wojciech Zaremba",
+      "followers": 145436,
+      "tweet_count": 805,
+      "tier": "key_individuals",
+      "note": "Wojciech Zaremba (OpenAI co-founder)"
+    },
+    {
+      "handle": "BenBajarin",
+      "requested_handle": "BenBajarin",
+      "user_id": "14546264",
+      "name": "Ben Bajarin",
+      "followers": 38148,
+      "tweet_count": 56447,
+      "tier": "semi_analysts_taiwan_kol",
+      "note": "Ben Bajarin (Creative Strategies)"
+    },
+    {
+      "handle": "chiakokhua",
+      "requested_handle": "chiakokhua",
+      "user_id": "393976242",
+      "name": "RetiredEngineer®",
+      "followers": 10219,
+      "tweet_count": 30365,
+      "tier": "semi_analysts_taiwan_kol",
+      "note": "Robert Castellano (NVDA/semi supply chain)"
+    },
+    {
+      "handle": "dnystedt",
+      "requested_handle": "dnystedt",
+      "user_id": "45483286",
+      "name": "Dan Nystedt",
+      "followers": 46477,
+      "tweet_count": 26486,
+      "tier": "semi_analysts_taiwan_kol",
+      "note": "Dan Nystedt (Taipei-based analyst)"
+    },
+    {
+      "handle": "edwardwhitenz",
+      "requested_handle": "edwardwhitenz",
+      "user_id": "718623307134709760",
+      "name": "Edward White",
+      "followers": 6508,
+      "tweet_count": 1158,
+      "tier": "semi_analysts_taiwan_kol",
+      "note": "Edward White (user request)"
+    },
+    {
+      "handle": "nvidia",
+      "requested_handle": "Nvidia",
+      "user_id": "61559439",
+      "name": "NVIDIA",
+      "followers": 2475188,
+      "tweet_count": 13945,
+      "tier": "semi_analysts_taiwan_kol",
+      "note": "NVIDIA corporate"
+    },
+    {
+      "handle": "SemiAnalysis_",
+      "requested_handle": "SemiAnalysis_",
+      "user_id": "1745106082790318080",
+      "name": "SemiAnalysis",
+      "followers": 76274,
+      "tweet_count": 2078,
+      "tier": "semi_analysts_taiwan_kol",
+      "note": "SemiAnalysis research firm"
+    },
+    {
+      "handle": "tculpan",
+      "requested_handle": "tculpan",
+      "user_id": "14978616",
+      "name": "Tim Culpan",
+      "followers": 18349,
+      "tweet_count": 20982,
+      "tier": "semi_analysts_taiwan_kol",
+      "note": "Tim Culpan (ex-Bloomberg, Taiwan semi)"
+    },
+    {
+      "handle": "TSMCompany",
+      "requested_handle": "tsmcompany",
+      "user_id": "903324451986706432",
+      "name": "The Social Media Company",
+      "followers": 131,
+      "tweet_count": 292,
+      "tier": "semi_analysts_taiwan_kol",
+      "note": "TSMC corporate"
+    },
+    {
+      "handle": "Wenyee_Lee",
+      "requested_handle": "wenyee_Lee",
+      "user_id": "4103816720",
+      "name": "Wen-Yee Lee 李玟儀",
+      "followers": 10437,
+      "tweet_count": 2606,
+      "tier": "semi_analysts_taiwan_kol",
+      "note": "Taiwan semi KOL (user request)"
+    }
+  ],
+  "invalid": [
+    {
+      "handle": "AppliedDigital_",
+      "tier": "datacenter",
+      "reason": "not_found"
+    }
+  ]
+}

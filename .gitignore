@@ -32,6 +32,11 @@ backend/data/taiwan/monthly_revenue/data.parquet
 backend/data/taiwan/monthly_revenue/history.parquet
 backend/data/taiwan/_registry/mops_company_master.parquet
 
+# Social media (X, WeChat): ingested parquet data is rebuildable via
+# tools/x_backfill.py. Config + validated_accounts.json ARE committed.
+backend/data/social/
+!backend/data/social/.gitkeep
+
 # Keep the config directory (ticker_groups.json etc.)
 !backend/data/config/
 

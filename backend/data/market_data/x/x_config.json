@@ -1,0 +1,105 @@
+{
+  "tiers": [
+    {
+      "name": "ai_model_companies_us",
+      "description": "US / Western AI model companies — announcements, releases, benchmarks",
+      "accounts": [
+        {"handle": "OpenAI", "note": "OpenAI corporate"},
+        {"handle": "AnthropicAI", "note": "Anthropic corporate"},
+        {"handle": "GoogleDeepMind", "note": "DeepMind"},
+        {"handle": "AIatMeta", "note": "Meta AI / FAIR"},
+        {"handle": "xai", "note": "xAI"},
+        {"handle": "MistralAI", "note": "Mistral AI (France)"},
+        {"handle": "cohere", "note": "Cohere (Canada)"},
+        {"handle": "StabilityAI", "note": "Stability AI"},
+        {"handle": "HuggingFace", "note": "HuggingFace"},
+        {"handle": "perplexity_ai", "note": "Perplexity"},
+        {"handle": "runwayml", "note": "Runway"},
+        {"handle": "inflectionAI", "note": "Inflection AI"}
+      ]
+    },
+    {
+      "name": "ai_model_companies_china",
+      "description": "Chinese AI model companies — may have low X activity; probe confirms",
+      "accounts": [
+        {"handle": "deepseek_ai", "note": "DeepSeek"},
+        {"handle": "MiniMax_AI", "note": "MiniMax"},
+        {"handle": "Kimi_Moonshot", "note": "Moonshot (Kimi)"},
+        {"handle": "Alibaba_Qwen", "note": "Qwen (Alibaba)"},
+        {"handle": "ZhipuAI", "note": "Zhipu AI / GLM"}
+      ]
+    },
+    {
+      "name": "key_individuals",
+      "description": "Politics, tech titans, AI lab founders and key members",
+      "accounts": [
+        {"handle": "realDonaldTrump", "note": "Donald Trump"},
+        {"handle": "elonmusk", "note": "Elon Musk"},
+        {"handle": "satyanadella", "note": "Satya Nadella (Microsoft CEO)"},
+        {"handle": "sundarpichai", "note": "Sundar Pichai (Google CEO)"},
+        {"handle": "sama", "note": "Sam Altman (OpenAI CEO)"},
+        {"handle": "gdb", "note": "Greg Brockman (OpenAI co-founder)"},
+        {"handle": "ilyasut", "note": "Ilya Sutskever (ex-OpenAI, now SSI)"},
+        {"handle": "miramurati", "note": "Mira Murati (ex-OpenAI, now Thinking Machines)"},
+        {"handle": "johnschulman2", "note": "John Schulman (OpenAI co-founder, Anthropic)"},
+        {"handle": "woj_zaremba", "note": "Wojciech Zaremba (OpenAI co-founder)"},
+        {"handle": "darioamodei", "note": "Dario Amodei (Anthropic CEO)"},
+        {"handle": "DanielaAmodei", "note": "Daniela Amodei (Anthropic President)"},
+        {"handle": "jackclarkSF", "note": "Jack Clark (Anthropic co-founder)"},
+        {"handle": "demishassabis", "note": "Demis Hassabis (DeepMind CEO)"},
+        {"handle": "jeffdean", "note": "Jeff Dean (Google AI chief)"},
+        {"handle": "koraykv", "note": "Koray Kavukcuoglu (DeepMind CTO)"},
+        {"handle": "ClementDelangue", "note": "Clement Delangue (HuggingFace CEO)"}
+      ]
+    },
+    {
+      "name": "semi_analysts_taiwan_kol",
+      "description": "Semiconductor analysts + Taiwan semi KOLs",
+      "accounts": [
+        {"handle": "SemiAnalysis_", "note": "SemiAnalysis research firm"},
+        {"handle": "BenBajarin", "note": "Ben Bajarin (Creative Strategies)"},
+        {"handle": "tculpan", "note": "Tim Culpan (ex-Bloomberg, Taiwan semi)"},
+        {"handle": "dnystedt", "note": "Dan Nystedt (Taipei-based analyst)"},
+        {"handle": "chiakokhua", "note": "Robert Castellano (NVDA/semi supply chain)"},
+        {"handle": "tsmcompany", "note": "TSMC corporate"},
+        {"handle": "Nvidia", "note": "NVIDIA corporate"},
+        {"handle": "wenyee_Lee", "note": "Taiwan semi KOL (user request)"},
+        {"handle": "edwardwhitenz", "note": "Edward White (user request)"}
+      ]
+    },
+    {
+      "name": "datacenter",
+      "description": "Datacenter / neocloud commentary",
+      "accounts": [
+        {"handle": "benthompson", "note": "Ben Thompson (Stratechery)"},
+        {"handle": "CoreWeave", "note": "CoreWeave corporate"},
+        {"handle": "AppliedDigital_", "note": "Applied Digital (neocloud) — alt handle"},
+        {"handle": "IREN_Ltd", "note": "IREN / Iris Energy — alt handle"},
+        {"handle": "Equinix", "note": "Equinix corporate"}
+      ]
+    },
+    {
+      "name": "finance_macro",
+      "description": "Finance / macro context",
+      "accounts": [
+        {"handle": "zerohedge", "note": "ZeroHedge"}
+      ]
+    },
+    {
+      "name": "ai_researchers_thought_leaders",
+      "description": "Good-to-have: AI researchers and thought leaders. Selective, low spam.",
+      "accounts": [
+        {"handle": "AndrewYNg", "note": "Andrew Ng (DeepLearning.AI, Coursera)"},
+        {"handle": "ylecun", "note": "Yann LeCun (Meta Chief AI)"},
+        {"handle": "fchollet", "note": "François Chollet (Keras creator)"},
+        {"handle": "karpathy", "note": "Andrej Karpathy"},
+        {"handle": "hardmaru", "note": "David Ha (ex-Stability, AI researcher)"},
+        {"handle": "emollick", "note": "Ethan Mollick (AI-in-workflow researcher)"},
+        {"handle": "nathanbenaich", "note": "Nathan Benaich (State of AI Report)"},
+        {"handle": "eladgil", "note": "Elad Gil (solo GP, AI commentary)"},
+        {"handle": "sarahtavel", "note": "Sarah Tavel (Benchmark)"},
+        {"handle": "packyM", "note": "Packy McCormick (Not Boring)"}
+      ]
+    }
+  ]
+}
