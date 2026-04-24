@@ -1,6 +1,6 @@
 ---
 name: taiwan-monthly-data-extraction
-description: Scraping Taiwan-listed company data (MOPS — Market Observation Post System). JSON API discovery, CDP-browser context, ROC calendar handling, anti-bot WAF bypass, per-ticker vs market-bulk tradeoffs.
+description: Extracting Taiwan-listed monthly revenue data. Two-source design — MOPS SPA (latest 12m, per-ticker JSON via Playwright CDP) for freshness + TWSE open-data C04003 ZIPs (10+ years, bulk XLS via plain HTTP) for backfill. Covers anti-bot WAF bypass, ROC calendar, thousand-TWD units, Python 3.13 TLS fixes, and endpoint rediscovery when either site is redesigned.
 ---
 
 # Taiwan Monthly Data Extraction (MOPS / 公開資訊觀測站)
@@ -187,7 +187,15 @@ This is required for dev/debug only; prod logs go to structlog → JSON which is
 First launch of the scraper profile can take 10+ seconds. The helper in `mops_client_browser.py` polls `http://localhost:9222/json/version` until it answers. Don't use a fixed `time.sleep(N)` — it either wastes time or is too short.
 
 ### 12. 12-month history cap on the detail endpoint
-Building a 10-year backfill from `t146sb05_detail` is impossible — it caps at 12 months. For historical backfill, use the TWSE open-data (MIS / 公開資料) endpoints, which are a different service with CSV feeds and no WAF. Document as separate concern.
+`t146sb05_detail` caps at 12 months. For historical backfill (10y+), use
+the **TWSE open-data C04003 archive** (see separate section below). Two
+sources, same canonical schema:
+
+| Need | Source |
+|---|---|
+| Latest 12 months, per ticker, refresh daily | MOPS `t146sb05_detail` via Playwright |
+| 2016-01 → prior month, full market, one-shot backfill | TWSE open-data C04003 ZIPs |
+| Current month before MOPS publishes | MOPS only — TWSE publishes ~1 month lagged |
 
 ### 13. Rate limiting & session re-use
 The CDP browser context is stateful — cookies built up during `page.goto("…")` travel with `ctx.request.post()`. **Reuse one context across all 51 tickers**. Spinning up a fresh browser per call is 10x slower and some times triggers WAF re-challenge.
@@ -216,6 +224,107 @@ When I tried to reason about the API shape from docs / memory, I got fields wron
 
 ### 18. Module-level `Path(__file__).resolve().parents[N]` is fragile
 Monkey-patched tests override the resolved path, but only if the monkeypatch happens before the registry module is imported. If you import registry at the top of your test module, the parent path is already baked in. Prefer `registry.REGISTRY_PARQUET` as a module attribute and `monkeypatch.setattr(registry, "REGISTRY_PARQUET", tmp_path / ...)` — works because attribute access is late-bound.
+
+## TWSE Open-Data (historical backfill source)
+
+The MOPS detail endpoint caps at 12 months. For anything older, use the
+**TWSE 統計報表 → 上市公司月報** archive at
+`https://www.twse.com.tw/zh/trading/statistics/index04.html`. Key facts:
+
+| Item | Value |
+|---|---|
+| WAF | None — direct HTTP works (but see "Python TLS" note below) |
+| Manifest | `GET /rwd/zh/statistics/download?type=04&response=json` |
+| Files per month | 4 reports (C04001–C04004) |
+| Our report | **C04003 — 國內上市公司營業收入彙總表** (domestic listed revenue summary) |
+| Path | `/staticFiles/inspection/inspection/04/003/{YYYYMM}_C04003.zip` |
+| Filename date | **AD year** (4-digit), NOT ROC — e.g. `202601_C04003.zip` for Jan 2026 |
+| Contains | One legacy `.xls` per ZIP, all listed companies for that month |
+| Coverage | 民國 88 (1999) to prior month (current month typically unavailable) |
+| Scope | TWSE 上市 only. TPEx 上櫃 is a separate system (TODO) |
+
+### C04003 XLS layout
+
+Exactly 10 columns. Row types discovered empirically:
+
+```
+row 0-9:   headers + bilingual titles (SKIP)
+row 10:    "01  水泥工業類" — industry section header (1-2 digit code, SKIP)
+row 11+:   "2330  台積電"  — company rows (4-6 digit ticker)
+...        alternating sections by industry
+row ~1052: "總額 Total" / "平均 Average" — aggregates (SKIP)
+row ~1059: "備註: …" — footer notes (SKIP)
+```
+
+Per-company column positions:
+
+| Col | Content |
+|---|---|
+| 0 | `{ticker}{whitespace}{name_zh}` |
+| 1 | Previous month (M-1) revenue |
+| **2** | **Current month revenue** |
+| 3 | YTD revenue |
+| 4 | Prior year same month (M of Y-1) |
+| 5 | Prior year YTD (Jan..M of Y-1) |
+| 6 | YTD absolute diff |
+| 7 | YTD % diff (ambiguous — we recompute from cols 3,5) |
+
+**Units:** all monetary values are **thousand TWD**. Same convention as MOPS. Multiply by 1000 on ingest.
+
+### Row-type discrimination
+
+```python
+# Industry headers: 1-2 digit code
+_INDUSTRY_ROW_RE = re.compile(r"^\s*\d{1,2}\s+\S")
+# Company rows: 4-6 digit ticker
+_COMPANY_ROW_RE = re.compile(r"^\s*(\d{4,6})\s+(\S.*?)\s*$")
+```
+
+Check company regex FIRST — some rare 4-digit rows could also match the 2-digit industry prefix. Our implementation keeps the row only if `_COMPANY_ROW_RE.match(col0)` returns a hit.
+
+### Corner cases specific to TWSE open-data
+
+#### CC-T1. Python 3.13 rejects the TWSE cert (Missing Subject Key Identifier)
+Same symptom as MOPS, different host. `curl` accepts it, browsers accept it, Python 3.13's stricter TLS rejects it. We pass `verify=False` to `requests.get()` — documented explicitly in `twse_historical.py` as safe because:
+- It's public open-data (no secrets on the wire)
+- The filename-only URL makes MITM substitution loud (wrong filesize, bad ZIP magic)
+- The `raise_for_status()` and `zipfile.ZipFile` parse each act as integrity checks
+
+Alternative if you don't want `verify=False`: `pip install truststore` and call `truststore.inject_into_ssl()` at process start; uses the OS trust store which handles this cert.
+
+#### CC-T2. ZIP contains a `.xls` with a bizarre filename
+`20202601.XLS` for the Jan 2026 report — neither the outer ZIP name nor the date. Don't match on filename; just take the first `*.xls` inside.
+
+#### CC-T3. Legacy `.xls` (Excel 97/2003 binary), not `.xlsx`
+Requires **`xlrd>=2.0.1`**, not `openpyxl`. Add to `requirements.txt`. `pandas.read_excel(..., engine="xlrd")` is the way.
+
+#### CC-T4. Disk-cache ZIPs by `{YYYYMM}_C04003.zip`
+A fresh 10-year backfill is ~120 HTTP calls. Cache each ZIP on disk so rerun-on-failure takes ~30 seconds. Cache key is the filename; content is deterministic (TWSE never rewrites historicals — if they do, raw-capture audit already protects us).
+
+#### CC-T5. Later-IPO tickers have partial history
+Our watchlist's `6770` has only 53 months in 10 years — it IPO'd around 2021. Don't treat missing months as a failure; just store what's there.
+
+#### CC-T6. Format is stable 2000 → 2026
+Spot-checked column positions at `2000-03`, `2005-07`, `2010-01`, `2015-05`, `2020-06`, `2026-01`. Column layout unchanged across 26 years. The row count grows (470 → 978 as more companies IPO).
+
+#### CC-T7. TPEx (上櫃) tickers are NOT in C04003
+Eleven of our 51 watchlist tickers are TPEx-listed and don't appear in the TWSE archive. They currently have only the 12 months MOPS provides. A separate TPEx open-data endpoint exists (TODO — probably at `tpex.org.tw/web/stock/statistics/monthly/`).
+
+#### CC-T8. Current-month file is usually missing
+TWSE publishes a month's C04003 roughly mid-following-month. Don't try to fetch the current month — expect `404` or the MOPS daily scraper handles it. Default `--end` in the backfill script is `now - 1 month`.
+
+### Tooling
+
+- `tools/twse_explore.py` — XHR interceptor (same pattern as `mops_explore.py`) for rediscovering the manifest if TWSE changes their site.
+- `tools/twse_backfill.py` — one-shot runner: `python tools/twse_backfill.py --start 2016-01 --end 2026-03 --data-dir /tmp/taiwan-backfill-test` (writes to the given parquet dir; disk-caches ZIPs under `<data-dir>/_raw/twse_zip/`).
+
+### Verification
+
+After a 10-year run, confirm:
+- TSMC (2330) has ~120 continuous monthly rows
+- 2016-01 revenue is in the 70B TWD range (pre-smartphone-boom trough)
+- YoY sign changes correctly across historical inflection points
+- MoM fills for all rows except the first per-ticker
 
 ## Minimal Fetch Template
 
