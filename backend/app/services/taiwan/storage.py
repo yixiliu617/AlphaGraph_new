@@ -4,6 +4,8 @@ Storage layer for the Taiwan ingestion package.
 Public API:
   upsert_monthly_revenue(rows, *, data_dir)     -> UpsertStats
   read_monthly_revenue(*, data_dir)             -> DataFrame
+  upsert_material_info(rows, *, data_dir)       -> UpsertStats
+  read_material_info(*, data_dir)               -> DataFrame
   write_raw_capture(source, ticker, key, content, *, data_dir) -> Path
   raw_capture_path(source, ticker, key, *, data_dir) -> Path
 
@@ -129,6 +131,87 @@ def upsert_monthly_revenue(
         hist_df.to_parquet(history_path, index=False)
 
     logger.info("upsert_monthly_revenue stats=%s", stats)
+    return stats
+
+
+# ---------------------------------------------------------------------------
+# Material information (supplemental early-warning stream)
+# ---------------------------------------------------------------------------
+
+_MI_KEY_COLS = ["ticker", "announcement_datetime", "subject"]
+
+_MI_COLS = [
+    "ticker", "name_zh",
+    "announcement_date", "announcement_time", "announcement_datetime",
+    "subject", "filing_type",
+    "fiscal_ym_guess",          # parsed from subject when a (YYY年MM月) appears; else ''
+    "parameters_json",           # raw parameters dict from the API (serialized)
+    "first_seen_at", "last_seen_at", "content_hash",
+]
+
+
+def _mi_path(data_dir: Path) -> Path:
+    return data_dir / "material_info" / "data.parquet"
+
+
+def read_material_info(*, data_dir: Path | None = None) -> pd.DataFrame:
+    data_dir = data_dir if data_dir is not None else DEFAULT_DATA_DIR
+    path = _mi_path(data_dir)
+    if not path.exists():
+        return pd.DataFrame(columns=_MI_COLS)
+    return pd.read_parquet(path)
+
+
+def upsert_material_info(
+    rows: Iterable[dict], *, data_dir: Path = DEFAULT_DATA_DIR,
+) -> UpsertStats:
+    """Upsert material-info announcements.
+
+    Dedup key: (ticker, announcement_datetime, subject). Same row arriving
+    twice (e.g. two polls in the same window catching the same filing)
+    becomes a TOUCH_ONLY. Amendments on material info are rare but
+    possible (issuers can correct subjects); we treat them as INSERT of
+    a distinct (datetime, subject) rather than overwrite.
+    """
+    (data_dir / "material_info").mkdir(parents=True, exist_ok=True)
+    path = _mi_path(data_dir)
+
+    current = read_material_info(data_dir=data_dir)
+    stats = UpsertStats()
+    now = datetime.now(timezone.utc)
+    updated = current.copy()
+
+    for row in rows:
+        canonical = dict(row)
+        canonical["content_hash"] = compute_content_hash(canonical)
+
+        if updated.empty:
+            mask = pd.Series([], dtype=bool)
+        else:
+            mask = (
+                (updated["ticker"] == canonical["ticker"])
+                & (updated["announcement_datetime"] == canonical["announcement_datetime"])
+                & (updated["subject"] == canonical["subject"])
+            )
+
+        if not mask.any():
+            canonical["first_seen_at"] = now
+            canonical["last_seen_at"] = now
+            updated = pd.concat([updated, pd.DataFrame([canonical])], ignore_index=True)
+            stats.inserted += 1
+        else:
+            updated.loc[mask, "last_seen_at"] = now
+            stats.touched += 1
+
+    # Ensure the column order is stable when we save (new parquet OR
+    # concat of an empty df + first row would otherwise invent order).
+    for col in _MI_COLS:
+        if col not in updated.columns:
+            updated[col] = pd.NA
+    updated = updated[_MI_COLS]
+    updated.to_parquet(path, index=False)
+
+    logger.info("upsert_material_info stats=%s", stats)
     return stats
 
 
