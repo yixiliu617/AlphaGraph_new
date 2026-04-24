@@ -11,7 +11,7 @@ import {
   MessageCircle,
   ThumbsUp,
 } from "lucide-react";
-import { socialClient, type RedditPost, type RedditStats, type NewsArticle } from "@/lib/api/socialClient";
+import { socialClient, type RedditPost, type RedditStats, type NewsArticle, type NewsFeed } from "@/lib/api/socialClient";
 
 interface SocialMediaViewProps {
   activeTab: "reddit" | "news";
@@ -30,6 +30,7 @@ interface SocialMediaViewProps {
   // News
   newsStats: { total_articles: number; feeds: { name: string; count: number }[]; sources: { name: string; count: number }[] } | null;
   newsArticles: NewsArticle[];
+  newsFeeds: NewsFeed[];     // live from news_config.json via /social/news/feeds
   newsLoading: boolean;
   newsError: string | null;
   newsFeed: string;
@@ -192,61 +193,77 @@ function RedditPanel({
 // ---------------------------------------------------------------------------
 
 // Feed section ordering — follows the AI value chain top-down
-const FEED_SECTIONS: { key: string; label: string; accent: string; borderColor: string }[] = [
-  // Mirrors backend/data/market_data/news/news_config.json. 24 feeds.
-  // --- AI Layer ---
-  { key: "AI Models & Updates", label: "AI Models & Updates", accent: "text-violet-700", borderColor: "border-violet-600" },
-  { key: "AI Products & Applications", label: "AI Products & Applications", accent: "text-purple-700", borderColor: "border-purple-500" },
-  { key: "AI Business Dynamics (Funding + Revenue + M&A)", label: "AI Business Dynamics (Funding + Revenue + M&A)", accent: "text-fuchsia-700", borderColor: "border-fuchsia-500" },
-  // --- Infrastructure Layer ---
-  { key: "Neocloud & CSP", label: "Neocloud & CSP", accent: "text-indigo-700", borderColor: "border-indigo-600" },
-  { key: "Datacenter Deals & Capex", label: "Datacenter Deals & Capex", accent: "text-indigo-600", borderColor: "border-indigo-500" },
-  { key: "Datacenter Cooling", label: "Datacenter Cooling", accent: "text-cyan-700", borderColor: "border-cyan-600" },
-  { key: "AI Power & Energy", label: "AI Power & Energy", accent: "text-amber-700", borderColor: "border-amber-500" },
-  // --- Compute & Chips ---
-  { key: "GPU Datacenter (NVIDIA)", label: "GPU Datacenter (NVIDIA)", accent: "text-green-700", borderColor: "border-green-600" },
-  { key: "ASIC & Custom Silicon", label: "ASIC & Custom Silicon", accent: "text-lime-700", borderColor: "border-lime-600" },
-  // --- Supply Chain Layer ---
-  { key: "Supply Chain: Memory (DRAM/HBM/NAND)", label: "Memory: DRAM / HBM / NAND", accent: "text-green-600", borderColor: "border-green-500" },
-  { key: "Supply Chain: Interconnect & Optical", label: "Interconnect & Optical", accent: "text-teal-700", borderColor: "border-teal-500" },
-  { key: "Supply Chain: Advanced Packaging", label: "Advanced Packaging", accent: "text-emerald-700", borderColor: "border-emerald-500" },
-  { key: "Foundry & Semi Equipment", label: "Foundry & Semi Equipment", accent: "text-sky-700", borderColor: "border-sky-500" },
-  { key: "Supply Chain: Materials & Chemicals", label: "Materials & Chemicals", accent: "text-stone-700", borderColor: "border-stone-500" },
-  { key: "Supply Chain: Labor & Construction", label: "Labor & Construction", accent: "text-stone-600", borderColor: "border-stone-400" },
-  { key: "Semi Company Earnings", label: "Semi Company Earnings", accent: "text-blue-700", borderColor: "border-blue-600" },
-  // --- Regional Layer ---
-  { key: "Taiwan Semi (English)", label: "Taiwan Semi", accent: "text-emerald-700", borderColor: "border-emerald-600" },
-  { key: "Taiwan Semi (Chinese)", label: "Taiwan Semi (CN)", accent: "text-emerald-600", borderColor: "border-emerald-400" },
-  { key: "Japan Semi (English)", label: "Japan Semi", accent: "text-pink-700", borderColor: "border-pink-600" },
-  { key: "Japan Semi (Japanese)", label: "Japan Semi (JP)", accent: "text-pink-600", borderColor: "border-pink-400" },
-  { key: "Korea Semi (English)", label: "Korea Semi", accent: "text-sky-700", borderColor: "border-sky-600" },
-  { key: "Korea Semi (Korean)", label: "Korea Semi (KR)", accent: "text-sky-600", borderColor: "border-sky-400" },
-  // --- Regulation Layer ---
-  { key: "Regulation: Tariffs & Trade", label: "Tariffs & Trade Policy", accent: "text-red-700", borderColor: "border-red-600" },
-  { key: "Regulation: AI Policy", label: "AI Regulation & Policy", accent: "text-orange-700", borderColor: "border-orange-500" },
-];
+// Feed section styles, keyed by feed_key (the STABLE identifier from
+// news_config.json). Labels and order come from the API (/social/news/feeds)
+// so changing a label or adding a new feed in news_config.json propagates
+// to the dashboard on next page load — no frontend edit required.
+//
+// Fallback: feed_keys not listed here use neutral slate styling. Add an
+// entry here to give a new feed its own accent.
+const FEED_STYLES: Record<string, { accent: string; borderColor: string }> = {
+  // AI Layer
+  ai_models:              { accent: "text-violet-700",   borderColor: "border-violet-600" },
+  ai_products:            { accent: "text-purple-700",   borderColor: "border-purple-500" },
+  ai_business_dynamics:   { accent: "text-fuchsia-700",  borderColor: "border-fuchsia-500" },
+  ai_bottlenecks:         { accent: "text-rose-600",     borderColor: "border-rose-500" },
+  // Infrastructure Layer
+  datacenter_neocloud:    { accent: "text-indigo-700",   borderColor: "border-indigo-600" },
+  datacenter_deals:       { accent: "text-indigo-600",   borderColor: "border-indigo-500" },
+  datacenter_cooling:     { accent: "text-cyan-700",     borderColor: "border-cyan-600" },
+  ai_power:               { accent: "text-amber-700",    borderColor: "border-amber-500" },
+  // Compute & Chips
+  gpu_datacenter:         { accent: "text-green-700",    borderColor: "border-green-600" },
+  asic_market:            { accent: "text-lime-700",     borderColor: "border-lime-600" },
+  // Supply Chain Layer
+  supply_memory:          { accent: "text-green-600",    borderColor: "border-green-500" },
+  supply_interconnect:    { accent: "text-teal-700",     borderColor: "border-teal-500" },
+  supply_packaging:       { accent: "text-emerald-700",  borderColor: "border-emerald-500" },
+  supply_foundry:         { accent: "text-sky-700",      borderColor: "border-sky-500" },
+  supply_materials:       { accent: "text-stone-700",    borderColor: "border-stone-500" },
+  supply_labor:           { accent: "text-stone-600",    borderColor: "border-stone-400" },
+  semi_earnings:          { accent: "text-blue-700",     borderColor: "border-blue-600" },
+  // Regional Layer
+  taiwan_semi_en:         { accent: "text-emerald-700",  borderColor: "border-emerald-600" },
+  taiwan_semi_tw:         { accent: "text-emerald-600",  borderColor: "border-emerald-400" },
+  japan_semi_en:          { accent: "text-pink-700",     borderColor: "border-pink-600" },
+  japan_semi_jp:          { accent: "text-pink-600",     borderColor: "border-pink-400" },
+  korea_semi_en:          { accent: "text-sky-700",      borderColor: "border-sky-600" },
+  korea_semi_kr:          { accent: "text-sky-600",      borderColor: "border-sky-400" },
+  // Regulation Layer
+  regulation_tariff:      { accent: "text-red-700",      borderColor: "border-red-600" },
+  regulation_ai:          { accent: "text-orange-700",   borderColor: "border-orange-500" },
+};
+
+const FALLBACK_STYLE = { accent: "text-slate-600", borderColor: "border-slate-400" };
+
+function stylesFor(feedKey: string) {
+  return FEED_STYLES[feedKey] ?? FALLBACK_STYLE;
+}
 
 const ARTICLES_PER_SECTION = 20;
 
 function FeedSection({
-  section,
+  feedKey,
+  label,
   articles,
   expanded,
   onToggleExpand,
 }: {
-  section: typeof FEED_SECTIONS[0];
+  feedKey: string;
+  label: string;
   articles: NewsArticle[];
   expanded: boolean;
   onToggleExpand: () => void;
 }) {
   const shown = expanded ? articles : articles.slice(0, ARTICLES_PER_SECTION);
+  const s = stylesFor(feedKey);
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
       {/* Section header */}
-      <div className={`border-l-[3px] ${section.borderColor} px-4 py-2.5 border-b border-slate-100 flex items-center justify-between`}>
-        <h3 className={`text-xs font-bold uppercase tracking-wide ${section.accent}`}>
-          {section.label}
+      <div className={`border-l-[3px] ${s.borderColor} px-4 py-2.5 border-b border-slate-100 flex items-center justify-between`}>
+        <h3 className={`text-xs font-bold uppercase tracking-wide ${s.accent}`}>
+          {label}
           <span className="ml-2 text-[10px] font-normal text-slate-400">{articles.length}</span>
         </h3>
         {articles.length > ARTICLES_PER_SECTION && (
@@ -374,11 +391,12 @@ function NewsRow({ article }: { article: NewsArticle }) {
 }
 
 function NewsPanel({
-  stats, articles, loading, error,
+  stats, articles, feeds, loading, error,
   feed, keyword, onFeedChange, onKeywordChange,
 }: {
   stats: SocialMediaViewProps["newsStats"];
   articles: NewsArticle[];
+  feeds: NewsFeed[];
   loading: boolean;
   error: string | null;
   feed: string;
@@ -399,23 +417,26 @@ function NewsPanel({
     });
   };
 
-  // Group articles by feed_label
+  // Group articles by feed_key (stable id). Fall back to feed_label for
+  // pre-migration rows that don't have feed_key yet.
   const grouped = new Map<string, NewsArticle[]>();
   for (const a of articles) {
-    const key = a.feed_label;
+    const key = a.feed_key || a.feed_label || "";
+    if (!key) continue;
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key)!.push(a);
   }
 
-  // Filter sections that have articles, in defined order
-  const activeSections = FEED_SECTIONS.filter(
-    (s) => grouped.has(s.key) && (grouped.get(s.key)?.length ?? 0) > 0,
-  );
+  // Sections come from the live /social/news/feeds response — their
+  // order and labels follow news_config.json on every page load.
+  const activeSections = feeds
+    .filter((f) => (grouped.get(f.feed_key)?.length ?? 0) > 0)
+    .map((f) => ({ feedKey: f.feed_key, label: f.label }));
 
-  // Any feeds not in FEED_SECTIONS definition
-  const extraFeeds = [...grouped.keys()].filter(
-    (k) => !FEED_SECTIONS.some((s) => s.key === k),
-  );
+  // Orphaned rows — articles whose feed_key isn't in the current config
+  // (historical data from a removed feed, or a feed that was renamed).
+  const configuredKeys = new Set(feeds.map((f) => f.feed_key));
+  const extraFeeds = [...grouped.keys()].filter((k) => !configuredKeys.has(k));
 
   // If keyword/feed filter is active, show flat list instead
   const showFlat = !!keyword || !!feed;
@@ -481,20 +502,22 @@ function NewsPanel({
           <div className="grid grid-cols-2 gap-4">
             {activeSections.map((section) => (
               <FeedSection
-                key={section.key}
-                section={section}
-                articles={grouped.get(section.key) ?? []}
-                expanded={expandedSections.has(section.key)}
-                onToggleExpand={() => toggleExpand(section.key)}
+                key={section.feedKey}
+                feedKey={section.feedKey}
+                label={section.label}
+                articles={grouped.get(section.feedKey) ?? []}
+                expanded={expandedSections.has(section.feedKey)}
+                onToggleExpand={() => toggleExpand(section.feedKey)}
               />
             ))}
-            {extraFeeds.map((feedName) => (
+            {extraFeeds.map((feedKey) => (
               <FeedSection
-                key={feedName}
-                section={{ key: feedName, label: feedName, accent: "text-slate-700", borderColor: "border-slate-400" }}
-                articles={grouped.get(feedName) ?? []}
-                expanded={expandedSections.has(feedName)}
-                onToggleExpand={() => toggleExpand(feedName)}
+                key={feedKey}
+                feedKey={feedKey}
+                label={grouped.get(feedKey)?.[0]?.feed_label || feedKey}
+                articles={grouped.get(feedKey) ?? []}
+                expanded={expandedSections.has(feedKey)}
+                onToggleExpand={() => toggleExpand(feedKey)}
               />
             ))}
           </div>
@@ -556,6 +579,7 @@ export default function SocialMediaView(props: SocialMediaViewProps) {
         <NewsPanel
           stats={props.newsStats}
           articles={props.newsArticles}
+          feeds={props.newsFeeds}
           loading={props.newsLoading}
           error={props.newsError}
           feed={props.newsFeed}

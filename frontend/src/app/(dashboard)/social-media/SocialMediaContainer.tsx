@@ -6,6 +6,7 @@ import {
   type RedditPost,
   type RedditStats,
   type NewsArticle,
+  type NewsFeed,
 } from "@/lib/api/socialClient";
 import SocialMediaView from "./SocialMediaView";
 
@@ -28,6 +29,7 @@ export default function SocialMediaContainer() {
     sources: { name: string; count: number }[];
   } | null>(null);
   const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
+  const [newsFeeds, setNewsFeeds] = useState<NewsFeed[]>([]);
   const [newsLoading, setNewsLoading] = useState(false);
   const [newsError, setNewsError] = useState<string | null>(null);
   const [newsFeed, setNewsFeed] = useState("");
@@ -62,12 +64,14 @@ export default function SocialMediaContainer() {
       const params: Record<string, string | number> = {};
       if (newsFeed) { params.feed = newsFeed; params.limit = 200; }
       else if (newsKeyword) { params.keyword = newsKeyword; params.limit = 200; }
-      const [stats, articles] = await Promise.all([
+      const [stats, articles, feeds] = await Promise.all([
         socialClient.getNewsStats(),
         socialClient.getNewsArticles(params as Parameters<typeof socialClient.getNewsArticles>[0]),
+        socialClient.getNewsFeeds(),
       ]);
       setNewsStats(stats);
       setNewsArticles(articles.articles);
+      setNewsFeeds(feeds.feeds);
     } catch (err) {
       setNewsError(err instanceof Error ? err.message : "Failed to load");
     } finally {
@@ -98,6 +102,7 @@ export default function SocialMediaContainer() {
       // News
       newsStats={newsStats}
       newsArticles={newsArticles}
+      newsFeeds={newsFeeds}
       newsLoading={newsLoading}
       newsError={newsError}
       newsFeed={newsFeed}

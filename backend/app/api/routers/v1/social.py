@@ -4,14 +4,19 @@ Social Media API router -- serves Reddit + Google News data.
 GET /social/reddit/posts          -- all scraped posts with filters
 GET /social/reddit/stats          -- summary stats
 GET /social/reddit/trending       -- top posts by score
-GET /social/news/articles         -- Google News articles with filters
-GET /social/news/stats            -- news feed stats
+GET /social/news/articles         -- Google News articles (cluster-grouped by default)
+GET /social/news/cluster/{id}     -- all articles in one cluster
+GET /social/news/stats            -- news feed stats (counts, date range)
+GET /social/news/feeds            -- live view of news_config.json — labels + order
+                                     The frontend uses this so renaming a feed label
+                                     in news_config.json propagates on next page load.
 """
 
+import json
 from pathlib import Path
 
 import pandas as pd
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 router = APIRouter()
 
@@ -181,6 +186,8 @@ def _article_dict(r, *, has_title_en: bool) -> dict:
         "feed_label": r.get("feed_label", ""),
         "guid": r.get("guid", ""),
     }
+    if "feed_key" in r.index and pd.notna(r.get("feed_key")) and r.get("feed_key"):
+        article["feed_key"] = str(r["feed_key"])
     if has_title_en and pd.notna(r.get("title_en")) and r.get("title_en"):
         article["title_en"] = r["title_en"]
     if "source_tier" in r.index and pd.notna(r.get("source_tier")):
@@ -188,6 +195,35 @@ def _article_dict(r, *, has_title_en: bool) -> dict:
     if "cluster_id" in r.index and pd.notna(r.get("cluster_id")):
         article["cluster_id"] = str(r["cluster_id"])
     return article
+
+
+@router.get("/news/feeds")
+def news_feeds():
+    """Return the current news_config.json as the definitive list of
+    feeds the UI should render — in declared order.
+
+    Read fresh on every request: editing news_config.json and hitting
+    refresh in the browser is enough to propagate a label change.
+    """
+    config_path = NEWS_DIR / "news_config.json"
+    if not config_path.exists():
+        raise HTTPException(status_code=500, detail="news_config.json not found")
+    try:
+        cfg = json.loads(config_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=500, detail=f"news_config.json invalid: {exc}")
+
+    feeds = []
+    for order, (feed_key, spec) in enumerate(cfg.get("feeds", {}).items()):
+        if not isinstance(spec, dict):
+            continue
+        feeds.append({
+            "feed_key": feed_key,
+            "label": spec.get("label", feed_key),
+            "region": spec.get("region", "US"),
+            "order": order,
+        })
+    return {"feeds": feeds, "total": len(feeds)}
 
 
 @router.get("/news/articles")

@@ -97,7 +97,18 @@ export const socialClient = {
   async getNewsCluster(cluster_id: string): Promise<{ articles: NewsArticle[]; total: number }> {
     return apiRequest(`/social/news/cluster/${encodeURIComponent(cluster_id)}`);
   },
+
+  async getNewsFeeds(): Promise<{ feeds: NewsFeed[]; total: number }> {
+    return apiRequest("/social/news/feeds");
+  },
 };
+
+export interface NewsFeed {
+  feed_key: string;
+  label: string;
+  region: string;
+  order: number;
+}
 
 export interface NewsArticle {
   title: string;
@@ -106,6 +117,7 @@ export interface NewsArticle {
   pub_date: string;
   source_name: string;
   feed_label: string;
+  feed_key?: string;         // stable identifier; label is presentation
   guid: string;
   source_tier?: number;
   cluster_id?: string;
