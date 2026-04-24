@@ -20,6 +20,13 @@ Jobs (all Asia/Taipei time):
                              an immediate monthly_revenue poll for that
                              ticker so we don't wait for the next window tick.
 
+  === TPEx OpenAPI (secondary source for TPEx tickers) ===
+  - tpex_openapi_sync        daily @ 11:00
+                             Pulls current-month bulk TPEx OpenAPI, fills
+                             any missing rows (MOPS-down redundancy) and
+                             logs DIVERGENT when TPEx and our stored MOPS
+                             value disagree (data-quality signal).
+
   === Historical backfill + corrections ===
   - twse_weekly_patch        Sunday @ 03:00
   - tpex_weekly_patch        Sunday @ 03:30
@@ -68,6 +75,7 @@ from backend.app.services.taiwan.scrapers.monthly_revenue import (
 from backend.app.services.taiwan.scrapers.tpex_historical import (
     backfill_range as tpex_backfill_range,
 )
+from backend.app.services.taiwan.scrapers.tpex_openapi import sync_tpex_openapi
 from backend.app.services.taiwan.scrapers.twse_historical import (
     backfill_range as twse_backfill_range,
 )
@@ -209,6 +217,45 @@ def _load_market_by_ticker() -> dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
+# TPEx OpenAPI — daily redundancy + cross-check for TPEx tickers
+# ---------------------------------------------------------------------------
+
+def job_tpex_openapi_sync() -> None:
+    """Pulls the TPEx OpenAPI current-month bulk file; INSERTs rows missing
+    from the parquet (MOPS-down fallback); flags DIVERGENT when TPEx and
+    our stored MOPS value disagree (data-quality signal, no overwrite)."""
+    name = "tpex_openapi_sync"
+    conn = _sqlite_conn()
+    try:
+        stats = sync_tpex_openapi()
+        status = (
+            HeartbeatStatus.DEGRADED if stats.divergent > 0
+            else HeartbeatStatus.OK
+        )
+        err = None
+        if stats.divergent > 0:
+            sample = ", ".join(
+                f"{d.ticker}@{d.fiscal_ym}"
+                for d in stats.divergences[:3]
+            )
+            err = f"{stats.divergent} tpex-vs-stored mismatch(es): {sample}"
+        write_heartbeat(conn, scraper_name=name, status=status,
+                        rows_inserted=stats.inserted,
+                        rows_updated=stats.matched,
+                        rows_amended=stats.divergent,
+                        last_error_msg=err)
+        logger.info("%s fetched=%d inserted=%d matched=%d divergent=%d",
+                    name, stats.fetched, stats.inserted,
+                    stats.matched, stats.divergent)
+    except Exception as exc:
+        logger.exception("%s failed: %s", name, exc)
+        write_heartbeat(conn, scraper_name=name, status=HeartbeatStatus.FAILED,
+                        last_error_msg=str(exc))
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
 # Weekly bulk patches (TWSE C04003 + TPEx O_YYYYMM)
 # ---------------------------------------------------------------------------
 
@@ -303,6 +350,16 @@ def main() -> None:
         job_material_info_window,
         CronTrigger(day="1-15", minute="7,22,37,52"),
         id="material_info_window", replace_existing=True,
+    )
+
+    # TPEx OpenAPI redundancy + xcheck -----------------------------------
+    # Fires 1h after monthly_revenue_daily so the primary MOPS path has
+    # had a chance to populate the parquet. If it did, this job just
+    # matches (TOUCH). If MOPS was down, this fills in current-month.
+    sched.add_job(
+        job_tpex_openapi_sync,
+        CronTrigger(hour="11", minute="0"),
+        id="tpex_openapi_sync", replace_existing=True,
     )
 
     # Weekly bulk patches -----------------------------------------------

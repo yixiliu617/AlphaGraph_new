@@ -653,6 +653,13 @@ One parquet dataset, three complementary sources:
 │ (material info)      │                         │ early-warning signal       │
 │                      │                         │ (~5% of tickers, not       │
 │                      │                         │  required for filing)      │
+├──────────────────────┼─────────────────────────┼────────────────────────────┤
+│ TPEx OpenAPI         │ current month, all ~800 │ REDUNDANCY + cross-check   │
+│ /openapi/v1/         │ TPEx cos in one bulk    │ for TPEx tickers. INSERT   │
+│ mopsfin_t187ap05_O   │ JSON call               │ on missing (MOPS-down      │
+│                      │                         │ fallback), flag DIVERGENT  │
+│                      │                         │ when it disagrees with     │
+│                      │                         │ our stored MOPS value.     │
 └──────────────────────┴─────────────────────────┴────────────────────────────┘
 ```
 

@@ -489,6 +489,63 @@ blend, not the primary live channel. The primary live source remains
 1st-15th publication window. This is cheap (51 calls × ~500ms in a
 warmed CDP context ≈ 25s/tick) and captures 100% of filings, not 2%.
 
+## TPEx OpenAPI — secondary source for TPEx tickers
+
+TPEx publishes a Swagger-documented open data endpoint that returns
+the current-published-month revenue for **all ~800 TPEx companies in
+one call**, no WAF, plain HTTPS. Endpoint catalog:
+
+```
+GET /openapi/v1/mopsfin_t187ap05_O     上櫃公司每月營業收入彙總表
+GET /openapi/v1/t187ap05_R             興櫃公司每月營業收入彙總表
+```
+
+Response is a JSON array, one dict per company. Field names are
+Chinese:
+```
+公司代號, 公司名稱, 資料年月 (YYYMM ROC), 產業別,
+營業收入-當月營收, 營業收入-上月營收, 營業收入-去年當月營收,
+營業收入-上月比較增減(%), 營業收入-去年同月增減(%),
+累計營業收入-當月累計營收, 累計營業收入-去年累計營收,
+累計營業收入-前期比較增減(%), 備註
+```
+
+Units: 仟元 (thousand TWD), same as TWSE/MOPS — multiply by 1000.
+
+### Why secondary, not primary
+
+Our primary live path is MOPS `t146sb05_detail` because it gives us a
+**rolling 12-month window per ticker**, so amendments to any of the
+past 12 months surface daily. TPEx OpenAPI only returns **the current
+published month** — it can't show you whether August 2025 was
+restated in April 2026. Switching to TPEx OpenAPI as primary would
+shrink amendment visibility from 12 months to 1 month.
+
+### What it IS useful for
+
+1. **Redundancy fallback** — if MOPS WAF ever rejects our CDP session,
+   this endpoint is completely independent and will still return a
+   current-month value we can store.
+2. **Cross-validation** — two independent paths reporting the same
+   number is strong audit evidence. If TPEx and our stored MOPS value
+   disagree, there's a data-quality question worth surfacing.
+3. **Watchlist scale-out** — if the watchlist grows from ~10 TPEx
+   tickers to hundreds, one bulk call wins over hundreds of per-ticker
+   calls through the CDP browser.
+
+### Sync policy we chose
+
+`sync_tpex_openapi()` (daily 11:00 TPE in the scheduler):
+- **Missing** (no parquet row for ticker/YM) → INSERT (redundancy fill)
+- **Matching** revenue → MATCHED (cross-check OK, no write)
+- **Divergent** revenue → WARN log + `DEGRADED` heartbeat, **DO NOT
+  overwrite**. Cross-source disagreement is a data-quality signal for
+  a human to investigate, not an automated restatement.
+
+Compare only on `revenue_twd` (the canonical integer). Percentages are
+derived and rounding-prone — using them as a divergence trigger would
+produce false positives.
+
 ## Minimal Fetch Template
 
 ```python
