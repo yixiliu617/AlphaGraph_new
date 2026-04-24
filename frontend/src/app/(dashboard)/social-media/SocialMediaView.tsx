@@ -11,7 +11,7 @@ import {
   MessageCircle,
   ThumbsUp,
 } from "lucide-react";
-import type { RedditPost, RedditStats, NewsArticle } from "@/lib/api/socialClient";
+import { socialClient, type RedditPost, type RedditStats, type NewsArticle } from "@/lib/api/socialClient";
 
 interface SocialMediaViewProps {
   activeTab: "reddit" | "news";
@@ -193,11 +193,11 @@ function RedditPanel({
 
 // Feed section ordering — follows the AI value chain top-down
 const FEED_SECTIONS: { key: string; label: string; accent: string; borderColor: string }[] = [
+  // Mirrors backend/data/market_data/news/news_config.json. 24 feeds.
   // --- AI Layer ---
   { key: "AI Models & Updates", label: "AI Models & Updates", accent: "text-violet-700", borderColor: "border-violet-600" },
   { key: "AI Products & Applications", label: "AI Products & Applications", accent: "text-purple-700", borderColor: "border-purple-500" },
-  { key: "AI Funding / VC / IPO / M&A", label: "AI Funding / VC / IPO / M&A", accent: "text-fuchsia-700", borderColor: "border-fuchsia-500" },
-  { key: "AI Startup Revenue & ARR", label: "AI Startup Revenue & ARR", accent: "text-fuchsia-600", borderColor: "border-fuchsia-400" },
+  { key: "AI Business Dynamics (Funding + Revenue + M&A)", label: "AI Business Dynamics (Funding + Revenue + M&A)", accent: "text-fuchsia-700", borderColor: "border-fuchsia-500" },
   // --- Infrastructure Layer ---
   { key: "Neocloud & CSP", label: "Neocloud & CSP", accent: "text-indigo-700", borderColor: "border-indigo-600" },
   { key: "Datacenter Deals & Capex", label: "Datacenter Deals & Capex", accent: "text-indigo-600", borderColor: "border-indigo-500" },
@@ -221,12 +221,9 @@ const FEED_SECTIONS: { key: string; label: string; accent: string; borderColor: 
   { key: "Japan Semi (Japanese)", label: "Japan Semi (JP)", accent: "text-pink-600", borderColor: "border-pink-400" },
   { key: "Korea Semi (English)", label: "Korea Semi", accent: "text-sky-700", borderColor: "border-sky-600" },
   { key: "Korea Semi (Korean)", label: "Korea Semi (KR)", accent: "text-sky-600", borderColor: "border-sky-400" },
-  // --- Regulation & Macro Layer ---
+  // --- Regulation Layer ---
   { key: "Regulation: Tariffs & Trade", label: "Tariffs & Trade Policy", accent: "text-red-700", borderColor: "border-red-600" },
   { key: "Regulation: AI Policy", label: "AI Regulation & Policy", accent: "text-orange-700", borderColor: "border-orange-500" },
-  { key: "Regulation: Healthcare & Biotech", label: "Healthcare & Biotech Regulation", accent: "text-rose-600", borderColor: "border-rose-400" },
-  { key: "Macro: Geopolitics & Trade", label: "Geopolitics & Trade", accent: "text-red-600", borderColor: "border-red-500" },
-  { key: "Macro: Economy & Markets", label: "Economy & Markets", accent: "text-amber-600", borderColor: "border-amber-500" },
 ];
 
 const ARTICLES_PER_SECTION = 20;
@@ -265,35 +262,113 @@ function FeedSection({
       {/* Articles */}
       <div className="divide-y divide-slate-50">
         {shown.map((article, idx) => (
-          <div key={article.guid || idx} className="px-4 py-2 hover:bg-slate-50 transition-colors">
-            <div className="flex items-start gap-2">
-              <div className="flex-1 min-w-0">
-                <a
-                  href={article.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[13px] font-medium text-slate-900 hover:text-indigo-600 transition-colors leading-snug block"
-                >
-                  {article.title_en || article.title}
-                </a>
-                {article.title_en && article.title !== article.title_en && (
-                  <p className="text-[10px] text-slate-400 mt-0.5 italic leading-snug">
-                    {article.title}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-2 shrink-0 pt-0.5">
-                <span className={`text-[10px] ${article.source_tier === 1 ? "text-blue-600 font-semibold" : "text-slate-400"}`}>
-                  {article.source_name}
-                </span>
-                <span className="text-[10px] text-slate-300">
-                  {timeAgo(article.pub_date)}
-                </span>
-              </div>
-            </div>
-          </div>
+          <NewsRow key={article.guid || idx} article={article} />
         ))}
       </div>
+    </div>
+  );
+}
+
+function NewsRow({ article }: { article: NewsArticle }) {
+  const [expanded, setExpanded] = useState(false);
+  const [siblings, setSiblings] = useState<NewsArticle[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const sibCount = article.sibling_count ?? 0;
+  const hasSiblings = sibCount > 0 && !!article.cluster_id;
+
+  const onToggle = async () => {
+    if (!hasSiblings) return;
+    const next = !expanded;
+    setExpanded(next);
+    if (next && siblings === null && article.cluster_id) {
+      setLoading(true);
+      try {
+        const res = await socialClient.getNewsCluster(article.cluster_id);
+        // Drop the primary itself from the list so we show only other sources
+        const filtered = res.articles.filter((a) => a.guid !== article.guid);
+        setSiblings(filtered);
+      } catch {
+        setSiblings([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  return (
+    <div className="hover:bg-slate-50 transition-colors">
+      <div className="px-4 py-2">
+        <div className="flex items-start gap-2">
+          <div className="flex-1 min-w-0">
+            <a
+              href={article.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[13px] font-medium text-slate-900 hover:text-indigo-600 transition-colors leading-snug"
+            >
+              {article.title_en || article.title}
+            </a>
+            {hasSiblings && (
+              <button
+                onClick={onToggle}
+                className="ml-2 inline-flex items-center gap-0.5 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-100 align-middle"
+                title={`${sibCount + 1} sources covering this story`}
+              >
+                +{sibCount}
+                <span className={`transition-transform ${expanded ? "rotate-90" : ""}`}>›</span>
+              </button>
+            )}
+            {article.title_en && article.title !== article.title_en && (
+              <p className="text-[10px] text-slate-400 mt-0.5 italic leading-snug">
+                {article.title}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0 pt-0.5">
+            <span className={`text-[10px] ${article.source_tier === 1 ? "text-blue-600 font-semibold" : "text-slate-400"}`}>
+              {article.source_name}
+            </span>
+            <span className="text-[10px] text-slate-300">
+              {timeAgo(article.pub_date)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="bg-slate-50/50 border-t border-slate-100 divide-y divide-slate-100">
+          {loading && (
+            <div className="px-4 py-2 text-[11px] text-slate-400">Loading other sources…</div>
+          )}
+          {!loading && siblings && siblings.length === 0 && (
+            <div className="px-4 py-2 text-[11px] text-slate-400">No other coverage found.</div>
+          )}
+          {!loading && siblings && siblings.map((s) => (
+            <div key={s.guid} className="pl-8 pr-4 py-1.5">
+              <div className="flex items-start gap-2">
+                <div className="flex-1 min-w-0">
+                  <a
+                    href={s.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[12px] text-slate-700 hover:text-indigo-600 transition-colors leading-snug"
+                  >
+                    {s.title_en || s.title}
+                  </a>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 pt-0.5">
+                  <span className={`text-[10px] ${s.source_tier === 1 ? "text-blue-600 font-semibold" : "text-slate-400"}`}>
+                    {s.source_name}
+                  </span>
+                  <span className="text-[10px] text-slate-300">
+                    {timeAgo(s.pub_date)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

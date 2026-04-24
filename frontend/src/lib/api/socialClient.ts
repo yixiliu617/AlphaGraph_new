@@ -82,14 +82,20 @@ export const socialClient = {
     keyword?: string;
     source?: string;
     limit?: number;
-  }): Promise<{ articles: NewsArticle[]; total: number }> {
+    group?: boolean;  // default true on server; pass false for flat
+  }): Promise<{ articles: NewsArticle[]; total: number; grouped?: boolean }> {
     const qs = new URLSearchParams();
     if (params?.feed) qs.set("feed", params.feed);
     if (params?.keyword) qs.set("keyword", params.keyword);
     if (params?.source) qs.set("source", params.source);
     if (params?.limit) qs.set("limit", String(params.limit));
+    if (params?.group === false) qs.set("group", "false");
     const q = qs.toString();
     return apiRequest(`/social/news/articles${q ? `?${q}` : ""}`);
+  },
+
+  async getNewsCluster(cluster_id: string): Promise<{ articles: NewsArticle[]; total: number }> {
+    return apiRequest(`/social/news/cluster/${encodeURIComponent(cluster_id)}`);
   },
 };
 
@@ -102,4 +108,6 @@ export interface NewsArticle {
   feed_label: string;
   guid: string;
   source_tier?: number;
+  cluster_id?: string;
+  sibling_count?: number;   // set on grouped responses only
 }

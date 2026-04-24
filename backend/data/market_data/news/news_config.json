@@ -12,12 +12,17 @@
     },
     "ai_business_dynamics": {
       "label": "AI Business Dynamics (Funding + Revenue + M&A)",
-      "query": "\"AI startup\" OR \"AI company\" funding OR raised OR acquisition OR merger OR IPO OR SPAC OR valuation OR \"Series A\" OR \"Series B\" OR \"Series C\" OR \"venture capital\" AI OR \"AI unicorn\" OR ARR OR revenue OR \"annual recurring\" OR adoption OR \"market share\" OR churn",
+      "query": "\"AI startup\" OR \" funding OR raised OR acquisition OR merger OR IPO OR SPAC OR valuation OR \"Series A\" OR \"Series B\" OR \"Series C\" OR \"venture capital\" AI OR \"AI unicorn\" OR ARR OR revenue OR \"annual recurring\" OR adoption OR \"market share\" OR churn",
       "region": "US"
     },
     "datacenter_neocloud": {
       "label": "Neocloud & CSP",
       "query": "CoreWeave OR Lambda OR \"Crusoe Energy\" OR \"Applied Digital\" OR \"neocloud\" OR \"GPU cloud\" OR Nebius OR \"cloud GPU\" OR AWS OR Azure OR \"Google Cloud\" OR Oracle Cloud deal OR contract OR expansion",
+      "region": "US"
+    },
+    "ai_bottlenecks": {
+      "label": "AI bottlenecks",
+      "query": "\"AI bottleneck\" AI shortage",
       "region": "US"
     },
     "datacenter_deals": {
@@ -110,14 +115,9 @@
       "query": "삼성전자 반도체 OR SK하이닉스 OR DRAM OR HBM OR 파운드리",
       "region": "KR"
     },
-    "regulation_tariff": {
-      "label": "Regulation: Tariffs & Trade",
-      "query": "tariff semiconductor OR chip OR \"trade war\" OR \"export control\" OR CHIPS Act OR Trump tariff OR \"trade policy\" China technology",
-      "region": "US"
-    },
     "regulation_ai": {
       "label": "Regulation: AI Policy",
-      "query": "\"AI regulation\" OR \"AI policy\" OR \"AI safety\" legislation OR \"executive order\" AI OR \"EU AI Act\" OR \"AI governance\" OR \"AI ethics\" law",
+      "query": "\"AI regulation\" OR \"AI policy\" OR \"AI safety\" legislation OR \"executive order\" OR \"AI governance\" OR \"AI ethics\" law",
       "region": "US"
     }
   },

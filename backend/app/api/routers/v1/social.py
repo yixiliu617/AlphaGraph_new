@@ -172,12 +172,31 @@ def news_stats():
     }
 
 
+def _article_dict(r, *, has_title_en: bool) -> dict:
+    article = {
+        "title": r.get("title", ""),
+        "link": r.get("link", ""),
+        "pub_date": r.get("pub_date", ""),
+        "source_name": r.get("source_name", ""),
+        "feed_label": r.get("feed_label", ""),
+        "guid": r.get("guid", ""),
+    }
+    if has_title_en and pd.notna(r.get("title_en")) and r.get("title_en"):
+        article["title_en"] = r["title_en"]
+    if "source_tier" in r.index and pd.notna(r.get("source_tier")):
+        article["source_tier"] = int(r["source_tier"])
+    if "cluster_id" in r.index and pd.notna(r.get("cluster_id")):
+        article["cluster_id"] = str(r["cluster_id"])
+    return article
+
+
 @router.get("/news/articles")
 def news_articles(
     feed: str | None = Query(None, description="Filter by feed label"),
     keyword: str | None = Query(None, description="Search in title"),
     source: str | None = Query(None, description="Filter by source name"),
     limit: int = Query(100, le=500),
+    group: bool = Query(True, description="Collapse similar stories into clusters (primary + sibling_count)"),
 ):
     df = _load_news()
     if df.empty:
@@ -190,8 +209,50 @@ def news_articles(
     if keyword:
         df = df[df["title"].str.contains(keyword, case=False, na=False)]
 
+    has_cluster = "cluster_id" in df.columns and df["cluster_id"].notna().any()
+    has_title_en = "title_en" in df.columns
+
+    if group and has_cluster:
+        # Cluster-aware mode: one row per cluster_id = the is_primary row.
+        # sibling_count = articles_in_cluster - 1.
+        counts = df.groupby("cluster_id").size().rename("_sibling_plus_one")
+        # Primary per cluster = is_primary True, fallback to earliest article
+        primary_mask = df["is_primary"].fillna(False).astype(bool)
+        primaries = df[primary_mask].copy()
+
+        # Edge case: some clusters may have zero is_primary=True rows (e.g.
+        # old rows with no primary flag). Fall back to the first row of
+        # each such cluster.
+        missing_cids = set(df["cluster_id"].unique()) - set(primaries["cluster_id"].unique())
+        if missing_cids:
+            fallback = (
+                df[df["cluster_id"].isin(missing_cids)]
+                .sort_values("pub_iso", ascending=False)
+                .drop_duplicates(subset=["cluster_id"], keep="first")
+            )
+            primaries = pd.concat([primaries, fallback], ignore_index=True)
+
+        primaries = primaries.merge(counts, on="cluster_id", how="left")
+
+        if not feed and not keyword and not source:
+            per_feed = max(limit // max(primaries["feed_label"].nunique(), 1), 20)
+            parts = []
+            for fl in primaries["feed_label"].unique():
+                sub = primaries[primaries["feed_label"] == fl].sort_values("pub_iso", ascending=False).head(per_feed)
+                parts.append(sub)
+            primaries = pd.concat(parts).sort_values("pub_iso", ascending=False)
+        else:
+            primaries = primaries.sort_values("pub_iso", ascending=False).head(limit)
+
+        out = []
+        for _, r in primaries.iterrows():
+            art = _article_dict(r, has_title_en=has_title_en)
+            art["sibling_count"] = max(int(r["_sibling_plus_one"]) - 1, 0)
+            out.append(art)
+        return {"articles": out, "total": len(out), "grouped": True}
+
+    # Flat / legacy mode.
     if not feed and not keyword and not source:
-        # No filter: return top N per feed to ensure all sections represented
         per_feed = max(limit // max(df["feed_label"].nunique(), 1), 20)
         parts = []
         for fl in df["feed_label"].unique():
@@ -201,20 +262,18 @@ def news_articles(
     else:
         df = df.sort_values("pub_iso", ascending=False).head(limit)
 
-    articles = []
-    has_title_en = "title_en" in df.columns
-    for _, r in df.iterrows():
-        article = {
-            "title": r.get("title", ""),
-            "link": r.get("link", ""),
-            "pub_date": r.get("pub_date", ""),
-            "source_name": r.get("source_name", ""),
-            "feed_label": r.get("feed_label", ""),
-            "guid": r.get("guid", ""),
-        }
-        if has_title_en and pd.notna(r.get("title_en")) and r["title_en"]:
-            article["title_en"] = r["title_en"]
-        if "source_tier" in r.index and pd.notna(r.get("source_tier")):
-            article["source_tier"] = int(r["source_tier"])
-        articles.append(article)
+    articles = [_article_dict(r, has_title_en=has_title_en) for _, r in df.iterrows()]
+    return {"articles": articles, "total": len(articles), "grouped": False}
+
+
+@router.get("/news/cluster/{cluster_id}")
+def news_cluster(cluster_id: str):
+    """Return every article in a cluster, ordered by publish date desc.
+    Powers the 'expand siblings' UI on the News tab."""
+    df = _load_news()
+    if df.empty or "cluster_id" not in df.columns:
+        return {"articles": [], "total": 0}
+    cdf = df[df["cluster_id"] == cluster_id].sort_values("pub_iso", ascending=False)
+    has_title_en = "title_en" in cdf.columns
+    articles = [_article_dict(r, has_title_en=has_title_en) for _, r in cdf.iterrows()]
     return {"articles": articles, "total": len(articles)}
