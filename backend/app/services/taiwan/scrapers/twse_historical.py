@@ -90,7 +90,7 @@ def fetch_zip_bytes(
 
     if cache_dir is not None:
         cache_path = cache_dir / f"{yyyymm}_C04003.zip"
-        if cache_path.exists():
+        if cache_path.exists() and _is_valid_zip_header(cache_path.read_bytes()[:4]):
             return cache_path.read_bytes()
 
     sess = session or requests
@@ -98,11 +98,20 @@ def fetch_zip_bytes(
     r = sess.get(url, headers=headers, timeout=timeout, verify=False)
     r.raise_for_status()
 
-    if cache_dir is not None:
+    # Validate BEFORE caching — TWSE occasionally returns an HTML error page
+    # with 200 OK when a transient issue occurs. Caching that poisons the
+    # cache forever. Only persist responses that look like real ZIPs.
+    if cache_dir is not None and _is_valid_zip_header(r.content[:4]):
         cache_dir.mkdir(parents=True, exist_ok=True)
         (cache_dir / f"{yyyymm}_C04003.zip").write_bytes(r.content)
 
     return r.content
+
+
+def _is_valid_zip_header(prefix: bytes) -> bool:
+    """ZIP magic is 0x504B0304 ('PK\\x03\\x04'). Accept any 'PK' prefix to be
+    permissive (ZIP can also start with 0x504B0506 for empty archives)."""
+    return len(prefix) >= 2 and prefix[:2] == b"PK"
 
 
 def _extract_xls_from_zip(zip_bytes: bytes) -> bytes:

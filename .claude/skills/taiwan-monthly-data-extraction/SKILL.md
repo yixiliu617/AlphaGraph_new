@@ -326,6 +326,98 @@ After a 10-year run, confirm:
 - YoY sign changes correctly across historical inflection points
 - MoM fills for all rows except the first per-ticker
 
+## TPEx Open-Data (historical backfill for 上櫃 companies)
+
+For the ~15% of Taiwan-listed companies on TPEx (e.g. Phison 8299 for
+flash controllers, GlobalWafers 6488 for silicon wafers), the TWSE
+C04003 archive does not include them. TPEx publishes its own monthly
+revenue archive.
+
+| Item | Value |
+|---|---|
+| Page | `https://www.tpex.org.tw/zh-tw/mainboard/listed/month/revenue.html` |
+| WAF | None — direct `requests.get` works (same Python-3.13 TLS workaround as TWSE) |
+| XLS URL | `/storage/statistic/sales_revenue/{prefix}_{YYYYMM}.xls` — NO outer ZIP |
+| Prefix | `O` = 上櫃 / TPEx regular, `U` = 興櫃 / Emerging |
+| Filename date | AD year (same as TWSE) |
+| Coverage | **2009-12 onwards** (earlier months return HTTP 302) |
+| JSON alt | `POST /www/zh-tw/statistics/salesRevenue body=date=&id=&response=json` (current month only; no date param) |
+
+### TPEx XLS layout — column offsets differ from TWSE!
+
+TPEx's XLS inserts an **empty spacer column at position 1**. Every data
+column is shifted right by one vs. TWSE C04003:
+
+| Col | TWSE C04003 | **TPEx O_YYYYMM** |
+|---|---|---|
+| 0 | `{ticker}  {name}` | same |
+| 1 | Previous month | **SPACER (blank)** |
+| 2 | **Current month** | Previous month |
+| 3 | YTD | **Current month** |
+| 4 | Prior-year same month | YTD |
+| 5 | Prior-year YTD | Prior-year same month |
+| 6 | YTD diff | Prior-year YTD |
+| 7 | YTD % | YTD diff |
+
+Anti-pattern: sharing a parser between TWSE and TPEx via a column-offset
+param is fine, but tests MUST lock the offsets per source with a real
+fixture — the two files are otherwise visually identical.
+
+### Corner cases specific to TPEx
+
+#### CC-T9. TPEx returns HTTP 302 for not-yet-published months
+TWSE returns a 514-byte "invalid zip" HTML page in the same situation; TPEx returns a proper 302 redirect to the homepage. Pass `allow_redirects=False` to `requests.get` so the caller sees the 302 and raises `FileNotFoundError` instead of silently following to the homepage and then choking on an HTML file claiming to be XLS.
+
+#### CC-T10. TPEx XLS is NOT wrapped in a ZIP
+Unlike TWSE C04003 (`.zip` containing a `.xls`), TPEx serves the XLS directly. Don't reuse the TWSE `_extract_xls_from_zip` — the content begins with `D0 CF 11 E0` (CFB magic), not `PK`.
+
+#### CC-T11. TPEx archive horizon (2009-12)
+The earliest available month is 2009-12. Before that, the files exist for purchase via TPEx's paid historical data service but aren't online. Document `start=(2009, 12)` as the default in the backfill tool.
+
+#### CC-T12. Two markets from one site: `O` vs `U` prefix
+- `O_` = 上櫃 (TPEx regular — listed on TPEx main board)
+- `U_` = 興櫃 (Emerging — pre-listing companies)
+Same URL pattern, different file prefix. We only currently ingest `O_`; `U_` is available via the same scraper with `prefix="U"` if needed.
+
+#### CC-T13. Watchlist CSV's `market` column can be stale
+When we ran the first TWSE backfill, tickers 8110 and 8021 — listed as "TPEx" in our watchlist CSV — showed up in the TWSE C04003 file. Cross-check with MOPS KeywordsQuery (returns the authoritative title prefix 上市/上櫃) on a periodic basis and correct the watchlist. The scrapers rely on the watchlist for filtering, not for market assignment; market comes from which file the ticker appears in.
+
+#### CC-T14. Foreign-incorporated listings are excluded from both TWSE and TPEx archives
+Foreign companies listed in Taiwan (F-shares, KY, N — e.g. Silergy 6415 incorporated in Cayman Islands) are listed on TWSE/TPEx but their monthly revenue appears in a SEPARATE report, not in C04003 or `O_YYYYMM.xls`. The C04003 title clarifies: "上市公司營業額…(**本國公司**)" — domestic companies only. These tickers get 12-month coverage via MOPS's per-ticker endpoint but no bulk backfill. Finding the foreign-company equivalent report is a TODO. Symptom to watch for: a watchlist ticker missing from both backfills; detect by diffing `list_watchlist_tickers()` against the covered-tickers set after a full run.
+
+### Tooling
+
+- `tools/tpex_probe_download.py` — XHR + download-link discovery, for rediscovering paths when TPEx redesigns.
+- `tools/tpex_backfill.py` — one-shot runner with disk cache under `<data-dir>/_raw/tpex_xls/`.
+
+### Verification
+
+After a full TPEx run, confirm:
+- Phison (8299) has one row per month from 2009-12 onward
+- 2026-01 Phison revenue ~ NT$10.45B, YoY ~ +189% (a real flash-controller blowout)
+- Row counts per ticker vary more than TWSE (more late IPOs on TPEx)
+
+## Combined architecture: three-source blend
+
+For complete watchlist coverage, the pipeline uses three sources with
+overlapping-but-distinct time windows:
+
+```
+Freshness →                               History →
+────────────────────────────────────────────────────────────
+MOPS t146sb05_detail   | last 12 months, per-ticker, daily
+TWSE C04003 archive    |         1999-03 → prior month, 上市 only
+TPEx O_YYYYMM archive  |         2009-12 → prior month, 上櫃 only
+```
+
+The storage layer's content-hash upsert makes overlap free: when MOPS
+and TWSE both report the same (ticker, month), the hash matches and the
+row becomes a TOUCH_ONLY. Amendments surface as `amended=True`.
+
+A ticker not yet in the bulk archives (e.g. just IPO'd) still gets
+coverage from MOPS's 12-month window, and the bulk archives pick it up
+from the next publication.
+
 ## Minimal Fetch Template
 
 ```python

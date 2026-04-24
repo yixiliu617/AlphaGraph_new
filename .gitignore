@@ -25,6 +25,13 @@ backend/data/insights/
 backend/data/fragment_debug/
 backend/data/Broker_report/
 
+# Taiwan ingestion: cached ZIP/XLS (raw captures) and the derived parquet.
+# Rebuildable from tools/twse_backfill.py and tools/tpex_backfill.py.
+backend/data/taiwan/_raw/
+backend/data/taiwan/monthly_revenue/data.parquet
+backend/data/taiwan/monthly_revenue/history.parquet
+backend/data/taiwan/_registry/mops_company_master.parquet
+
 # Keep the config directory (ticker_groups.json etc.)
 !backend/data/config/
 
