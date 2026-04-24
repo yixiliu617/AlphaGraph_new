@@ -10,12 +10,12 @@
       "query": "(\"AI startup\" OR \"AI company\" OR \"AI firm\" OR OpenAI OR Anthropic OR xAI OR \"Safe Superintelligence\" OR SSI OR \"Thinking Machines\" OR Cursor OR Anysphere OR Windsurf OR Perplexity OR Glean OR Harvey OR Sierra OR Hebbia OR Cohere OR Mistral OR Runway OR HeyGen OR Replit OR Pika OR Suno OR Synthesia OR \"Figure AI\" OR \"Physical Intelligence\" OR \"World Labs\" OR \"Groq\" OR \"Cerebras\") (funding OR raised OR \"funding round\" OR \"Series A\" OR \"Series B\" OR \"Series C\" OR \"Series D\" OR \"Series E\" OR IPO OR SPAC OR \"public offering\" OR acquisition OR acquires OR \"acquired by\" OR merger OR \"M&A\" OR unicorn OR valuation OR deals OR \"tender offer\" OR \"secondary sale\" OR \"venture capital\")",
       "region": "US"
     },
-    "datacenter_neocloud": {
+    "datacenter_deals": {
       "label": "Datacenter & CSP & Capex",
       "query": "(AWS OR \"Amazon Web Services\" OR Azure OR \"Microsoft Azure\" OR \"Google Cloud\" OR GCP OR \"Oracle Cloud\" OR Microsoft OR Amazon OR Alphabet OR Google OR Meta OR \"hyperscaler\") (capex OR \"capital expenditure\" OR \"data center\" OR datacenter OR \"AI infrastructure\" OR \"cloud capex\" OR \"cloud spending\" OR \"campus expansion\" OR \"new data center\" OR \"data center construction\" OR \"data center lease\" OR \"data center build\" OR \"GPU cluster\" OR \"AI factory\" OR \"AI cluster\")",
       "region": "US"
     },
-    "datacenter_deals": {
+    "datacenter_neocloud": {
       "label": "Neocloud & Deals",
       "query": "(CoreWeave OR Lambda OR \"Lambda Labs\" OR \"Crusoe Energy\" OR Crusoe OR Vultr OR \"Applied Digital\" OR TeraWulf OR \"Iris Energy\" OR IREN OR \"Core Scientific\" OR Hut8 OR \"Hut 8\" OR \"Bit Digital\" OR \"Cipher Mining\" OR \"Hive Digital\" OR \"HIVE Blockchain\" OR Nebius OR Fluidstack OR \"Northern Data\" OR \"neocloud\" OR \"GPU cloud\") (deal OR lease OR order OR contract OR \"GPU contract\" OR construction OR expansion OR financing OR \"debt financing\" OR \"equity raise\" OR \"secured order\" OR \"new campus\" OR \"power purchase agreement\" OR PPA OR \"customer contract\" OR \"hyperscaler deal\")",
       "region": "US"
