@@ -1,71 +1,117 @@
 """
-MOPS company-master scraper.
+MOPS company-master resolver.
 
-Scrapes the full listed-company registry from MOPS and writes it to
-backend/data/taiwan/_registry/mops_company_master.parquet. Run once a month.
+The 2024 MOPS redesign removed the bulk `ajax_t51sb01` endpoint that
+returned the full listing roster as HTML. The new API is per-ticker:
+we resolve each watchlist ticker via `/mops/api/KeywordsQuery` and take
+the market + sector tag off the response's `companyList[].title`.
 
-Endpoints:
-  TWSE main board: POST https://mops.twse.com.tw/mops/web/ajax_t51sb01
-                   form: step=1&TYPEK=sii
-  TPEx OTC:        POST https://mops.twse.com.tw/mops/web/ajax_t51sb01
-                   form: step=1&TYPEK=otc
+Write target: `backend/data/taiwan/_registry/mops_company_master.parquet`
+Schema: co_id, name_zh, industry_zh, market, last_seen_at
+
+Market mapping (from the title prefix that MOPS returns):
+    上市   -> TWSE      (sii)
+    上櫃   -> TPEx      (otc)
+    興櫃   -> Emerging
+    公開發行 -> Public   (non-listed public companies)
 """
 
 from __future__ import annotations
 
+import logging
+import re
 from datetime import datetime, timezone
-from typing import Iterable
 
 import pandas as pd
-from bs4 import BeautifulSoup
 
 from backend.app.services.taiwan.mops_client import MopsClient
-from backend.app.services.taiwan.registry import load_mops_master, save_mops_master
+from backend.app.services.taiwan.registry import (
+    list_watchlist_tickers,
+    save_mops_master,
+)
 
-_URL = "https://mops.twse.com.tw/mops/web/ajax_t51sb01"
+logger = logging.getLogger(__name__)
 
+_KEYWORDS_URL = "/mops/api/KeywordsQuery"
 
-def parse_company_master_html(html: str, *, market: str) -> list[dict]:
-    soup = BeautifulSoup(html, "lxml")
-    rows: list[dict] = []
-    for table in soup.select("table"):
-        # The company-list tables have a header with 公司代號 / 公司名稱.
-        first_row = table.find("tr")
-        if not first_row:
-            continue
-        headers = [th.get_text(strip=True) for th in first_row.find_all(["th", "td"])]
-        if "公司代號" not in headers or "公司名稱" not in headers:
-            continue
-        idx_id = headers.index("公司代號")
-        idx_name = headers.index("公司名稱")
-        idx_industry = headers.index("產業類別") if "產業類別" in headers else None
-        for tr in table.select("tr")[1:]:
-            cells = [td.get_text(strip=True) for td in tr.find_all("td")]
-            if len(cells) <= idx_name:
-                continue
-            rows.append({
-                "co_id": cells[idx_id].strip(),
-                "name_zh": cells[idx_name].strip(),
-                "industry_zh": (cells[idx_industry].strip() if idx_industry is not None else ""),
-                "market": market,
-            })
-    return rows
+# Market code is the leading prefix of the `title` field.
+_MARKET_PREFIXES = (
+    ("上市", "TWSE"),
+    ("上櫃", "TPEx"),
+    ("興櫃", "Emerging"),
+    ("公開發行", "Public"),
+)
 
 
-def scrape_company_master(client: MopsClient) -> int:
-    """Scrape both markets; upsert into _registry/mops_company_master.parquet.
-    Returns number of rows written."""
+def _split_market_sector(title: str) -> tuple[str, str]:
+    """Return (market, sector_zh). Unknown prefixes -> ('Unknown', <full title>)."""
+    title = (title or "").strip()
+    for prefix, market in _MARKET_PREFIXES:
+        if title.startswith(prefix):
+            return market, title[len(prefix):].strip()
+    return "Unknown", title
+
+
+_TICKER_NAME_RE = re.compile(r"^\s*(\d{4,6})\s+(.+?)\s*$")
+
+
+def _parse_ticker_name(result_str: str) -> tuple[str, str]:
+    """Parse 'ticker name_zh' strings. E.g. '2330 台灣積體電路製造股份有限公司'."""
+    m = _TICKER_NAME_RE.match(result_str or "")
+    if not m:
+        return "", (result_str or "").strip()
+    return m.group(1), m.group(2)
+
+
+def resolve_ticker(client: MopsClient, ticker: str) -> dict | None:
+    """Hit KeywordsQuery for one ticker. Returns a master row or None on miss."""
+    res = client.post_json(_KEYWORDS_URL, {"queryFunction": True, "keyword": ticker})
+    if res.status_code != 200:
+        logger.warning("KeywordsQuery failed ticker=%s status=%d", ticker, res.status_code)
+        return None
+    try:
+        body = res.json()
+    except ValueError:
+        logger.warning("KeywordsQuery non-JSON body ticker=%s first120=%r", ticker, res.text[:120])
+        return None
+    if body.get("code") != 200:
+        logger.warning("KeywordsQuery api error ticker=%s code=%s msg=%s",
+                       ticker, body.get("code"), body.get("message"))
+        return None
+
+    company_list = body.get("result", {}).get("companyList", []) or []
+    for group in company_list:
+        title = group.get("title", "")
+        market, sector = _split_market_sector(title)
+        for entry in group.get("data", []) or []:
+            found_ticker, name_zh = _parse_ticker_name(entry.get("result", ""))
+            if found_ticker == ticker:
+                return {
+                    "co_id": ticker,
+                    "name_zh": name_zh,
+                    "industry_zh": sector,
+                    "market": market,
+                }
+    logger.warning("KeywordsQuery returned no match for ticker=%s", ticker)
+    return None
+
+
+def scrape_company_master(client: MopsClient, tickers: list[str] | None = None) -> int:
+    """Resolve every watchlist ticker via KeywordsQuery and persist.
+
+    Returns the number of rows written.
+    """
+    tickers = tickers or list_watchlist_tickers()
     now = datetime.now(timezone.utc)
-    all_rows: list[dict] = []
-    for market_code, market_label in (("sii", "TWSE"), ("otc", "TPEx")):
-        result = client.post(_URL, data={"step": "1", "TYPEK": market_code})
-        if result.status_code != 200:
+    rows: list[dict] = []
+    for t in tickers:
+        row = resolve_ticker(client, t)
+        if row is None:
             continue
-        rows = parse_company_master_html(result.text, market=market_label)
-        for r in rows:
-            r["last_seen_at"] = now
-        all_rows.extend(rows)
+        row["last_seen_at"] = now
+        rows.append(row)
 
-    df = pd.DataFrame(all_rows)
+    df = pd.DataFrame(rows, columns=["co_id", "name_zh", "industry_zh", "market", "last_seen_at"])
     save_mops_master(df)
+    logger.info("company_master resolved=%d/%d", len(rows), len(tickers))
     return len(df)

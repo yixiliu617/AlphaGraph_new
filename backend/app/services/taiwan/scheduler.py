@@ -1,11 +1,18 @@
 """
 Taiwan scheduler entry point. Run as: python -m backend.app.services.taiwan.scheduler
 
-Registered APScheduler jobs:
-  - company_master_refresh   1st of month @ 03:00 TPE
-  - monthly_revenue_daily    daily @ 10:00 TPE, cheap filter to current-month window
-  - monthly_revenue_catchup  every 3 days @ 11:00 TPE, scrapes prior month
-  - health_check             hourly; logs WARN if any scraper > 2x its cadence
+Jobs (all Asia/Taipei time):
+  - company_master_refresh   1st of month @ 03:00
+                             Resolves the watchlist via KeywordsQuery so we
+                             know each ticker's (market, sector).
+  - monthly_revenue_daily    daily @ 10:00
+                             Per-ticker call to t146sb05_detail — MOPS
+                             publishes by the 10th of each month.
+  - health_check             hourly @ :17
+                             Logs status of scraper heartbeats.
+
+One MopsClient is kept open for the duration of each job so all tickers
+reuse the same warmed browser context (WAF-cleared, cookie-stable).
 """
 
 from __future__ import annotations
@@ -13,7 +20,6 @@ from __future__ import annotations
 import logging
 import sqlite3
 import sys
-from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.blocking import BlockingScheduler
@@ -29,7 +35,7 @@ from backend.app.services.taiwan.health import (
 from backend.app.services.taiwan.mops_client import MopsClient
 from backend.app.services.taiwan.scrapers.company_master import scrape_company_master
 from backend.app.services.taiwan.scrapers.monthly_revenue import (
-    scrape_monthly_revenue_market_month,
+    scrape_monthly_revenue_watchlist,
 )
 
 TPE = ZoneInfo("Asia/Taipei")
@@ -45,7 +51,7 @@ logger = logging.getLogger("taiwan_scheduler")
 def _sqlite_conn() -> sqlite3.Connection:
     uri = settings.POSTGRES_URI
     if not uri.startswith("sqlite:///"):
-        raise RuntimeError("Scheduler expects SQLite in Plan 1. Migrate to Postgres later via Alembic.")
+        raise RuntimeError("Scheduler expects SQLite in Plan 1. Migrate to Postgres via Alembic for prod.")
     conn = sqlite3.connect(uri.replace("sqlite:///", ""))
     ensure_heartbeat_table(conn)
     return conn
@@ -54,9 +60,9 @@ def _sqlite_conn() -> sqlite3.Connection:
 def job_company_master() -> None:
     name = "company_master"
     conn = _sqlite_conn()
-    client = MopsClient()
     try:
-        n = scrape_company_master(client)
+        with MopsClient() as client:
+            n = scrape_company_master(client)
         write_heartbeat(conn, scraper_name=name, status=HeartbeatStatus.OK,
                         rows_inserted=n, rows_updated=0, rows_amended=0)
         logger.info("%s OK rows=%d", name, n)
@@ -65,64 +71,29 @@ def job_company_master() -> None:
         write_heartbeat(conn, scraper_name=name, status=HeartbeatStatus.FAILED,
                         last_error_msg=str(exc))
     finally:
-        client.close()
         conn.close()
-
-
-def _run_mr_month(client: MopsClient, conn, year: int, month: int, label: str) -> None:
-    total_inserted = total_updated = total_amended = 0
-    err = None
-    try:
-        for market in ("TWSE", "TPEx"):
-            stats = scrape_monthly_revenue_market_month(
-                client, year=year, month=month, market=market,
-            )
-            total_inserted += stats.inserted
-            total_updated += stats.touched
-            total_amended += stats.amended
-        write_heartbeat(conn, scraper_name=label,
-                        status=HeartbeatStatus.OK,
-                        rows_inserted=total_inserted,
-                        rows_updated=total_updated,
-                        rows_amended=total_amended)
-        logger.info("%s ym=%04d-%02d inserted=%d amended=%d", label, year, month,
-                    total_inserted, total_amended)
-    except Exception as exc:
-        err = str(exc)
-        logger.exception("%s ym=%04d-%02d failed: %s", label, year, month, exc)
-        write_heartbeat(conn, scraper_name=label,
-                        status=HeartbeatStatus.FAILED,
-                        last_error_msg=err)
 
 
 def job_monthly_revenue_daily() -> None:
-    now = datetime.now(TPE)
-    client = MopsClient()
+    name = "monthly_revenue_daily"
     conn = _sqlite_conn()
     try:
-        _run_mr_month(client, conn, now.year, now.month, "monthly_revenue_daily")
+        with MopsClient() as client:
+            stats = scrape_monthly_revenue_watchlist(client)
+        write_heartbeat(conn, scraper_name=name, status=HeartbeatStatus.OK,
+                        rows_inserted=stats.inserted,
+                        rows_updated=stats.touched,
+                        rows_amended=stats.amended)
+        logger.info("%s OK stats=%s", name, stats)
+    except Exception as exc:
+        logger.exception("%s failed: %s", name, exc)
+        write_heartbeat(conn, scraper_name=name, status=HeartbeatStatus.FAILED,
+                        last_error_msg=str(exc))
     finally:
-        client.close()
-        conn.close()
-
-
-def job_monthly_revenue_catchup() -> None:
-    now = datetime.now(TPE)
-    if now.month == 1:
-        year, month = now.year - 1, 12
-    else:
-        year, month = now.year, now.month - 1
-    client = MopsClient()
-    conn = _sqlite_conn()
-    try:
-        _run_mr_month(client, conn, year, month, "monthly_revenue_catchup")
-    finally:
-        client.close()
         conn.close()
 
 
 def job_health_check() -> None:
-    """Reads heartbeats; logs WARN for scrapers stale beyond 2x their cadence."""
     conn = _sqlite_conn()
     try:
         rows = read_all_heartbeats(conn)
@@ -143,10 +114,6 @@ def main() -> None:
 
     sched.add_job(job_monthly_revenue_daily, CronTrigger(hour="10", minute="0"),
                   id="monthly_revenue_daily", replace_existing=True)
-
-    sched.add_job(job_monthly_revenue_catchup,
-                  CronTrigger(day="*/3", hour="11", minute="0"),
-                  id="monthly_revenue_catchup", replace_existing=True)
 
     sched.add_job(job_health_check, CronTrigger(minute="17"),
                   id="health_check", replace_existing=True)

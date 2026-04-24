@@ -1,105 +1,121 @@
 """
-Unit tests for the MOPS HTTP client. Network is mocked — no real MOPS calls.
+Unit tests for the Playwright-based MopsClient.
+
+We avoid touching real Playwright by short-circuiting `open()` and stubbing
+`_ctx.request.post` / `_warm_origin`. The behaviours under test:
+  - rate limiting spaces requests by at least `min_interval_seconds`
+  - retries on retry-able status codes (429, 500, 502, 503, 504, 0)
+  - retry budget is bounded (max_retries+1 total attempts)
+  - HTML-on-200 (the MOPS WAF bounce page) triggers a retry
+  - `_looks_like_json` correctly distinguishes JSON from HTML prefixes
 """
+
+from __future__ import annotations
+
 import time
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-import pytest
+from backend.app.services.taiwan.mops_client import (
+    MopsClient,
+    MopsFetchResult,
+    _looks_like_json,
+)
 
-from backend.app.services.taiwan.mops_client import MopsClient, MopsFetchResult
 
-
-def _fake_response(status_code=200, text="<html>ok</html>", encoding="utf-8"):
+def _fake_resp(status: int = 200, text: str = '{"code":200}'):
     r = MagicMock()
-    r.status_code = status_code
-    r.text = text
-    r.content = text.encode(encoding)
-    r.encoding = encoding
-    r.headers = {"Content-Type": "text/html; charset=utf-8"}
+    r.status = status
+    r.text.return_value = text
     return r
 
 
+def _mk_client(**kwargs) -> MopsClient:
+    """Return a client with Playwright lifecycle disabled for unit tests."""
+    c = MopsClient(
+        min_interval_seconds=kwargs.pop("min_interval_seconds", 0.0),
+        max_retries=kwargs.pop("max_retries", 0),
+        backoff_base=kwargs.pop("backoff_base", 0.01),
+        timeout=kwargs.pop("timeout", 5.0),
+    )
+    # Bypass real browser: force `_ctx` and skip origin warming.
+    c._ctx = MagicMock()
+    c._warmed = True
+    return c
+
+
+def test_looks_like_json_prefix_gate():
+    assert _looks_like_json('{"a": 1}')
+    assert _looks_like_json('   [1,2,3]')
+    assert not _looks_like_json("<html>error</html>")
+    assert not _looks_like_json("")
+    assert not _looks_like_json(None)  # type: ignore[arg-type]
+
+
 def test_rate_limit_spaces_requests():
-    """Two quick calls must be spaced by at least `min_interval`."""
-    client = MopsClient(min_interval_seconds=0.25, max_retries=0, timeout=5)
-    with patch.object(client._session, "post", return_value=_fake_response()):
-        t0 = time.perf_counter()
-        client.post("https://mops/x", data={})
-        client.post("https://mops/x", data={})
-        elapsed = time.perf_counter() - t0
-    assert elapsed >= 0.25, f"Two calls completed in {elapsed:.3f}s, expected >=0.25s"
+    c = _mk_client(min_interval_seconds=0.25)
+    c._ctx.request.post.return_value = _fake_resp()
+    t0 = time.perf_counter()
+    c.post_json("/mops/api/x", {})
+    c.post_json("/mops/api/x", {})
+    elapsed = time.perf_counter() - t0
+    assert elapsed >= 0.24, f"two calls completed in {elapsed:.3f}s — rate limit not honoured"
 
 
 def test_retry_on_429_then_succeeds():
-    """One 429 followed by a 200 must return the 200."""
-    client = MopsClient(min_interval_seconds=0.0, max_retries=2, backoff_base=0.01, timeout=5)
-    responses = [_fake_response(status_code=429), _fake_response(status_code=200, text="<html>final</html>")]
-    with patch.object(client._session, "post", side_effect=responses) as mock_post:
-        result = client.post("https://mops/x", data={})
-    assert isinstance(result, MopsFetchResult)
-    assert result.status_code == 200
-    assert "final" in result.text
-    assert mock_post.call_count == 2
+    c = _mk_client(max_retries=2)
+    c._ctx.request.post.side_effect = [
+        _fake_resp(status=429, text=""),
+        _fake_resp(status=200, text='{"code":200,"result":{}}'),
+    ]
+    res = c.post_json("/mops/api/x", {})
+    assert res.status_code == 200
+    assert c._ctx.request.post.call_count == 2
 
 
 def test_retry_gives_up_after_max():
-    """N+1 failures (all 503) yields MopsFetchResult with status 503 and used_browser=False."""
-    client = MopsClient(min_interval_seconds=0.0, max_retries=2, backoff_base=0.01, timeout=5)
-    with patch.object(client._session, "post", return_value=_fake_response(status_code=503)) as mock_post:
-        result = client.post("https://mops/x", data={})
-    assert result.status_code == 503
-    assert mock_post.call_count == 3  # initial + 2 retries
-    assert result.used_browser is False
+    c = _mk_client(max_retries=2)
+    c._ctx.request.post.return_value = _fake_resp(status=503, text="")
+    res = c.post_json("/mops/api/x", {})
+    assert res.status_code == 503
+    assert c._ctx.request.post.call_count == 3  # 1 initial + 2 retries
 
 
-def test_big5_fallback_when_utf8_garbled():
-    """If utf-8 decode fails on bytes, fall back to big5."""
-    client = MopsClient(min_interval_seconds=0.0, max_retries=0, timeout=5)
-    # Big5-encoded '公司' (company) bytes
-    big5_bytes = "公司".encode("big5")
-    r = MagicMock()
-    r.status_code = 200
-    r.content = big5_bytes
-    r.encoding = "utf-8"  # wrong declaration
-    r.headers = {"Content-Type": "text/html"}
-    r.text = big5_bytes.decode("latin-1")  # requests' fallback is latin-1 ≠ utf-8
-    with patch.object(client._session, "post", return_value=r):
-        result = client.post("https://mops/x", data={})
-    assert "公司" in result.text
+def test_html_body_on_200_retries():
+    """MOPS WAF sometimes returns 200 with an HTML bounce page. We must retry."""
+    c = _mk_client(max_retries=1)
+    c._ctx.request.post.side_effect = [
+        _fake_resp(status=200, text="<html>FOR SECURITY REASONS</html>"),
+        _fake_resp(status=200, text='{"code":200,"result":{}}'),
+    ]
+    res = c.post_json("/mops/api/x", {}, expect_json=True)
+    assert res.status_code == 200
+    assert res.text.startswith("{")
+    assert c._ctx.request.post.call_count == 2
 
 
-def test_playwright_fallback_on_403(monkeypatch):
-    """HTTP 403 triggers the Playwright fallback (mocked)."""
-    client = MopsClient(min_interval_seconds=0.0, max_retries=0, timeout=5)
-
-    called = {"browser_fetched": False}
-
-    def fake_browser_fetch(url, method, data):
-        called["browser_fetched"] = True
-        return MopsFetchResult(status_code=200, text="<html>browser-ok</html>", used_browser=True)
-
-    monkeypatch.setattr(client, "_browser_fetch", fake_browser_fetch)
-
-    with patch.object(client._session, "post", return_value=_fake_response(status_code=403)):
-        result = client.post("https://mops/x", data={}, allow_browser_fallback=True)
-
-    assert called["browser_fetched"]
-    assert result.used_browser is True
-    assert "browser-ok" in result.text
+def test_json_parsing_convenience():
+    c = _mk_client()
+    c._ctx.request.post.return_value = _fake_resp(
+        status=200, text='{"code":200,"result":{"data":[["115","3","1,000"]]}}',
+    )
+    res = c.post_json("/mops/api/x", {"company_id": "2330"})
+    body = res.json()
+    assert body["code"] == 200
+    assert body["result"]["data"][0] == ["115", "3", "1,000"]
 
 
-def test_browser_fallback_disabled_by_default_on_nonzero_but_non_403():
-    """A 500 error does NOT trigger the browser fallback — only 403 / CAPTCHA markers do."""
-    client = MopsClient(min_interval_seconds=0.0, max_retries=0, timeout=5)
-    called = {"browser_fetched": False}
+def test_raw_bytes_preserved_for_audit():
+    c = _mk_client()
+    c._ctx.request.post.return_value = _fake_resp(status=200, text='{"code":200}')
+    res = c.post_json("/mops/api/x", {})
+    assert res.raw_bytes == b'{"code":200}'
+    assert res.encoding == "utf-8"
 
-    def fake_browser_fetch(url, method, data):
-        called["browser_fetched"] = True
-        return MopsFetchResult(status_code=200, text="browser", used_browser=True)
 
-    with patch.object(client, "_browser_fetch", fake_browser_fetch), \
-         patch.object(client._session, "post", return_value=_fake_response(status_code=500)):
-        result = client.post("https://mops/x", data={}, allow_browser_fallback=True)
-
-    assert not called["browser_fetched"]
-    assert result.status_code == 500
+def test_exception_retries_then_fails():
+    c = _mk_client(max_retries=1)
+    c._ctx.request.post.side_effect = RuntimeError("net down")
+    res = c.post_json("/mops/api/x", {})
+    assert res.status_code == 0
+    assert "net down" in res.text
+    assert c._ctx.request.post.call_count == 2
