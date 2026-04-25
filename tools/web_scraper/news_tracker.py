@@ -287,19 +287,37 @@ def cmd_scrape(args):
             print(f"ERROR: {e}")
 
         # Whitelisted-source overlay: some niche/analysis sites (e.g.
-        # artificialanalysis.ai, theaivalley.com) don't rank high enough in
-        # Google News to surface through the main keyword query. Fetch them
-        # with a site: query so every article they publish lands in this
-        # feed — intentional curator override of Google's relevance ranking.
+        # artificialanalysis.ai, theinformation.com) don't rank high enough
+        # in Google News to surface through the main keyword query. Fetch
+        # them with a site: query so every article they publish is eligible
+        # — intentional curator override of Google's relevance ranking.
+        #
+        # Optional `include_sites_filter_terms`: if set, only overlay
+        # articles whose title contains at least one of these terms (case-
+        # insensitive substring match) are kept. Use this when the
+        # whitelisted source publishes broadly — e.g. theinformation.com
+        # covers crypto/macro/earnings beyond AI startups, and we only want
+        # the AI-deal slice in the ai_business_dynamics feed.
+        filter_terms = feed_cfg.get("include_sites_filter_terms") or []
+        filter_terms_lc = [t.lower() for t in filter_terms]
         for site in feed_cfg.get("include_sites", []) or []:
             time.sleep(delay)
             try:
                 site_articles = fetch_feed(f"site:{site}", region)
-                for a in site_articles:
+                kept = site_articles
+                if filter_terms_lc:
+                    kept = [
+                        a for a in site_articles
+                        if any(t in str(a.get("title", "")).lower() for t in filter_terms_lc)
+                    ]
+                for a in kept:
                     a["feed_key"] = feed_key
                     a["feed_label"] = label
-                all_articles.extend(site_articles)
-                print(f"    + include_sites site:{site} -> {len(site_articles)} articles")
+                all_articles.extend(kept)
+                if filter_terms_lc:
+                    print(f"    + include_sites site:{site} -> {len(kept)}/{len(site_articles)} articles (filtered by {len(filter_terms_lc)} terms)")
+                else:
+                    print(f"    + include_sites site:{site} -> {len(kept)} articles")
             except Exception as e:
                 print(f"    + include_sites site:{site} FAILED: {e}")
 
