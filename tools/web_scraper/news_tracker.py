@@ -286,6 +286,23 @@ def cmd_scrape(args):
         except Exception as e:
             print(f"ERROR: {e}")
 
+        # Whitelisted-source overlay: some niche/analysis sites (e.g.
+        # artificialanalysis.ai, theaivalley.com) don't rank high enough in
+        # Google News to surface through the main keyword query. Fetch them
+        # with a site: query so every article they publish lands in this
+        # feed — intentional curator override of Google's relevance ranking.
+        for site in feed_cfg.get("include_sites", []) or []:
+            time.sleep(delay)
+            try:
+                site_articles = fetch_feed(f"site:{site}", region)
+                for a in site_articles:
+                    a["feed_key"] = feed_key
+                    a["feed_label"] = label
+                all_articles.extend(site_articles)
+                print(f"    + include_sites site:{site} -> {len(site_articles)} articles")
+            except Exception as e:
+                print(f"    + include_sites site:{site} FAILED: {e}")
+
     # Premium source overlay: re-fetch key feeds restricted to Tier 1 sources
     premium_feeds = {k: v for k, v in feeds.items()
                      if v.get("region", "US") == "US"
