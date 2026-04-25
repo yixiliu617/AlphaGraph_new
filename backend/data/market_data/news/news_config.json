@@ -11,8 +11,11 @@
     },
     "ai_business_dynamics": {
       "label": "AI Startup Deals & Funding",
-      "query": "(\"AI startup\" OR \"AI company\" OR \"AI firm\" OR OpenAI OR Anthropic OR xAI OR \"Safe Superintelligence\" OR SSI OR \"Thinking Machines\" OR Cursor OR Anysphere OR Windsurf OR Perplexity OR Glean OR Harvey OR Sierra OR Hebbia OR Cohere OR Mistral OR Runway OR HeyGen OR Replit OR Pika OR Suno OR Synthesia OR \"Figure AI\" OR \"Physical Intelligence\" OR \"World Labs\" OR \"Groq\" OR \"Cerebras\") (funding OR raised OR \"funding round\" OR \"Series A\" OR \"Series B\" OR \"Series C\" OR \"Series D\" OR \"Series E\" OR IPO OR SPAC OR \"public offering\" OR acquisition OR acquires OR \"acquired by\" OR merger OR \"M&A\" OR unicorn OR valuation OR deals OR \"tender offer\" OR \"secondary sale\" OR \"venture capital\")",
-      "region": "US"
+      "query": "((intitle:OpenAI OR intitle:Anthropic OR intitle:xAI OR intitle:Mistral OR intitle:Cohere OR intitle:DeepSeek OR intitle:Cursor OR intitle:Perplexity OR intitle:Hebbia OR intitle:Groq) (intitle:raises OR intitle:raised OR intitle:funding OR intitle:round OR intitle:valuation OR intitle:IPO OR intitle:acquires OR intitle:acquired OR intitle:acquisition OR intitle:merger OR intitle:talks OR intitle:backs OR intitle:lawsuit OR intitle:sues OR intitle:sued OR intitle:settles OR intitle:files)) OR intitle:\"Series A\" OR intitle:\"Series B\" OR intitle:\"Series C\" OR intitle:\"Series D\" OR intitle:\"Series E\" OR intitle:\"seed round\" OR intitle:\"pre-seed\" OR intitle:\"AI unicorn\" OR intitle:\"AI startup\" OR intitle:\"ARR\" -\"which is better\" -\"who wins\" -\"head to head\" -site:prnewswire.com -site:businesswire.com -site:globenewswire.com",
+      "region": "US",
+      "include_sites": [
+        "theinformation.com"
+      ]
     },
     "datacenter_deals": {
       "label": "Datacenter & CSP & Capex",
