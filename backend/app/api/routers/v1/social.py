@@ -18,6 +18,8 @@ from pathlib import Path
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 
+from backend.app.services.data_cache import read_parquet_cached
+
 router = APIRouter()
 
 REDDIT_DIR = Path("backend/data/market_data/reddit")
@@ -35,7 +37,7 @@ def _load_reddit(source: str | None = None):
 
     for name, path in targets.items():
         if path.exists():
-            df = pd.read_parquet(path)
+            df = read_parquet_cached(path)
             dfs.append(df)
 
     if not dfs:
@@ -154,7 +156,7 @@ def _load_news():
     path = NEWS_DIR / "google_news.parquet"
     if not path.exists():
         return pd.DataFrame()
-    return pd.read_parquet(path)
+    return read_parquet_cached(path)
 
 
 @router.get("/news/stats")

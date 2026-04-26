@@ -1,0 +1,56 @@
+{
+  "ticker": "2330.TW",
+  "page_period_label": "4Q13",
+  "page_period_end": "2013-12-31",
+  "source_id": "tsmc_quarterly_results_page_4Q13",
+  "source_url": "https://investor.tsmc.com/chinese/quarterly-results/2013/q4",
+  "extracted_at": "2026-04-26T08:04:44+00:00",
+  "table_periods": [
+    "4Q13",
+    "1Q14"
+  ],
+  "table_rows_raw": [
+    [
+      "",
+      "",
+      "4Q13",
+      "1Q14"
+    ],
+    [
+      "",
+      "實際數",
+      "業績展望",
+      "Modified Guidance",
+      "業績展望"
+    ],
+    [
+      "營收金額",
+      "145.81 (NT$ billion)",
+      "144-147 (NT$ billion)",
+      "About 147 (NT$ billion)",
+      "136-138 (NT$ billion)"
+    ],
+    [
+      "平均匯率 (美元兌新台幣)",
+      "29.54",
+      "29.5",
+      "-",
+      "30"
+    ],
+    [
+      "營業毛利率",
+      "44.50%",
+      "44%-46%",
+      "About 47%",
+      "44.5%-46.5%"
+    ],
+    [
+      "營業淨利率",
+      "32.80%",
+      "32%-34%",
+      "About 35%",
+      "32%-34%"
+    ]
+  ],
+  "fact_count": 8
+}

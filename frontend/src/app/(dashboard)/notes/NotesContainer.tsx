@@ -37,6 +37,9 @@ export default function NotesContainer() {
   const [openRelease, setOpenRelease] = useState<EarningsReleaseDetail | null>(null);
   const [openReleaseLoading, setOpenReleaseLoading] = useState(false);
 
+  // Audio-upload modal — drag-drop a recording to create a transcribed note.
+  const [showUploadModal, setShowUploadModal] = useState(false);
+
   // Fetch on mount
   useEffect(() => {
     setLoading(true);
@@ -176,6 +179,17 @@ export default function NotesContainer() {
       onCreate={handleCreate}
       onDelete={handleDelete}
       onOpen={(noteId) => router.push(`/notes/${noteId}`)}
+      showUploadModal={showUploadModal}
+      onOpenUpload={() => setShowUploadModal(true)}
+      onCloseUpload={() => setShowUploadModal(false)}
+      onUploadComplete={(noteId) => {
+        setShowUploadModal(false);
+        // Force a refresh of the list so the new note shows up immediately.
+        notesClient.list({ limit: 100 }).then((res) => {
+          if (res.success && res.data) setNotes(res.data);
+        });
+        router.push(`/notes/${noteId}`);
+      }}
     />
   );
 }

@@ -231,31 +231,102 @@ export default function RichTextEditor({ initialContent, onChange, onTimestampCl
   const tsClickRef = useRef(onTimestampClick);
   tsClickRef.current = onTimestampClick;
 
-  // Tiptap extension that highlights [MM:SS] timestamps as clickable badges
+  // Tiptap extension that highlights timestamps as clickable badges.
+  //
+  // Two cases:
+  //   1. Bracketed timestamps like [03:45] or [01:23:45] anywhere in body
+  //      text -- e.g. AI Summary references "I noted at [03:45]…".
+  //   2. Bare HH:MM:SS or MM:SS as the WHOLE content of a tableCell --
+  //      that's the polished_transcript Time column. We don't decorate
+  //      bare timestamps elsewhere to avoid false positives on stuff like
+  //      "ratio 12:30 to 4:15" in the user's notes.
+  //
+  // Both cases parse properly into total seconds for HH:MM:SS or MM:SS
+  // (the prior version captured the third group but ignored it, so
+  // 00:03:19 used to seek to 3 sec instead of 199 sec).
   const timestampDecoPlugin = useRef(
     new Plugin({
       key: new PluginKey("timestampDecorations"),
       props: {
         decorations(state) {
           const decorations: Decoration[] = [];
-          const tsRegex = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g;
+          const bracketRegex = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g;
+          const wholeCellRegex = /^\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*$/;
+
+          // Helper: convert capture groups to total seconds.
+          // Three groups present (a:b:c) -> H:M:S
+          // Two groups present (a:b)     -> M:S
+          const tsToSeconds = (a: string, b: string, c?: string): number => {
+            const A = parseInt(a) || 0;
+            const B = parseInt(b) || 0;
+            if (c !== undefined) {
+              const C = parseInt(c) || 0;
+              return A * 3600 + B * 60 + C;
+            }
+            return A * 60 + B;
+          };
+
+          const styleStr =
+            "color: #4f46e5; background: #eef2ff; padding: 1px 5px; border-radius: 4px; " +
+            "cursor: pointer; font-family: ui-monospace, monospace; font-size: 11px; " +
+            "font-weight: 600; transition: background 0.15s;";
+
+          // Helper: walk ancestor chain from a given doc position to see if
+          // any ancestor is a tableCell. Necessary because Tiptap wraps cell
+          // text in a paragraph, so descendants()'s `parent` is the paragraph,
+          // not the cell. We need the GRANDPARENT (cell at depth N-2), which
+          // we get by resolving the position and walking up.
+          const isInsideTableCell = (textPos: number): boolean => {
+            try {
+              const $pos = state.doc.resolve(textPos);
+              for (let d = $pos.depth; d >= 0; d--) {
+                const ancestor = $pos.node(d);
+                if (ancestor && ancestor.type.name === "tableCell") return true;
+              }
+            } catch {
+              // pos might be invalid -- fall through to false
+            }
+            return false;
+          };
 
           state.doc.descendants((node, pos) => {
             if (!node.isText || !node.text) return;
-            let match: RegExpExecArray | null;
-            while ((match = tsRegex.exec(node.text)) !== null) {
-              const from = pos + match.index;
-              const to = from + match[0].length;
-              const mins = parseInt(match[1]) || 0;
-              const secs = parseInt(match[2]) || 0;
+
+            // Case 1: bracketed timestamps anywhere in any text.
+            let m: RegExpExecArray | null;
+            while ((m = bracketRegex.exec(node.text)) !== null) {
+              const from = pos + m.index;
+              const to = from + m[0].length;
+              const total = tsToSeconds(m[1], m[2], m[3]);
               decorations.push(
                 Decoration.inline(from, to, {
                   class: "ts-seek",
-                  "data-seek-seconds": String(mins * 60 + secs),
-                  style:
-                    "color: #4f46e5; background: #eef2ff; padding: 1px 5px; border-radius: 4px; cursor: pointer; font-family: ui-monospace, monospace; font-size: 11px; font-weight: 600; transition: background 0.15s;",
+                  "data-seek-seconds": String(total),
+                  style: styleStr,
                 }),
               );
+            }
+
+            // Case 2: bare timestamp that IS the whole content of a tableCell.
+            // The polished_transcript table puts the cell text as just "00:03:19".
+            // Tiptap wraps it as tableCell > paragraph > text, so we walk up
+            // ancestors to see if any of them is a tableCell.
+            if (isInsideTableCell(pos)) {
+              const wm = wholeCellRegex.exec(node.text);
+              if (wm) {
+                const total = tsToSeconds(wm[1], wm[2], wm[3]);
+                // Decorate the whole text node (skip leading/trailing whitespace).
+                const trimStart = node.text.indexOf(wm[1]);
+                const trimEnd = node.text.lastIndexOf(wm[3] ?? wm[2]) +
+                                (wm[3] ?? wm[2]).length;
+                decorations.push(
+                  Decoration.inline(pos + trimStart, pos + trimEnd, {
+                    class: "ts-seek",
+                    "data-seek-seconds": String(total),
+                    style: styleStr,
+                  }),
+                );
+              }
             }
           });
 
@@ -333,19 +404,35 @@ export default function RichTextEditor({ initialContent, onChange, onTimestampCl
           return true;
         }
 
-        // Fallback: check text position for [MM:SS] patterns
+        // Fallback: check text position for timestamp patterns. Bracketed
+        // [HH:MM:SS] or [MM:SS] anywhere; bare HH:MM:SS / MM:SS only when
+        // we're inside a tableCell (walking ancestors, since the immediate
+        // parent of the text is a paragraph, not the cell itself).
         const $pos = view.state.doc.resolve(pos);
-        const nodeText = $pos.parent.textContent || "";
+        const parentNode = $pos.parent;
+        const nodeText = parentNode.textContent || "";
         const offset = $pos.parentOffset;
-        const tsRegex = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g;
+
+        let inCell = false;
+        for (let d = $pos.depth; d >= 0; d--) {
+          if ($pos.node(d).type.name === "tableCell") {
+            inCell = true;
+            break;
+          }
+        }
+        const regex = inCell
+          ? /\[?(\d{1,2}):(\d{2})(?::(\d{2}))?\]?/g
+          : /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g;
         let m: RegExpExecArray | null;
 
-        while ((m = tsRegex.exec(nodeText)) !== null) {
+        while ((m = regex.exec(nodeText)) !== null) {
           if (offset >= m.index - 1 && offset <= m.index + m[0].length + 1) {
-            const mins = parseInt(m[1]) || 0;
-            const secs = parseInt(m[2]) || 0;
+            const a = parseInt(m[1]) || 0;
+            const b = parseInt(m[2]) || 0;
+            const c = m[3] ? parseInt(m[3]) : null;
+            const totalSeconds = c !== null ? a * 3600 + b * 60 + c : a * 60 + b;
             event.preventDefault();
-            cb(mins * 60 + secs);
+            cb(totalSeconds);
             return true;
           }
         }

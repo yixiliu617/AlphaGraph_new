@@ -276,6 +276,73 @@ Frontend click handler in `NotesEditorView.tsx`:
 9. **Add new misrecognitions** to vocabulary file as you find them
 10. **Save raw + polished versions** for comparison and debugging
 
+## Don't burn money — paid-LLM safety rules
+
+These rules are also in
+`~/.claude/projects/.../memory/feedback_save_paid_ai_results_first.md` and
+`feedback_uvicorn_reload_windows.md`. Internalize them when working on the
+transcription pipeline.
+
+### Rule 1 — Save the Gemini response to disk before any DB / downstream write
+
+After `gemini_batch_transcribe()` (or `gemini_batch_transcribe_smart()`)
+returns successfully, the next statement must be a write to disk of the raw
+response. Only then proceed to `NotesService.create_note()` and
+`save_polished_transcript()`. The disk write is the recovery point.
+
+```python
+raw = gemini_batch_transcribe_smart(audio_path, language, "")
+# safety net: persist BEFORE touching the DB
+result_json_path = AUDIO_UPLOADS_DIR / "_results" / f"{Path(audio_path).stem}.gemini.json"
+result_json_path.parent.mkdir(parents=True, exist_ok=True)
+result_json_path.write_text(
+    json.dumps(raw, ensure_ascii=False, indent=2),
+    encoding="utf-8",
+)
+# now safe to do DB writes
+note = svc.create_note(...)
+svc.save_polished_transcript(note_id=note.note_id, ...)
+```
+
+**Incident:** 2026-04-25 — a `note.id` vs `note.note_id` AttributeError after
+a successful Gemini call cost the user 3 paid 30-min transcriptions before
+we caught the bug. Without a disk safety-net, every retry burned another
+Gemini call. The user was justifiably angry. The disk-first pattern makes
+every future downstream failure recoverable without re-paying.
+
+### Rule 2 — Don't trust uvicorn `--reload` on Windows; manually restart
+
+After editing any FastAPI route on Windows that runs under uvicorn `--reload`:
+
+1. Kill the uvicorn parent + workers explicitly:
+   ```bash
+   cmd.exe //c "taskkill /F /T /PID <parent_pid>"
+   ```
+2. Confirm port 8000 is free with
+   `netstat -ano | findstr :8000 | findstr LISTENING` (output should be empty).
+3. Start a fresh uvicorn.
+4. Verify the fix is loaded — `grep -nE "<changed-identifier>"` against the
+   live file AND a `curl` smoke test.
+
+The `StatReload detected changes in '...'. Reloading...` log line is the
+file-change *detection*, not proof the worker swapped modules. On Windows,
+when the worker is mid-request (e.g. during a 60-90 sec Gemini call), the
+reload often fails silently. The next `Started server process [pid]` line in
+the same log file is the only proof of a successful restart.
+
+**Never** tell the user "the fix is live, please retry" when their next
+action will spend money or take >30 sec, without doing the kill-and-restart
+yourself first.
+
+### Rule 3 — Watch for multiple uvicorn parents on the same port
+
+Windows allows multiple processes to bind the same TCP port without
+`SO_EXCLUSIVEADDRUSE`. The OS round-robins incoming connections across them.
+If `netstat -ano | findstr :8000 | findstr LISTENING` shows >1 PID, requests
+get routed randomly between potentially-different code versions. Symptoms:
+"sometimes it works, sometimes it doesn't, the logs don't match the behavior."
+Kill them all, start one fresh.
+
 ## Future Improvements
 
 - **Gemini File API** for meetings >20MB

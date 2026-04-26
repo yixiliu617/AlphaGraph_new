@@ -18,6 +18,7 @@ import pandas as pd
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel
 
+from backend.app.services.data_cache import read_parquet_cached
 from backend.app.services.data_agent.calculator import CalculatedLayerBuilder
 from backend.app.services.data_agent.data_agent import DataAgent, DataSpec, DataResult
 from backend.app.services.data_agent.concept_map import (
@@ -553,7 +554,7 @@ def sector_heatmap(
                 "mismatches":      [],
             }
         try:
-            df = pd.read_parquet(
+            df = read_parquet_cached(
                 path,
                 columns=[
                     "end_date", "fiscal_year", "fiscal_quarter",

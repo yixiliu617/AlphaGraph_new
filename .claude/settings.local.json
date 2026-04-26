@@ -1,7 +1,30 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(npx tsc *)",
+      "Bash(curl *)",
+      "Read(//c/Program Files/Google/Chrome/Application/**)",
+      "Read(//c/Users/Sharo/.alphagraph_scraper_profile/**)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(unzip -l /tmp/twse_revenue_202601.zip)",
+      "Bash(unzip -o twse_revenue_202601.zip)",
+      "Bash(pip install *)",
+      "Bash(PYTHONPATH=\"C:/Users/Sharo/AI_projects/AlphaGraph_new\" python tools/twse_backfill.py --start 1999-03 --end 2026-03 --data-dir backend/data/taiwan)",
+      "Bash(tee /tmp/twse_full_backfill.log)",
+      "Bash(awk -F',' 'NR>1 {print $3}' backend/data/taiwan/watchlist_semi.csv)",
+      "Bash(awk *)",
+      "Bash(rm -f backend/data/taiwan/_raw/twse_zip/201903_C04003.zip)",
+      "Bash(PYTHONPATH=\"C:/Users/Sharo/AI_projects/AlphaGraph_new\" python tools/twse_backfill.py --start 2019-03 --end 2019-03 --data-dir backend/data/taiwan)",
+      "Bash(MSYS_NO_PATHCONV=1 python tools/tpex_explore.py \"/zh-tw/mainboard/trading/statistics/month/listed.html\")",
+      "Bash(MSYS_NO_PATHCONV=1 python tools/tpex_probe_download.py)",
+      "WebFetch(domain:docs.x.ai)",
+      "Bash(mkdir -p backend/tests/fixtures/social)",
+      "Bash(cp _tw_tweets_sample.json backend/tests/fixtures/social/twitterapi_io_last_tweets_elonmusk.json)",
+      "Bash(mkdir -p backend/data/social)",
+      "Bash(mv data/social/x backend/data/social/x)",
+      "Bash(rmdir data/social data)"
     ]
   }
 }

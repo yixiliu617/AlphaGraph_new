@@ -72,8 +72,13 @@ const LOOKBACK_YEARS = 6;
 // Container
 // ---------------------------------------------------------------------------
 
+// Tickers that DON'T live in EDGAR — render via their own panel inside the
+// Financials tab and skip dataClient.fetch (which would 404). Add new
+// non-EDGAR tickers here as their data sources come online.
+const NON_EDGAR_TICKERS = new Set(["2330.TW", "2303.TW", "2454.TW"]);
+
 export default function DataExplorerContainer() {
-  const [loadedTickers, setLoadedTickers] = useState<string[]>(["NVDA"]);
+  const [loadedTickers, setLoadedTickers] = useState<string[]>(["NVDA", "2330.TW", "2303.TW", "2454.TW"]);
   const [activeTicker, setActiveTicker]   = useState("NVDA");
   const [allRows, setAllRows]             = useState<DataRow[]>([]);
   const [loading, setLoading]             = useState(false);
@@ -86,14 +91,16 @@ export default function DataExplorerContainer() {
   const [insightsLoading,  setInsightsLoading]  = useState(false);
   const [insightsError,    setInsightsError]    = useState<string | null>(null);
 
-  // Fetch data for all currently loaded tickers
+  // Fetch data for all currently loaded tickers. Excludes non-EDGAR tickers
+  // (e.g. 2330.TW) which render via their own panel and don't share rows.
   const fetchAll = useCallback(async (tickers: string[]) => {
-    if (!tickers.length) return;
+    const edgar = tickers.filter((t) => !NON_EDGAR_TICKERS.has(t));
+    if (!edgar.length) return;
     setLoading(true);
     setError(null);
     try {
       const result = await dataClient.fetch({
-        tickers,
+        tickers: edgar,
         metrics: METRICS,
         period: "quarterly",
         lookback_years: LOOKBACK_YEARS,
@@ -116,6 +123,10 @@ export default function DataExplorerContainer() {
   // Skipped if we already have a cached narrative for this ticker.
   useEffect(() => {
     if (!activeTicker) return;
+    if (NON_EDGAR_TICKERS.has(activeTicker)) {
+      setInsightsError(null);
+      return;
+    }
     if (insightsByTicker[activeTicker]) {
       setInsightsError(null);
       return;

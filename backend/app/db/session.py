@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from backend.app.core.config import settings
 
@@ -11,6 +11,23 @@ import backend.app.models.orm.insight_orm   # Ensure insight models are register
 import backend.app.models.orm.note_orm      # Ensure meeting_notes table is registered
 
 engine = create_engine(settings.POSTGRES_URI)
+
+
+# When the underlying DB is SQLite (dev), enable WAL journaling so concurrent
+# readers don't block on a writer. Without WAL, a single in-flight write
+# (e.g. a heartbeat upsert) locks the whole DB and any concurrent reader
+# stalls. WAL gives reader/writer concurrency at SQLite-level (still single
+# writer, but readers run unblocked).
+if settings.POSTGRES_URI.startswith("sqlite:"):
+    @event.listens_for(engine, "connect")
+    def _set_sqlite_pragmas(dbapi_conn, connection_record):
+        cur = dbapi_conn.cursor()
+        cur.execute("PRAGMA journal_mode=WAL")
+        cur.execute("PRAGMA synchronous=NORMAL")  # WAL-safe; faster writes
+        cur.execute("PRAGMA busy_timeout=5000")   # wait 5s on lock contention
+        cur.close()
+
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():

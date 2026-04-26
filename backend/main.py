@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
-from backend.app.api.routers.v1 import ingest, chat, ledger, topology, insights, notes, data, earnings, research, pricing, social, taiwan
+from backend.app.api.routers.v1 import ingest, chat, ledger, topology, insights, notes, data, earnings, research, pricing, social, taiwan, tsmc, umc, mediatek, admin
 from backend.app.core.config import settings
 from backend.app.db.session import init_db
 
@@ -51,6 +51,10 @@ app.include_router(data.router,    prefix=f"{settings.API_V1_STR}",         tags
 app.include_router(pricing.router, prefix=f"{settings.API_V1_STR}/pricing", tags=["pricing"])
 app.include_router(social.router,  prefix=f"{settings.API_V1_STR}/social",  tags=["social"])
 app.include_router(taiwan.router,  prefix=f"{settings.API_V1_STR}/taiwan",  tags=["taiwan"])
+app.include_router(tsmc.router,    prefix=f"{settings.API_V1_STR}/tsmc",    tags=["tsmc"])
+app.include_router(umc.router,     prefix=f"{settings.API_V1_STR}/umc",     tags=["umc"])
+app.include_router(mediatek.router,prefix=f"{settings.API_V1_STR}/mediatek",tags=["mediatek"])
+app.include_router(admin.router,   prefix=f"{settings.API_V1_STR}/admin",   tags=["admin"])
 
 
 @app.on_event("startup")

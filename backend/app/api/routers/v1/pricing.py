@@ -12,6 +12,8 @@ from pathlib import Path
 import pandas as pd
 from fastapi import APIRouter, Query
 
+from backend.app.services.data_cache import read_parquet_cached
+
 router = APIRouter()
 
 PCPP_MONTHLY = Path("backend/data/market_data/pcpartpicker_trends/_combined.parquet")
@@ -26,7 +28,7 @@ def _load_pcpp(granularity: str = "monthly"):
     path = PCPP_WEEKLY if granularity == "weekly" else PCPP_MONTHLY
     if not path.exists():
         return pd.DataFrame()
-    df = pd.read_parquet(path)
+    df = read_parquet_cached(path)
     if "date" in df.columns:
         df["date"] = pd.to_datetime(df["date"])
         df = df.sort_values(["category", "component", "date"])
@@ -36,7 +38,7 @@ def _load_pcpp(granularity: str = "monthly"):
 def _load_camel():
     if not CAMEL_PATH.exists():
         return pd.DataFrame()
-    df = pd.read_parquet(CAMEL_PATH)
+    df = read_parquet_cached(CAMEL_PATH)
     return df
 
 
@@ -141,7 +143,7 @@ def gpu_latest(
 ):
     if not GPU_LATEST.exists():
         return {"rows": []}
-    df = pd.read_parquet(GPU_LATEST)
+    df = read_parquet_cached(GPU_LATEST)
     if gpu:
         df = df[df["gpu_name"].str.contains(gpu, case=False, na=False)]
     if market:
@@ -171,7 +173,7 @@ def gpu_history(
 ):
     if not GPU_HISTORY.exists():
         return {"rows": []}
-    df = pd.read_parquet(GPU_HISTORY)
+    df = read_parquet_cached(GPU_HISTORY)
     df = df[df["market_type"] == market]
     if gpu:
         df = df[df["gpu_name"].str.contains(gpu, case=False, na=False)]

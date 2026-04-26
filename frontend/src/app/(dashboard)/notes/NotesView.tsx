@@ -15,7 +15,7 @@
 
 import { useState } from "react";
 import {
-  NotebookPen, Search, Plus, Mic, Trash2,
+  NotebookPen, Search, Plus, Mic, Trash2, Upload,
   ChevronDown, ChevronRight, SlidersHorizontal,
   FileText, ExternalLink, X, Loader2, Sparkles, Quote as QuoteIcon,
 } from "lucide-react";
@@ -29,6 +29,7 @@ import type {
   ResearchFinding,
 } from "@/lib/api/researchClient";
 import NoteCreationModal from "@/components/domain/notes/NoteCreationModal";
+import AudioUploadModal from "@/components/domain/notes/AudioUploadModal";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -118,6 +119,11 @@ interface Props {
   }) => void;
   onDelete: (noteId: string) => void;
   onOpen:   (noteId: string) => void;
+  // Audio upload modal
+  showUploadModal:   boolean;
+  onOpenUpload:      () => void;
+  onCloseUpload:     () => void;
+  onUploadComplete:  (noteId: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -671,6 +677,7 @@ export default function NotesView({
   onOpenRelease, onCloseRelease,
   researchResult, researchLoading, researchError,
   onResearchQuery, onClearResearch,
+  showUploadModal, onOpenUpload, onCloseUpload, onUploadComplete,
 }: Props) {
   const [showFilters, setShowFilters] = useState(false);
 
@@ -737,6 +744,16 @@ export default function NotesView({
           <span className="text-xs font-semibold text-slate-400 whitespace-nowrap">
             {notes.length} {notes.length === 1 ? "note" : "notes"}
           </span>
+
+          {/* Upload Audio */}
+          <button
+            onClick={onOpenUpload}
+            className="flex items-center gap-2 h-9 px-3 border border-slate-200 text-slate-700 text-sm font-medium rounded-md hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+            title="Drop an audio file -- runs the same Gemini polish pipeline as live recording"
+          >
+            <Upload size={14} />
+            Upload Audio
+          </button>
 
           {/* New Note */}
           <button
@@ -864,6 +881,9 @@ export default function NotesView({
       {/* Creation Modal */}
       {showCreateModal && (
         <NoteCreationModal onClose={onCloseCreate} onCreate={onCreate} />
+      )}
+      {showUploadModal && (
+        <AudioUploadModal onClose={onCloseUpload} onComplete={onUploadComplete} />
       )}
 
       {/* Earnings release detail modal — opened when a row in the

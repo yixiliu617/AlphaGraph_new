@@ -1994,6 +1994,14 @@ class ToplineBuilder:
                         }
                         if "error" in ticker_build:
                             ticker_result["error"] = ticker_build["error"]
+                        else:
+                            # Stamp coverage flag in the platform universe
+                            # registry (best-effort: don't fail the build).
+                            try:
+                                from backend.app.services.universe_registry import mark_data_coverage
+                                mark_data_coverage(ticker, has_topline=True)
+                            except Exception as _exc:
+                                log.warning("  %s: registry mark_data_coverage failed: %s", ticker, _exc)
                     else:
                         ticker_result = {
                             "action":        "skipped",
@@ -2049,6 +2057,13 @@ class ToplineBuilder:
 
         if "error" in ticker_build:
             return {"ticker": ticker, "status": "error", "error": ticker_build["error"]}
+
+        # Stamp the platform universe registry. Best-effort.
+        try:
+            from backend.app.services.universe_registry import mark_data_coverage
+            mark_data_coverage(ticker, has_topline=True)
+        except Exception as exc:
+            log.warning("  Could not mark has_topline for %s in registry: %s", ticker, exc)
 
         # Seed filing state
         try:

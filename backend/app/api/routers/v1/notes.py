@@ -29,7 +29,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -197,6 +197,668 @@ def serve_audio(filename: str):
             "Accept-Ranges": "bytes",
             "Cache-Control": "public, max-age=3600",
         },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Upload-and-transcribe — drag/drop a recorded audio file, run the same
+# Gemini 2.5 Flash polish pipeline as live recording, save as a new note.
+# ---------------------------------------------------------------------------
+
+# Save uploads alongside live recordings so the existing /audio/{filename}
+# endpoint and the editor's <audio src=...> resolve them without changes.
+AUDIO_UPLOADS_DIR = (
+    Path(__file__).resolve().parents[5] / "tools" / "audio_recorder" / "recordings"
+)
+AUDIO_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+
+_ALLOWED_AUDIO_EXT = {".wav", ".mp3", ".m4a", ".opus", ".ogg", ".flac", ".aac", ".webm"}
+
+
+def _detect_language_from_audio_file(audio_path: Path) -> str:
+    """Run ffmpeg to extract first 10s as 16kHz mono int16 PCM, then SenseVoice.
+    Falls back to "zh" if ffmpeg or SenseVoice is unavailable / fails."""
+    import subprocess as _sp
+    from backend.app.services.live_transcription import detect_language_from_audio
+
+    try:
+        proc = _sp.run(
+            ["ffmpeg", "-y", "-i", str(audio_path), "-t", "10",
+             "-ar", "16000", "-ac", "1", "-f", "s16le", "-"],
+            capture_output=True, timeout=60,
+        )
+        if proc.returncode != 0 or not proc.stdout:
+            return "zh"
+        return detect_language_from_audio(proc.stdout, sample_rate=16000)
+    except Exception:
+        return "zh"
+
+
+@router.post("/upload-transcribe", response_model=APIResponse)
+async def upload_audio_and_transcribe(
+    audio:     UploadFile = File(..., description="Audio file (wav/mp3/m4a/opus/ogg/flac/aac/webm)"),
+    title:     Optional[str] = Form(None,                        description="Note title (defaults to filename)"),
+    note_type: str           = Form("meeting_transcript"),
+    language:  Optional[str] = Form(None,                        description="zh/ja/ko/en. None = auto-detect via SenseVoice"),
+    translation_language: str = Form("en",                        description="none/en/zh-hans/zh-hant/ja/ko"),
+    db: Session = Depends(get_db_session),
+):
+    """Drag-and-drop audio -> polished transcript saved as a new note.
+
+    Polished-transcript-only pipeline (no live transcript, no AI summary,
+    no fragment extraction). Steps:
+      1. Save uploaded file under tools/audio_recorder/recordings/upload_<uuid>.<ext>
+         so the existing /audio/{filename} endpoint can serve it for in-editor playback.
+      2. Detect language (ffmpeg first-10s -> SenseVoice) unless the user
+         supplied one explicitly via the modal dropdown.
+      3. gemini_batch_transcribe_smart(file, lang)
+            - normalizes to mono 16 kHz Opus (48 kbps <40 min, 24 kbps >=40 min)
+            - splits at ffmpeg silencedetect-found pauses for >55 min audio
+            - merges chunk transcripts with offset-corrected timestamps
+      4. Create a new Note and save_polished_transcript with the merged result.
+
+    Long-running (30-min audio = ~60-90 sec, 2-hr audio = ~3-5 min). The
+    Gemini call timeout is 3600s; the frontend uses a regular fetch so it
+    waits as long as needed.
+
+    Summary / topic extraction / other downstream pipelines are intentionally
+    NOT triggered here -- run those manually from the post-meeting wizard
+    after reviewing the transcript.
+    """
+    import uuid as _uuid
+    from datetime import datetime as _dt
+    from backend.app.services.live_transcription import gemini_batch_transcribe_smart
+    from backend.app.services.editor_doc_builder import build_editor_doc_from_polish_meta
+
+    if not audio.filename:
+        raise HTTPException(status_code=400, detail="No filename in upload")
+    ext = Path(audio.filename).suffix.lower()
+    if ext not in _ALLOWED_AUDIO_EXT:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported audio extension {ext!r}. Allowed: {sorted(_ALLOWED_AUDIO_EXT)}",
+        )
+
+    uid = _uuid.uuid4().hex[:12]
+    # Prefix with `upload_` so we can spot uploads vs live-recorded WAVs at a glance.
+    saved_path = AUDIO_UPLOADS_DIR / f"upload_{uid}{ext}"
+    payload = await audio.read()
+    saved_path.write_bytes(payload)
+    if len(payload) < 16000:    # < 16KB ~= less than 1s of any reasonable audio
+        saved_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="Audio file too small to transcribe")
+
+    # 2. Resolve language (user-supplied wins; otherwise auto-detect)
+    if language and language in ("zh", "ja", "ko", "en"):
+        detected_lang = language
+        lang_source = "user"
+    else:
+        detected_lang = await asyncio.to_thread(_detect_language_from_audio_file, saved_path)
+        lang_source = "auto"
+
+    # 3. Polish transcript via Gemini 2.5 Flash. The "smart" wrapper handles:
+    #      - Always: ffmpeg-normalize to mono 16 kHz Opus
+    #          - <40 min  -> 48 kbps (matches the live-v2 pipeline)
+    #          - >=40 min -> 24 kbps (Opus VoIP, transparent for speech)
+    #      - >30 min: split at ffmpeg silencedetect-found pauses into ~27-min
+    #          chunks, transcribe each in parallel, merge segments with
+    #          offset-corrected timestamps.
+    # `translation_language` drives the secondary text_english column language.
+    transcribe_result = await asyncio.to_thread(
+        gemini_batch_transcribe_smart, str(saved_path), detected_lang, "", translation_language,
+    )
+    if transcribe_result.get("error"):
+        raise HTTPException(
+            status_code=500,
+            detail=f"Gemini transcription error: {transcribe_result['error']}",
+        )
+
+    final_lang = transcribe_result.get("language") or detected_lang
+    segments = transcribe_result.get("segments") or []
+
+    # SAFETY NET: write the raw Gemini result to disk BEFORE touching the DB.
+    # If the DB / note-creation step fails for any reason, we still have the
+    # paid Gemini output on disk under audio_uploads_results/, and the user
+    # (or a recovery script) can re-import it without re-running Gemini.
+    results_dir = AUDIO_UPLOADS_DIR / "_results"
+    results_dir.mkdir(parents=True, exist_ok=True)
+    result_json_path = results_dir / f"{saved_path.stem}.gemini.json"
+    try:
+        import json as _json
+        result_json_path.write_text(
+            _json.dumps({
+                "audio_filename":  saved_path.name,
+                "uploaded_orig":   audio.filename,
+                "language":        final_lang,
+                "language_source": lang_source,
+                "transcribe":      transcribe_result,
+            }, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except Exception as exc:
+        # Don't fail the request just because the safety-net write failed --
+        # the note save can still succeed below. Just log it loudly.
+        import logging as _logging
+        _logging.getLogger(__name__).exception(
+            "could not write Gemini result safety-net at %s", result_json_path,
+        )
+
+    # NB: AI summary / topic extraction / other downstream stages are
+    # intentionally skipped on this path -- only the polished transcript is
+    # produced. Run those later from the post-meeting wizard if desired.
+
+    # 4. Create the new note + persist polished transcript
+    svc = NotesService(db)
+    derived_title = title or Path(audio.filename).stem or f"Audio · {saved_path.stem}"
+    note = svc.create_note(
+        tenant_id=TENANT_ID,
+        title=derived_title,
+        note_type=note_type,
+        company_tickers=[],
+    )
+
+    # Build the Tiptap `editor_content` JSON server-side from the polished
+    # segments so the editor renders correctly the moment the user lands on
+    # the new note. translation_label drives the third column header
+    # (e.g. "English", "简体中文", "Arabic", ...).
+    translation_label = transcribe_result.get("translation_label") or "English"
+    editor_doc = build_editor_doc_from_polish_meta(
+        segments=segments,
+        summary={},                 # not generated on the upload path
+        is_bilingual=transcribe_result.get("is_bilingual", False),
+        raw_lines=None,             # no live transcript on upload
+        translation_label=translation_label,
+    )
+
+    # recording_path = filename only (the /audio/{filename} endpoint resolves
+    # against tools/audio_recorder/recordings/, the same dir we wrote to).
+    # Set both recording_path and editor_content in the same update call.
+    svc.update_note(
+        note.note_id,
+        TENANT_ID,
+        recording_path=saved_path.name,
+        editor_content=editor_doc,
+    )
+    svc.save_polished_transcript(
+        note_id=note.note_id,
+        tenant_id=TENANT_ID,
+        markdown=transcribe_result.get("text", ""),
+        language=final_lang,
+        meta={
+            "input_tokens":  transcribe_result.get("input_tokens", 0),
+            "output_tokens": transcribe_result.get("output_tokens", 0),
+            "model":         "gemini-2.5-flash",
+            "ran_at":        _dt.utcnow().isoformat(),
+            "is_bilingual":  transcribe_result.get("is_bilingual", False),
+            "key_topics":    transcribe_result.get("key_topics", []),
+            "segments":      segments,
+            "summary":       {},        # not generated on the upload path
+            "source":        "audio_upload",
+            "uploaded_filename": audio.filename,
+            "language_source":   lang_source,
+            "translation_language": translation_language,
+            "translation_label":    translation_label,
+            # Timing instrumentation for cost / performance tracking.
+            "gemini_seconds":     transcribe_result.get("gemini_seconds"),
+            "total_seconds":      transcribe_result.get("total_seconds"),
+            "audio_duration_sec": transcribe_result.get("audio_duration_sec"),
+            "chunk_count":        transcribe_result.get("chunk_count", 1),
+            "chunk_seconds":      transcribe_result.get("chunk_seconds", []),
+            # Coverage gaps detected by _detect_coverage_gaps. UI surfaces
+            # these as a banner with one-click "Retranscribe from..." links.
+            "coverage_gaps":      transcribe_result.get("coverage_gaps", []),
+        },
+    )
+
+    return APIResponse(
+        success=True,
+        data={
+            "note_id":            note.note_id,
+            "language":           final_lang,
+            "language_source":    lang_source,
+            "is_bilingual":       transcribe_result.get("is_bilingual", False),
+            "segments":           len(segments),
+            "key_topics":         transcribe_result.get("key_topics", []),
+            "input_tokens":       transcribe_result.get("input_tokens", 0),
+            "output_tokens":      transcribe_result.get("output_tokens", 0),
+            "audio_filename":     saved_path.name,
+            "gemini_seconds":     transcribe_result.get("gemini_seconds"),
+            "total_seconds":      transcribe_result.get("total_seconds"),
+            "audio_duration_sec": transcribe_result.get("audio_duration_sec"),
+            "chunk_count":        transcribe_result.get("chunk_count", 1),
+            "chunk_seconds":      transcribe_result.get("chunk_seconds", []),
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Retranscribe a portion of an existing note's audio. Used to recover from
+# Gemini repetition loops or partial chunk failures without re-paying for
+# the already-good earlier segments.
+# ---------------------------------------------------------------------------
+
+class RetranscribeFromRequest(BaseModel):
+    start_seconds: float        # cut audio from this offset onwards (e.g. 2477 for 00:41:17)
+    language: Optional[str] = None  # zh/ja/ko/en; None = reuse note's current language
+
+
+@router.post("/{note_id}/retranscribe-from", response_model=APIResponse)
+async def retranscribe_from_timestamp(
+    note_id: str,
+    request: RetranscribeFromRequest,
+    db: Session = Depends(get_db_session),
+):
+    """Cut the note's recording from start_seconds onwards, run Gemini on
+    just that portion, and splice the new segments into the existing
+    polished transcript.
+
+    Pipeline:
+      1. Load note + recording_path. Resolve audio file on disk.
+      2. ffmpeg -ss <start> -i <audio> <tmp>/cut.opus  (re-encode at 24 kbps mono)
+      3. gemini_batch_transcribe_smart on the cut.
+      4. Save raw cut result to disk safety-net.
+      5. Drop existing segments with timestamp >= start_seconds; offset new
+         segments by start_seconds; concat; rebuild editor_content.
+      6. Persist updated polished_transcript_meta + editor_content + markdown.
+
+    Returns the count of segments dropped/added so the user knows what changed.
+    """
+    import json as _json
+    import subprocess as _sp
+    import tempfile as _tempfile
+    import uuid as _uuid
+    from datetime import datetime as _dt
+    from backend.app.services.live_transcription import (
+        gemini_batch_transcribe_smart,
+        _parse_ts_to_seconds,
+        _format_seconds_as_ts,
+    )
+    from backend.app.services.editor_doc_builder import build_editor_doc_from_polish_meta
+
+    if request.start_seconds < 0:
+        raise HTTPException(status_code=400, detail="start_seconds must be >= 0")
+
+    svc = NotesService(db)
+    note = svc.get_note(note_id, TENANT_ID)
+    if not note:
+        raise HTTPException(status_code=404, detail=f"Note {note_id} not found")
+    if not note.recording_path:
+        raise HTTPException(status_code=400, detail="Note has no audio recording")
+
+    audio_file = AUDIO_UPLOADS_DIR / note.recording_path
+    if not audio_file.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"Audio file missing on disk: {audio_file}",
+        )
+
+    existing_meta = note.polished_transcript_meta or {}
+    existing_segments = list(existing_meta.get("segments") or [])
+    is_bilingual = bool(existing_meta.get("is_bilingual", False))
+    language = request.language or existing_meta.get("language") or "zh"
+
+    # Cut the audio. We always re-encode here (rather than -c copy) so the
+    # cut starts at exactly the requested offset -- container-level cuts
+    # can shift the head by up to the previous keyframe (~5 sec) for some
+    # codec/container combos.
+    with _tempfile.TemporaryDirectory(prefix="alphagraph_retx_") as td:
+        cut_path = Path(td) / f"cut_{_uuid.uuid4().hex[:8]}.opus"
+        cmd = [
+            "ffmpeg", "-y",
+            "-ss", f"{request.start_seconds:.3f}",
+            "-i", str(audio_file),
+            "-c:a", "libopus", "-b:a", "24k",
+            "-application", "voip", "-ar", "16000", "-ac", "1",
+            str(cut_path),
+        ]
+        proc = await asyncio.to_thread(
+            _sp.run, cmd, capture_output=True, text=True, timeout=600,
+        )
+        if proc.returncode != 0 or not cut_path.exists():
+            raise HTTPException(
+                status_code=500,
+                detail=f"ffmpeg cut failed: {proc.stderr[-300:].strip()}",
+            )
+
+        # Send the cut through the same smart wrapper so it auto-splits if
+        # the remainder is itself > 55 min.
+        new_result = await asyncio.to_thread(
+            gemini_batch_transcribe_smart, str(cut_path), language, note_id,
+        )
+
+    if new_result.get("error"):
+        raise HTTPException(
+            status_code=500,
+            detail=f"Gemini retranscribe error: {new_result['error']}",
+        )
+
+    # SAFETY NET: persist the raw retranscribe result to disk before any DB write.
+    results_dir = AUDIO_UPLOADS_DIR / "_results"
+    results_dir.mkdir(parents=True, exist_ok=True)
+    retx_json = results_dir / f"{Path(audio_file).stem}.retx_{int(request.start_seconds)}s.gemini.json"
+    try:
+        retx_json.write_text(
+            _json.dumps({
+                "note_id":       note_id,
+                "audio_file":    note.recording_path,
+                "start_seconds": request.start_seconds,
+                "language":      language,
+                "transcribe":    new_result,
+            }, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except Exception:
+        import logging as _logging
+        _logging.getLogger(__name__).exception(
+            "could not write retx safety-net at %s", retx_json,
+        )
+
+    # Splice. New segments' timestamps are relative to the cut audio, so
+    # offset by start_seconds. Then drop any existing segment whose
+    # timestamp >= start_seconds (those are the failed ones we're replacing).
+    new_segments_raw = new_result.get("segments") or []
+    # Compute the merged total duration so timestamps format as HH:MM:SS
+    # when the spliced transcript crosses the 1-hour boundary.
+    audio_total_sec = float(existing_meta.get("audio_duration_sec") or 0.0)
+    if audio_total_sec <= 0:
+        audio_total_sec = float(new_result.get("audio_duration_sec") or 0.0) + request.start_seconds
+
+    new_segments: list[dict] = []
+    for seg in new_segments_raw:
+        local_t = _parse_ts_to_seconds(seg.get("timestamp", ""))
+        if local_t is None:
+            continue
+        global_t = local_t + request.start_seconds
+        new_segments.append({
+            "timestamp":     _format_seconds_as_ts(global_t, audio_total_sec),
+            "speaker":       seg.get("speaker", ""),
+            "text_original": seg.get("text_original", ""),
+            "text_english":  seg.get("text_english", ""),
+        })
+
+    kept_segments: list[dict] = []
+    dropped_count = 0
+    for seg in existing_segments:
+        local_t = _parse_ts_to_seconds(seg.get("timestamp", ""))
+        if local_t is not None and local_t >= request.start_seconds:
+            dropped_count += 1
+            continue
+        kept_segments.append(seg)
+
+    merged = kept_segments + new_segments
+
+    # Update meta
+    new_meta = dict(existing_meta)
+    new_meta["segments"] = merged
+    new_meta["language"] = language
+    new_meta["is_bilingual"] = is_bilingual or bool(new_result.get("is_bilingual"))
+    new_meta["last_retranscribe"] = {
+        "ran_at":         _dt.utcnow().isoformat(),
+        "start_seconds":  request.start_seconds,
+        "dropped":        dropped_count,
+        "added":          len(new_segments),
+        "gemini_seconds": new_result.get("gemini_seconds"),
+        "chunk_count":    new_result.get("chunk_count"),
+    }
+    # Re-run gap detection on the spliced segments so the UI banner clears
+    # entries the user just filled in (and surfaces any NEW gaps the new
+    # Gemini call also missed).
+    from backend.app.services.live_transcription import _detect_coverage_gaps
+    new_meta["coverage_gaps"] = _detect_coverage_gaps(merged, audio_total_sec)
+
+    # Rebuild editor_content from the merged segments.
+    editor_doc = build_editor_doc_from_polish_meta(
+        segments=merged,
+        summary=existing_meta.get("summary") or {},
+        is_bilingual=new_meta["is_bilingual"],
+        raw_lines=None,
+    )
+
+    # Build a fresh markdown view of the merged segments for the export field.
+    from backend.app.services.live_transcription import _flatten_segments_to_markdown
+    merged_markdown = _flatten_segments_to_markdown(merged, new_meta["is_bilingual"])
+
+    svc.update_note(note_id, TENANT_ID, editor_content=editor_doc)
+    svc.save_polished_transcript(
+        note_id=note_id,
+        tenant_id=TENANT_ID,
+        markdown=merged_markdown,
+        language=new_meta["language"],
+        meta=new_meta,
+    )
+
+    return APIResponse(
+        success=True,
+        data={
+            "note_id":         note_id,
+            "dropped":         dropped_count,
+            "added":           len(new_segments),
+            "total_segments":  len(merged),
+            "start_seconds":   request.start_seconds,
+            "gemini_seconds":  new_result.get("gemini_seconds"),
+            "chunk_count":     new_result.get("chunk_count"),
+            "language":        new_meta["language"],
+            "coverage_gaps":   new_meta["coverage_gaps"],
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Export a note's polished transcript as a downloadable Word (.docx) file.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Convert all Chinese fields in a note's transcript between Simplified and
+# Traditional script. Idempotent (zh-Hans on already-zh-Hans is a no-op),
+# and harmless on non-Chinese characters (zhconv leaves them alone).
+# ---------------------------------------------------------------------------
+
+class ConvertChineseRequest(BaseModel):
+    to: str   # "hans" (Simplified) or "hant" (Traditional)
+
+
+@router.post("/{note_id}/convert-chinese", response_model=APIResponse)
+def convert_note_chinese_variant(
+    note_id: str,
+    request: ConvertChineseRequest,
+    db: Session = Depends(get_db_session),
+):
+    """Toggle a note's Chinese transcript between Simplified (zh-Hans) and
+    Traditional (zh-Hant). Uses zhconv (local Python lib) -- no LLM call,
+    no cost beyond CPU time. Re-runs on text_original, text_english,
+    speaker, and key_topics; rebuilds editor_content + markdown."""
+    if request.to not in ("hans", "hant"):
+        raise HTTPException(status_code=400, detail="`to` must be 'hans' or 'hant'")
+
+    import json as _json
+    import zhconv
+    from backend.app.services.editor_doc_builder import build_editor_doc_from_polish_meta
+    from backend.app.services.live_transcription import _flatten_segments_to_markdown
+
+    target = "zh-cn" if request.to == "hans" else "zh-tw"
+
+    svc = NotesService(db)
+    note = svc.get_note(note_id, TENANT_ID)
+    if not note:
+        raise HTTPException(status_code=404, detail=f"Note {note_id} not found")
+
+    meta = dict(note.polished_transcript_meta or {})
+    segments = list(meta.get("segments") or [])
+    if not segments:
+        raise HTTPException(status_code=400, detail="Note has no segments to convert.")
+
+    def _has_zh(s: str) -> bool:
+        return any("一" <= c <= "鿿" for c in (s or ""))
+
+    converted = 0
+    for seg in segments:
+        for fld in ("text_original", "text_english", "speaker"):
+            v = seg.get(fld) or ""
+            if _has_zh(v):
+                nv = zhconv.convert(v, target)
+                if nv != v:
+                    seg[fld] = nv
+                    converted += 1
+    meta["segments"] = segments
+    meta["key_topics"] = [
+        zhconv.convert(t, target) if _has_zh(t) else t
+        for t in (meta.get("key_topics") or [])
+    ]
+    meta["chinese_variant"] = request.to    # "hans" or "hant"
+
+    # Rebuild downstream views, preserving the existing translation_label.
+    editor_doc = build_editor_doc_from_polish_meta(
+        segments=segments,
+        summary=meta.get("summary") or {},
+        is_bilingual=bool(meta.get("is_bilingual")),
+        raw_lines=None,
+        translation_label=meta.get("translation_label") or "English",
+    )
+    new_md = _flatten_segments_to_markdown(segments, bool(meta.get("is_bilingual")))
+
+    svc.update_note(note_id, TENANT_ID, editor_content=editor_doc)
+    svc.save_polished_transcript(
+        note_id=note_id,
+        tenant_id=TENANT_ID,
+        markdown=new_md,
+        language=meta.get("language"),
+        meta=meta,
+    )
+
+    return APIResponse(
+        success=True,
+        data={
+            "note_id":         note_id,
+            "to":              request.to,
+            "fields_changed":  converted,
+            "total_segments":  len(segments),
+        },
+    )
+
+
+@router.get("/{note_id}/export.docx")
+def export_note_as_docx(note_id: str, db: Session = Depends(get_db_session)):
+    """Render the note's polished transcript to a Word document and stream
+    it back as `<title>.docx`.
+
+    Layout:
+      - H1: note title
+      - Metadata paragraph: meeting date, audio length, language, # segments
+      - For bilingual notes (zh/ja/ko sources): one 3-column table
+          Time | Original | English
+        with one row per segment.
+      - For monolingual notes: numbered paragraphs prefixed with [MM:SS]
+        speaker, then text.
+
+    Word handles Unicode (Chinese / Japanese / Korean) natively in the
+    .docx XML; no font registration needed. The user can open the
+    download in Word / Pages / LibreOffice and File -> Save as PDF if a
+    PDF is desired.
+    """
+    import io
+    import re as _re
+    from docx import Document
+    from docx.shared import Pt, Inches
+    from fastapi.responses import StreamingResponse
+
+    svc = NotesService(db)
+    note = svc.get_note(note_id, TENANT_ID)
+    if not note:
+        raise HTTPException(status_code=404, detail=f"Note {note_id} not found")
+
+    meta = note.polished_transcript_meta or {}
+    segments = list(meta.get("segments") or [])
+    if not segments:
+        raise HTTPException(
+            status_code=400,
+            detail="Note has no polished transcript segments to export.",
+        )
+
+    is_bilingual = bool(meta.get("is_bilingual", False))
+    language     = meta.get("language") or "en"
+    audio_dur    = float(meta.get("audio_duration_sec") or 0.0)
+    audio_min    = round(audio_dur / 60.0, 1)
+
+    doc = Document()
+    # Slightly tighter margins than Word's default 1in so the bilingual
+    # table fits comfortably in landscape-ish portrait (we keep portrait;
+    # the table can scroll if Chinese gets wide).
+    for section in doc.sections:
+        section.left_margin = Inches(0.7)
+        section.right_margin = Inches(0.7)
+        section.top_margin = Inches(0.7)
+        section.bottom_margin = Inches(0.7)
+
+    # Title
+    title = doc.add_heading(note.title or f"Transcript {note_id[:8]}", level=1)
+
+    # Metadata line
+    meta_bits: list[str] = []
+    if note.meeting_date:
+        meta_bits.append(str(note.meeting_date))
+    if audio_dur > 0:
+        meta_bits.append(f"audio {audio_min} min")
+    meta_bits.append(f"language {language}{'/en' if is_bilingual else ''}")
+    meta_bits.append(f"{len(segments)} segments")
+    if note.company_tickers:
+        meta_bits.append(", ".join(note.company_tickers))
+    if meta_bits:
+        para = doc.add_paragraph(" · ".join(meta_bits))
+        for run in para.runs:
+            run.font.size = Pt(9)
+            run.italic = True
+
+    # Body — bilingual table or monolingual paragraphs
+    if is_bilingual:
+        # 3 columns: Time | Original | <translation_label>
+        translation_label = meta.get("translation_label") or "English"
+        table = doc.add_table(rows=1, cols=3)
+        try:
+            table.style = "Light Grid Accent 1"   # default Word style; falls back if not present
+        except KeyError:
+            pass
+        hdr = table.rows[0].cells
+        hdr[0].text = "Time"
+        hdr[1].text = "原文"
+        hdr[2].text = translation_label
+        for cell in hdr:
+            for run in cell.paragraphs[0].runs:
+                run.bold = True
+        for seg in segments:
+            row = table.add_row().cells
+            row[0].text = (seg.get("timestamp") or "").strip()
+            speaker = (seg.get("speaker") or "").strip()
+            orig    = (seg.get("text_original") or "").strip()
+            row[1].text = (f"[{speaker}] {orig}" if speaker else orig)
+            row[2].text = (seg.get("text_english") or "").strip()
+    else:
+        # Monolingual: paragraphs of "[MM:SS] speaker — text"
+        for seg in segments:
+            ts      = (seg.get("timestamp") or "").strip()
+            speaker = (seg.get("speaker") or "").strip()
+            text    = (seg.get("text_original") or "").strip()
+            p = doc.add_paragraph()
+            ts_run = p.add_run(f"[{ts}] " if ts else "")
+            ts_run.bold = True
+            if speaker:
+                sp_run = p.add_run(f"{speaker}: ")
+                sp_run.italic = True
+            p.add_run(text)
+
+    # Stream the docx as an attachment.
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+
+    # Sanitize the title for a Windows-safe filename.
+    safe_title = _re.sub(r"[^A-Za-z0-9 \-_.()]+", "", note.title or "transcript").strip() or "transcript"
+    safe_title = safe_title[:80]
+    filename = f"{safe_title}.docx"
+
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -721,7 +1383,7 @@ async def _run_live_v2_session(
     Option B: SenseVoice live draft + Gemini batch polish.
     audio_source: "mic" = browser sends PCM, "system" = server captures WASAPI loopback
     """
-    from backend.app.services.live_transcription import gemini_batch_transcribe, gemini_generate_summary
+    from backend.app.services.live_transcription import gemini_batch_transcribe_smart, gemini_generate_summary
     from backend.app.services.asr_worker import transcribe_audio_bytes, is_model_ready, is_model_loading
     import numpy as np
     import scipy.io.wavfile as wavfile
@@ -1071,7 +1733,7 @@ async def _run_live_v2_session(
         final_lang = detected_lang if detected_lang != "auto" else "zh"
         source = opus_path if os.path.exists(opus_path) else wav_path
 
-        transcribe_result = await asyncio.to_thread(gemini_batch_transcribe, source, final_lang, note_id)
+        transcribe_result = await asyncio.to_thread(gemini_batch_transcribe_smart, source, final_lang, note_id)
 
         if transcribe_result.get("error"):
             await websocket.send_json({

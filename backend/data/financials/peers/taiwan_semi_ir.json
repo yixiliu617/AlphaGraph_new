@@ -1,0 +1,195 @@
+{
+  "ticker_count": 17,
+  "verified_count": 14,
+  "notes": "Hand-curated Taiwan semiconductor peer IR landings, verified via Playwright homepage probe + manual cleanup. URLs that 404'd or were anchor-only (#fragment) replaced with the canonical IR landing. As-of 2026-04-26.",
+  "peers": [
+    {
+      "ticker": "2330.TW",
+      "name_en": "TSMC",
+      "name_zh": "台灣積體電路製造",
+      "segment": "foundry",
+      "ir_url": "https://investor.tsmc.com/chinese/quarterly-results",
+      "ir_url_en": "https://investor.tsmc.com/english/quarterly-results",
+      "homepage": "https://www.tsmc.com/",
+      "verified": true,
+      "notes": "Reference site. Has quarterly mgmt reports + transcripts + presentations + earnings releases + financial statements + 業績展望 guidance table. Cloudflare-protected; needs page.evaluate(fetch). Deep-link pattern: /chinese/quarterly-results/{YYYY}/q{N}."
+    },
+    {
+      "ticker": "2303.TW",
+      "name_en": "UMC",
+      "name_zh": "聯華電子",
+      "segment": "foundry",
+      "ir_url": "https://www.umc.com/en/Investors",
+      "ir_url_zh": "https://www.umc.com/zh-TW/Investors",
+      "homepage": "https://www.umc.com/",
+      "verified": true,
+      "notes": "Status 200 confirmed. Capital-S 'Investors' in path is required (302s otherwise)."
+    },
+    {
+      "ticker": "5347.TW",
+      "name_en": "Vanguard International Semiconductor",
+      "name_zh": "世界先進",
+      "segment": "foundry",
+      "ir_url": "https://www.vis.com.tw/en/ir",
+      "ir_url_zh": "https://www.vis.com.tw/zh-tw/ir",
+      "homepage": "https://www.vis.com.tw/",
+      "verified": true,
+      "notes": "Lower-case /ir suffix, NOT /investors. Homepage probe found this."
+    },
+    {
+      "ticker": "6770.TW",
+      "name_en": "Powerchip Semiconductor (PSMC)",
+      "name_zh": "力積電",
+      "segment": "foundry",
+      "ir_url": "https://www.psmc.com.tw/psmc/zh-TW/Investors",
+      "ir_url_en": "https://www.psmc.com.tw/psmc/en/Investors",
+      "homepage": "https://www.psmc.com.tw/",
+      "verified": false,
+      "notes": "FAILED to load via Playwright. .com.tw TLD instead of .com. Manually verify before scraping."
+    },
+    {
+      "ticker": "3711.TW",
+      "name_en": "ASE Technology Holding",
+      "name_zh": "日月光投控",
+      "segment": "osat",
+      "ir_url": "https://ir.aseglobal.com/html/index.php",
+      "homepage": "https://www.aseholdings.com/",
+      "verified": true,
+      "notes": "Dedicated IR subdomain (ir.aseglobal.com). Has separate site with English UI."
+    },
+    {
+      "ticker": "2449.TW",
+      "name_en": "King Yuan Electronics",
+      "name_zh": "京元電子",
+      "segment": "osat",
+      "ir_url": "https://www.kyec.com.tw/zh-tw/Ir/Revenue",
+      "homepage": "https://www.kyec.com.tw/",
+      "verified": true,
+      "notes": "Chinese-only IR page. Path /Ir/ is capitalized."
+    },
+    {
+      "ticker": "2344.TW",
+      "name_en": "Winbond Electronics",
+      "name_zh": "華邦電子",
+      "segment": "memory_idm",
+      "ir_url": "https://www.winbond.com/hq/about-winbond/investor/?__locale=en",
+      "ir_url_zh": "https://www.winbond.com/hq/about-winbond/investor/?__locale=zh_TW",
+      "homepage": "https://www.winbond.com/",
+      "verified": true,
+      "notes": "Locale picker uses ?__locale= query param, not URL prefix. Plural is 'investor' singular."
+    },
+    {
+      "ticker": "2337.TW",
+      "name_en": "Macronix International",
+      "name_zh": "旺宏電子",
+      "segment": "memory_idm",
+      "ir_url": "https://www.macronix.com/en-us/about/investor-relations",
+      "ir_url_zh": "https://www.macronix.com/zh-tw/about/investor-relations",
+      "homepage": "https://www.macronix.com/",
+      "verified": true,
+      "notes": "Lowercase ASP.NET-style path with /en-us/ language prefix."
+    },
+    {
+      "ticker": "2454.TW",
+      "name_en": "MediaTek",
+      "name_zh": "聯發科",
+      "segment": "fabless",
+      "ir_url": "https://www.mediatek.com/investor-relations",
+      "ir_url_zh": "https://corp.mediatek.com/zh-tw/investor-relations",
+      "homepage": "https://corp.mediatek.com/",
+      "verified": true,
+      "notes": "Note corp.mediatek.com (corporate) vs www.mediatek.com (consumer/products). IR lives at both."
+    },
+    {
+      "ticker": "2379.TW",
+      "name_en": "Realtek Semiconductor",
+      "name_zh": "瑞昱半導體",
+      "segment": "fabless",
+      "ir_url": "https://www.realtek.com/Article/Index?menu_id=854&lang=en-GB",
+      "homepage": "https://www.realtek.com/",
+      "verified": true,
+      "notes": "Old-school query-string-driven CMS. menu_id=854 is the IR section."
+    },
+    {
+      "ticker": "3034.TW",
+      "name_en": "Novatek Microelectronics",
+      "name_zh": "聯詠科技",
+      "segment": "fabless",
+      "ir_url": "https://www.novatek.com.tw/en-global/Html/ir_overview",
+      "ir_url_zh": "https://www.novatek.com.tw/zh-tw/Html/ir_overview",
+      "homepage": "https://www.novatek.com.tw/",
+      "verified": true,
+      "notes": "Path /en-global/ for English."
+    },
+    {
+      "ticker": "6271.TW",
+      "name_en": "Phison Electronics",
+      "name_zh": "群聯電子",
+      "segment": "fabless",
+      "ir_url": "https://www.phison.com/en/investor-relations",
+      "ir_url_zh": "https://www.phison.com/zh-TW/investor-relations",
+      "homepage": "https://www.phison.com/",
+      "verified": true,
+      "notes": "Standard IR path. Earlier 404 was case-sensitivity issue (/zh-tw/ vs /zh-TW/)."
+    },
+    {
+      "ticker": "8016.TW",
+      "name_en": "Sitronix Technology",
+      "name_zh": "矽創電子",
+      "segment": "fabless",
+      "ir_url": "https://www.sitronix.com.tw/en/investors/",
+      "ir_url_zh": "https://www.sitronix.com.tw/zh/investors/",
+      "homepage": "https://www.sitronix.com.tw/",
+      "verified": true,
+      "notes": "Trailing slash needed. Has financial-information sub-section."
+    },
+    {
+      "ticker": "5483.TW",
+      "name_en": "Sino-American Silicon",
+      "name_zh": "中美晶",
+      "segment": "wafer",
+      "ir_url": "https://www.saswafer.com/",
+      "homepage": "https://www.saswafer.com/",
+      "verified": false,
+      "notes": "Both www.sas.com.tw and www.saswafer.com timed out via Playwright, possibly geo-blocking or slow load. Verify manually before scraping."
+    },
+    {
+      "ticker": "6488.TW",
+      "name_en": "GlobalWafers",
+      "name_zh": "環球晶圓",
+      "segment": "wafer",
+      "ir_url": "https://www.gws.com.tw/Investors/",
+      "homepage": "https://www.gws.com.tw/",
+      "verified": false,
+      "notes": "Homepage loads but title is empty and no IR link surfaced via JS render. Likely SPA with delayed load. Try waiting longer in Playwright probe."
+    },
+    {
+      "ticker": "3037.TW",
+      "name_en": "Unimicron",
+      "name_zh": "欣興電子",
+      "segment": "substrate",
+      "ir_url": "https://www.unimicron.com/money01.html",
+      "homepage": "https://www.unimicron.com/",
+      "verified": true,
+      "notes": "Old-style static HTML. /money01.html is the IR landing (Chinese only)."
+    },
+    {
+      "ticker": "3008.TW",
+      "name_en": "Largan Precision",
+      "name_zh": "大立光電",
+      "segment": "specialty_optics",
+      "ir_url": "https://www.largan.com.tw/zh/investors-information/financial-information",
+      "homepage": "https://www.largan.com.tw/",
+      "verified": false,
+      "notes": "Optics rather than semi but key smartphone-supply-chain peer. URL guessed from common pattern; verify manually."
+    }
+  ],
+  "next_steps": [
+    "Build per-company crawlers using the same pattern as tsmc_archive_crawler.py — each peer needs a thin scraper that knows its IR landing structure.",
+    "Standardize the silver schema to {ticker, period_end, metric, dimension, value, unit, source} so cross-peer queries work via DuckDB glob.",
+    "Top priority: 2303.TW UMC (other major foundry) for foundry-vs-foundry comparison.",
+    "Second priority: 3711.TW ASE Holdings (OSAT bellwether).",
+    "Third: 2454.TW MediaTek (TSMC's #2 customer after Apple).",
+    "Note that NOT all peers publish a 業績展望-style guidance table — most provide guidance verbally on calls. The transcript extractor's LLM-summarization angle (TODO) becomes more valuable for these."
+  ]
+}

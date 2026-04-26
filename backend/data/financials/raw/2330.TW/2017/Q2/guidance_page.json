@@ -1,0 +1,51 @@
+{
+  "ticker": "2330.TW",
+  "page_period_label": "2Q17",
+  "page_period_end": "2017-06-30",
+  "source_id": "tsmc_quarterly_results_page_2Q17",
+  "source_url": "https://investor.tsmc.com/chinese/quarterly-results/2017/q2",
+  "extracted_at": "2026-04-26T08:04:46+00:00",
+  "table_periods": [
+    "2Q17",
+    "3Q17"
+  ],
+  "table_rows_raw": [
+    [
+      "",
+      "",
+      "2Q17",
+      "3Q17"
+    ],
+    [
+      "",
+      "實際數",
+      "業績展望",
+      "業績展望"
+    ],
+    [
+      "營收金額",
+      "213.86 (NT$ billion)",
+      "213-216 (NT$ billion)",
+      "8.12-8.22 (US$ billion)"
+    ],
+    [
+      "平均匯率 (美元兌新台幣)",
+      "30.29",
+      "30.5",
+      "30.3"
+    ],
+    [
+      "營業毛利率",
+      "50.80%",
+      "50.5%-52.5%",
+      "48.5%-50.5%"
+    ],
+    [
+      "營業淨利率",
+      "38.90%",
+      "39%-41%",
+      "37%-39%"
+    ]
+  ],
+  "fact_count": 13
+}

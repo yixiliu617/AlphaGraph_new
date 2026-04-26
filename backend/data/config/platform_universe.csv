@@ -1,0 +1,153 @@
+ticker,name,market,exchange,country,domicile,gics_sector,gics_subsector,custom_sector,custom_subsector,filing_type,first_imported_at,last_updated_at,has_topline,has_monthly_revenue,has_filings_raw,has_news,has_x_posts,has_calendar_events,has_earnings_releases,notes
+1717,Eternal Materials,TW,TWSE,TW,TW,Semiconductors,Materials,Semi,Materials,MOPS,2026-04-26T15:17:18Z,2026-04-26T15:24:32Z,0,1,0,0,0,0,0,Photoresist / specialty chemicals
+2303,UMC,TW,TWSE,TW,TW,Semiconductors,Foundry,Semi,Foundry,MOPS,2026-04-26T15:17:16Z,2026-04-26T15:24:32Z,0,1,0,0,0,0,0,
+2316,WUS Printed Circuit,TW,TWSE,TW,TW,Semiconductors,PCB/Substrate,Semi,PCB/Substrate,MOPS,2026-04-26T15:17:18Z,2026-04-26T15:24:32Z,0,1,0,0,0,0,0,
+2317,Hon Hai,TW,TWSE,TW,TW,Semiconductors,Server EMS,Semi,Server EMS,MOPS,2026-04-26T15:17:18Z,2026-04-26T15:24:32Z,0,1,0,0,0,0,0,Foxconn — semi-adjacent via AI-server assembly
+2330,TSMC,TW,TWSE,TW,TW,Semiconductors,Foundry,Semi,Foundry,MOPS,2026-04-26T15:17:16Z,2026-04-26T15:24:32Z,0,1,0,0,0,0,0,
+2337,Macronix,TW,TWSE,TW,TW,Semiconductors,Memory,Semi,Memory,MOPS,2026-04-26T15:17:17Z,2026-04-26T15:24:32Z,0,1,0,0,0,0,0,NOR / NAND
+2338,Taiwan Mask,TW,TWSE,TW,TW,Semiconductors,Equipment,Semi,Equipment,MOPS,2026-04-26T15:17:18Z,2026-04-26T15:24:32Z,0,1,0,0,0,0,0,Photomask
+2344,Winbond,TW,TWSE,TW,TW,Semiconductors,Memory,Semi,Memory,MOPS,2026-04-26T15:17:17Z,2026-04-26T15:24:32Z,0,1,0,0,0,0,0,Specialty DRAM / MCU / NOR
+2356,Inventec,TW,TWSE,TW,TW,Semiconductors,Server EMS,Semi,Server EMS,MOPS,2026-04-26T15:17:19Z,2026-04-26T15:24:32Z,0,1,0,0,0,0,0,
+2357,ASUS,TW,TWSE,TW,TW,Semiconductors,Server EMS,Semi,Server EMS,MOPS,2026-04-26T15:17:19Z,2026-04-26T15:24:32Z,0,1,0,0,0,0,0,
+2368,Gold Circuit Electronics,TW,TWSE,TW,TW,Semiconductors,PCB/Substrate,Semi,PCB/Substrate,MOPS,2026-04-26T15:17:18Z,2026-04-26T15:24:32Z,0,1,0,0,0,0,0,
+2379,Realtek,TW,TWSE,TW,TW,Semiconductors,IC Design,Semi,IC Design,MOPS,2026-04-26T15:17:16Z,2026-04-26T15:24:32Z,0,1,0,0,0,0,0,
+2382,Quanta Computer,TW,TWSE,TW,TW,Semiconductors,Server EMS,Semi,Server EMS,MOPS,2026-04-26T15:17:18Z,2026-04-26T15:24:32Z,0,1,0,0,0,0,0,AI-server ODM
+2408,Nanya Technology,TW,TWSE,TW,TW,Semiconductors,Memory,Semi,Memory,MOPS,2026-04-26T15:17:17Z,2026-04-26T15:24:32Z,0,1,0,0,0,0,0,Commodity DRAM
+2441,Greatek Electronics,TW,TWSE,TW,TW,Semiconductors,OSAT,Semi,OSAT,MOPS,2026-04-26T15:17:17Z,2026-04-26T15:24:32Z,0,1,0,0,0,0,0,Packaging / lead frame
+2449,King Yuan Electronics,TW,TWSE,TW,TW,Semiconductors,OSAT,Semi,OSAT,MOPS,2026-04-26T15:17:17Z,2026-04-26T15:24:32Z,0,1,0,0,0,0,0,Testing specialist (KYEC)
+2451,Transcend Information,TW,TWSE,TW,TW,Semiconductors,DRAM Module,Semi,DRAM Module,MOPS,2026-04-26T15:17:17Z,2026-04-26T15:24:32Z,0,1,0,0,0,0,0,
+2454,MediaTek,TW,TWSE,TW,TW,Semiconductors,IC Design,Semi,IC Design,MOPS,2026-04-26T15:17:16Z,2026-04-26T15:24:32Z,0,1,0,0,0,0,0,
+3008,Largan Precision,TW,TWSE,TW,TW,Semiconductors,Optical,Semi,Optical,MOPS,2026-04-26T15:17:18Z,2026-04-26T15:24:33Z,0,1,0,0,0,0,0,Lens modules
+3014,Elan Microelectronics,TW,TWSE,TW,TW,Semiconductors,IC Design,Semi,IC Design,MOPS,2026-04-26T15:17:16Z,2026-04-26T15:24:33Z,0,1,0,0,0,0,0,Touch controllers
+3034,Novatek,TW,TWSE,TW,TW,Semiconductors,IC Design,Semi,IC Design,MOPS,2026-04-26T15:17:16Z,2026-04-26T15:24:33Z,0,1,0,0,0,0,0,
+3035,Faraday Technology,TW,TWSE,TW,TW,Semiconductors,IC Design,Semi,IC Design,MOPS,2026-04-26T15:17:16Z,2026-04-26T15:24:33Z,0,1,0,0,0,0,0,ASIC / IP
+3037,Unimicron,TW,TWSE,TW,TW,Semiconductors,PCB/Substrate,Semi,PCB/Substrate,MOPS,2026-04-26T15:17:18Z,2026-04-26T15:24:33Z,0,1,0,0,0,0,0,ABF substrate
+3044,Tripod Technology,TW,TWSE,TW,TW,Semiconductors,PCB/Substrate,Semi,PCB/Substrate,MOPS,2026-04-26T15:17:18Z,2026-04-26T15:24:33Z,0,1,0,0,0,0,0,
+3105,WIN Semiconductors,TW,TPEx,TW,TW,Semiconductors,Wafer,Semi,Wafer,MOPS,2026-04-26T15:17:17Z,2026-04-26T15:24:33Z,0,1,0,0,0,0,0,GaAs / compound semi
+3189,Kinsus Interconnect,TW,TWSE,TW,TW,Semiconductors,PCB/Substrate,Semi,PCB/Substrate,MOPS,2026-04-26T15:17:18Z,2026-04-26T15:24:33Z,0,1,0,0,0,0,0,ABF substrate
+3231,Wistron,TW,TWSE,TW,TW,Semiconductors,Server EMS,Semi,Server EMS,MOPS,2026-04-26T15:17:19Z,2026-04-26T15:24:33Z,0,1,0,0,0,0,0,AI-server ODM
+3257,Himax Technologies,TW,TWSE,TW,TW,Semiconductors,IC Design,Semi,IC Design,MOPS,2026-04-26T15:17:17Z,2026-04-26T15:24:33Z,0,1,0,0,0,0,0,Display driver IC (also NASDAQ:HIMX)
+3260,Adata Technology,TW,TWSE,TW,TW,Semiconductors,DRAM Module,Semi,DRAM Module,MOPS,2026-04-26T15:17:17Z,2026-04-26T15:24:33Z,0,1,0,0,0,0,0,
+3264,Ardentec,TW,TWSE,TW,TW,Semiconductors,OSAT,Semi,OSAT,MOPS,2026-04-26T15:17:17Z,2026-04-26T15:24:33Z,0,1,0,0,0,0,0,Testing
+3406,Genius Electronic Optical,TW,TWSE,TW,TW,Semiconductors,Optical,Semi,Optical,MOPS,2026-04-26T15:17:18Z,2026-04-26T15:24:33Z,0,1,0,0,0,0,0,Lens modules (GSEO)
+3443,Global Unichip,TW,TWSE,TW,TW,Semiconductors,IC Design,Semi,IC Design,MOPS,2026-04-26T15:17:16Z,2026-04-26T15:24:33Z,0,1,0,0,0,0,0,ASIC design services (GUC)
+3680,Gudeng Precision,TW,TWSE,TW,TW,Semiconductors,Equipment,Semi,Equipment,MOPS,2026-04-26T15:17:18Z,2026-04-26T15:24:33Z,0,1,0,0,0,0,0,Wafer carriers / EUV pods
+3711,ASE Technology Holding,TW,TWSE,TW,TW,Semiconductors,OSAT,Semi,OSAT,MOPS,2026-04-26T15:17:17Z,2026-04-26T15:24:33Z,0,1,0,0,0,0,0,Packaging / assembly / test
+4938,Pegatron,TW,TWSE,TW,TW,Semiconductors,Server EMS,Semi,Server EMS,MOPS,2026-04-26T15:17:18Z,2026-04-26T15:24:33Z,0,1,0,0,0,0,0,
+4961,Ali Corporation,TW,TWSE,TW,TW,Semiconductors,IC Design,Semi,IC Design,MOPS,2026-04-26T15:17:16Z,2026-04-26T15:24:33Z,0,1,0,0,0,0,0,STB / display
+4967,Team Group,TW,TWSE,TW,TW,Semiconductors,DRAM Module,Semi,DRAM Module,MOPS,2026-04-26T15:17:17Z,2026-04-26T15:24:34Z,0,1,0,0,0,0,0,
+5347,VIS,TW,TWSE,TW,TW,Semiconductors,Foundry,Semi,Foundry,MOPS,2026-04-26T15:17:16Z,2026-04-26T15:24:34Z,0,1,0,0,0,0,0,Vanguard International Semiconductor
+5483,Sino-American Silicon,TW,TPEx,TW,TW,Semiconductors,Wafer,Semi,Wafer,MOPS,2026-04-26T15:17:17Z,2026-04-26T15:24:34Z,0,1,0,0,0,0,0,SAS — silicon wafers
+6147,Chipbond Technology,TW,TPEx,TW,TW,Semiconductors,OSAT,Semi,OSAT,MOPS,2026-04-26T15:17:17Z,2026-04-26T15:24:34Z,0,1,0,0,0,0,0,Driver IC bumping / packaging
+6239,Powertech Technology,TW,TWSE,TW,TW,Semiconductors,Memory,Semi,Memory,MOPS,2026-04-26T15:17:17Z,2026-04-26T15:24:34Z,0,1,0,0,0,0,0,Memory assembly / test
+6415,Silergy,TW,TWSE,TW,TW,Semiconductors,IC Design,Semi,IC Design,MOPS,2026-04-26T15:17:16Z,2026-04-26T15:24:20Z,0,0,0,0,0,0,0,Analog / power
+6488,GlobalWafers,TW,TPEx,TW,TW,Semiconductors,Wafer,Semi,Wafer,MOPS,2026-04-26T15:17:17Z,2026-04-26T15:24:34Z,0,1,0,0,0,0,0,Silicon wafers
+6643,M31 Technology,TW,TPEx,TW,TW,Semiconductors,Equipment,Semi,Equipment,MOPS,2026-04-26T15:17:18Z,2026-04-26T15:24:34Z,0,1,0,0,0,0,0,Silicon IP
+6770,PSMC,TW,TWSE,TW,TW,Semiconductors,Foundry,Semi,Foundry,MOPS,2026-04-26T15:17:16Z,2026-04-26T15:24:34Z,0,1,0,0,0,0,0,Powerchip Semiconductor Manufacturing
+8021,Topoint Technology,TW,TPEx,TW,TW,Semiconductors,Equipment,Semi,Equipment,MOPS,2026-04-26T15:17:18Z,2026-04-26T15:24:34Z,0,1,0,0,0,0,0,PCB drilling / semi equipment
+8046,Nan Ya PCB,TW,TWSE,TW,TW,Semiconductors,PCB/Substrate,Semi,PCB/Substrate,MOPS,2026-04-26T15:17:18Z,2026-04-26T15:24:34Z,0,1,0,0,0,0,0,ABF substrate
+8070,Chang Wah Electromaterials,TW,TWSE,TW,TW,Semiconductors,Materials,Semi,Materials,MOPS,2026-04-26T15:17:18Z,2026-04-26T15:24:34Z,0,1,0,0,0,0,0,Leadframes
+8110,Walton Advanced,TW,TPEx,TW,TW,Semiconductors,Memory,Semi,Memory,MOPS,2026-04-26T15:17:17Z,2026-04-26T15:24:34Z,0,1,0,0,0,0,0,Memory packaging / module
+8150,ChipMos Technologies,TW,TWSE,TW,TW,Semiconductors,OSAT,Semi,OSAT,MOPS,2026-04-26T15:17:17Z,2026-04-26T15:24:34Z,0,1,0,0,0,0,0,LCD driver / memory test
+8299,Phison,TW,TPEx,TW,TW,Semiconductors,IC Design,Semi,IC Design,MOPS,2026-04-26T15:17:16Z,2026-04-26T15:24:34Z,0,1,0,0,0,0,0,NAND controllers
+AAOI,Applied Optoelectronics,US,NASDAQ,US,US,Information Technology,Communications Equipment,Semi,Optical Networking,10-K,2026-04-26T15:17:22Z,2026-04-26T15:24:25Z,0,0,0,0,0,0,0,
+AAPL,Apple Inc.,US,NASDAQ,US,US,Information Technology,Tech Hardware,Hardware,Consumer Electronics,10-K,2026-04-26T15:17:19Z,2026-04-26T15:24:31Z,1,0,1,0,0,0,1,
+ADI,Analog Devices,US,NASDAQ,US,US,Information Technology,Semiconductors,Semi,Analog/Power,10-K,2026-04-26T15:17:20Z,2026-04-26T15:24:28Z,1,0,0,0,0,0,0,
+AEP,American Electric Power,US,NASDAQ,US,US,Utilities,Electric Utilities,Power,Utility (AI demand),10-K,2026-04-26T15:17:25Z,2026-04-26T15:24:28Z,0,0,0,0,0,0,0,
+ALAB,Astera Labs,US,NASDAQ,US,US,Information Technology,Semiconductors,Semi,Compute/AI,10-K,2026-04-26T15:17:20Z,2026-04-26T15:24:23Z,0,0,0,0,0,0,0,
+AMAT,Applied Materials,US,NASDAQ,US,US,Information Technology,Semiconductor Equipment,Semi,Equipment (Wafer Fab),10-K,2026-04-26T15:17:19Z,2026-04-26T15:24:31Z,1,0,1,0,0,0,1,
+AMD,Advanced Micro Devices,US,NASDAQ,US,US,Information Technology,Semiconductors,Semi,Compute/AI,10-K,2026-04-26T15:17:20Z,2026-04-26T15:43:22Z,1,0,0,0,0,0,0,
+AMKR,Amkor Technology,US,NASDAQ,US,US,Information Technology,Semiconductors,Semi,OSAT,10-K,2026-04-26T15:17:20Z,2026-04-26T15:24:23Z,0,0,0,0,0,0,0,
+AMZN,Amazon.com,US,NASDAQ,US,US,Consumer Discretionary,Internet Retail,Hyperscaler,Cloud (AWS),10-K,2026-04-26T15:17:23Z,2026-04-26T15:24:31Z,1,0,0,0,0,0,1,
+ANET,Arista Networks,US,NYSE,US,US,Information Technology,Communications Equipment,Hardware,Networking,10-K,2026-04-26T15:17:23Z,2026-04-26T15:24:26Z,0,0,0,0,0,0,0,
+ANSS,ANSYS,US,NASDAQ,US,US,Information Technology,Software,Semi,EDA/IP,10-K,2026-04-26T15:17:21Z,2026-04-26T15:24:25Z,0,0,0,0,0,0,0,
+APD,Air Products and Chemicals,US,NYSE,US,US,Materials,Industrial Gases,Semi,Industrial Gases,10-K,2026-04-26T15:17:22Z,2026-04-26T15:24:25Z,0,0,0,0,0,0,0,
+APH,Amphenol,US,NYSE,US,US,Information Technology,Tech Hardware,Semi,Connectors,10-K,2026-04-26T15:17:22Z,2026-04-26T15:24:25Z,0,0,0,0,0,0,0,
+APLD,Applied Digital,US,NASDAQ,US,US,Information Technology,IT Services,Neocloud,AI Datacenter,10-K,2026-04-26T15:17:24Z,2026-04-26T15:24:27Z,0,0,0,0,0,0,0,
+AVGO,Broadcom Inc.,US,NASDAQ,US,US,Information Technology,Semiconductors,Semi,Compute/AI,10-K,2026-04-26T15:17:19Z,2026-04-26T15:24:31Z,1,0,1,0,0,0,1,
+BE,Bloom Energy,US,NYSE,US,US,Industrials,Electrical Equipment,Power,Fuel Cells,10-K,2026-04-26T15:17:24Z,2026-04-26T15:24:27Z,0,0,0,0,0,0,0,
+BTBT,Bit Digital,US,NASDAQ,US,US,Financials,Capital Markets,Neocloud,GPU Rental,10-K,2026-04-26T15:17:24Z,2026-04-26T15:24:27Z,0,0,0,0,0,0,0,
+CDNS,Cadence Design Systems,US,NASDAQ,US,US,Information Technology,Software,Semi,EDA,10-K,2026-04-26T15:17:19Z,2026-04-26T15:24:31Z,1,0,1,0,0,0,1,
+CEG,Constellation Energy,US,NASDAQ,US,US,Utilities,Electric Utilities,Nuclear,Nuclear Utility,10-K,2026-04-26T15:17:24Z,2026-04-26T15:24:27Z,0,0,0,0,0,0,0,
+CIEN,Ciena,US,NYSE,US,US,Information Technology,Communications Equipment,Hardware,Optical Networking,10-K,2026-04-26T15:17:22Z,2026-04-26T15:24:25Z,0,0,0,0,0,0,0,
+CIFR,Cipher Mining,US,NASDAQ,US,US,Financials,Capital Markets,Neocloud,GPU Rental,10-K,2026-04-26T15:17:23Z,2026-04-26T15:24:27Z,0,0,0,0,0,0,0,
+COHR,Coherent Corp.,US,NYSE,US,US,Information Technology,Communications Equipment,Semi,Optical,10-K,2026-04-26T15:17:21Z,2026-04-26T15:24:29Z,1,0,0,0,0,0,0,
+COMM,CommScope Holding,US,NASDAQ,US,US,Information Technology,Communications Equipment,Hardware,Optical Networking,10-K,2026-04-26T15:17:22Z,2026-04-26T15:24:25Z,0,0,0,0,0,0,0,
+CORZ,Core Scientific,US,NASDAQ,US,US,Financials,Capital Markets,Neocloud,GPU Rental,10-K,2026-04-26T15:17:24Z,2026-04-26T15:24:27Z,0,0,0,0,0,0,0,
+CRM,Salesforce,US,NYSE,US,US,Information Technology,Software,Software,SaaS,10-K,2026-04-26T15:17:23Z,2026-04-26T15:24:26Z,0,0,0,0,0,0,0,
+CRUS,Cirrus Logic,US,NASDAQ,US,US,Information Technology,Semiconductors,Semi,RF/Connectivity,10-K,2026-04-26T15:17:20Z,2026-04-26T15:24:24Z,0,0,0,0,0,0,0,
+CRWV,CoreWeave,US,NASDAQ,US,US,Information Technology,IT Services,Neocloud,GPU Cloud,10-K,2026-04-26T15:17:24Z,2026-04-26T15:24:27Z,0,0,0,0,0,0,0,
+CSCO,Cisco Systems,US,NASDAQ,US,US,Information Technology,Communications Equipment,Hardware,Networking,10-K,2026-04-26T15:17:23Z,2026-04-26T15:24:29Z,1,0,0,0,0,0,0,
+D,Dominion Energy,US,NYSE,US,US,Utilities,Electric Utilities,Power,Utility (AI demand),10-K,2026-04-26T15:17:25Z,2026-04-26T15:24:28Z,0,0,0,0,0,0,0,
+DELL,Dell Technologies,US,NYSE,US,US,Information Technology,Tech Hardware,Hardware,Servers,10-K,2026-04-26T15:17:20Z,2026-04-26T15:24:31Z,1,0,1,0,0,0,1,
+DUK,Duke Energy,US,NYSE,US,US,Utilities,Electric Utilities,Power,Utility (AI demand),10-K,2026-04-26T15:17:25Z,2026-04-26T15:24:28Z,0,0,0,0,0,0,0,
+ENTG,Entegris,US,NASDAQ,US,US,Information Technology,Semiconductor Equipment,Semi,Equipment/Materials,10-K,2026-04-26T15:17:21Z,2026-04-26T15:24:24Z,0,0,0,0,0,0,0,
+ETN,Eaton Corporation,US,NYSE,US,US,Industrials,Electrical Equipment,Power,Power Management,10-K,2026-04-26T15:17:24Z,2026-04-26T15:24:27Z,0,0,0,0,0,0,0,
+EXTR,Extreme Networks,US,NASDAQ,US,US,Information Technology,Communications Equipment,Hardware,Networking,10-K,2026-04-26T15:17:23Z,2026-04-26T15:24:26Z,0,0,0,0,0,0,0,
+FFIV,F5,US,NASDAQ,US,US,Information Technology,Communications Equipment,Hardware,Networking,10-K,2026-04-26T15:17:23Z,2026-04-26T15:24:26Z,0,0,0,0,0,0,0,
+FN,Fabrinet,US,NYSE,US,US,Information Technology,Semiconductor Equipment,Semi,Optical,10-K,2026-04-26T15:17:21Z,2026-04-26T15:24:24Z,0,0,0,0,0,0,0,
+FORM,FormFactor,US,NASDAQ,US,US,Information Technology,Semiconductor Equipment,Semi,Equipment/Materials,10-K,2026-04-26T15:17:21Z,2026-04-26T15:24:24Z,0,0,0,0,0,0,0,
+FTV,Fortive,US,NYSE,US,US,Industrials,Tech Hardware,Semi,Test/Measurement,10-K,2026-04-26T15:17:22Z,2026-04-26T15:24:25Z,0,0,0,0,0,0,0,
+GEV,GE Vernova,US,NYSE,US,US,Industrials,Electrical Equipment,Power,Power Generation,10-K,2026-04-26T15:17:25Z,2026-04-26T15:24:28Z,0,0,0,0,0,0,0,
+GLW,Corning Inc.,US,NYSE,US,US,Information Technology,Tech Hardware,Semi,Materials,10-K,2026-04-26T15:17:22Z,2026-04-26T15:24:29Z,1,0,0,0,0,0,0,
+GOOGL,Alphabet (Class A),US,NASDAQ,US,US,Communication Services,Interactive Media,Hyperscaler,Cloud (GCP),10-K,2026-04-26T15:17:23Z,2026-04-26T15:24:26Z,0,0,0,0,0,0,0,
+HPE,Hewlett Packard Enterprise,US,NYSE,US,US,Information Technology,Tech Hardware,Hardware,Servers,10-K,2026-04-26T15:17:22Z,2026-04-26T15:24:25Z,0,0,0,0,0,0,0,
+HUBB,Hubbell Incorporated,US,NYSE,US,US,Industrials,Electrical Equipment,Power,Electrical,10-K,2026-04-26T15:17:24Z,2026-04-26T15:24:27Z,0,0,0,0,0,0,0,
+HUT,Hut 8,US,NASDAQ,US,US,Financials,Capital Markets,Neocloud,GPU Rental,10-K,2026-04-26T15:17:24Z,2026-04-26T15:24:27Z,0,0,0,0,0,0,0,
+IBM,IBM,US,NYSE,US,US,Information Technology,IT Services,Hardware,Enterprise,10-K,2026-04-26T15:17:22Z,2026-04-26T15:24:26Z,0,0,0,0,0,0,0,
+ICHR,Ichor Holdings,US,NASDAQ,US,US,Information Technology,Semiconductor Equipment,Semi,Equipment/Materials,10-K,2026-04-26T15:17:21Z,2026-04-26T15:24:24Z,0,0,0,0,0,0,0,
+INTC,Intel Corporation,US,NASDAQ,US,US,Information Technology,Semiconductors,Semi,Compute/AI,10-K,2026-04-26T15:17:19Z,2026-04-26T15:24:31Z,1,0,1,0,0,0,1,
+IPGP,IPG Photonics,US,NASDAQ,US,US,Information Technology,Tech Hardware,Semi,Optical,10-K,2026-04-26T15:17:21Z,2026-04-26T15:24:24Z,0,0,0,0,0,0,0,
+IREN,Iris Energy,US,NASDAQ,US,US,Financials,Capital Markets,Neocloud,GPU Rental,10-K,2026-04-26T15:17:23Z,2026-04-26T15:24:29Z,1,0,0,0,0,0,0,
+JCI,Johnson Controls,US,NYSE,US,US,Industrials,Building Products,Power,Cooling/HVAC,10-K,2026-04-26T15:17:24Z,2026-04-26T15:24:27Z,0,0,0,0,0,0,0,
+JNPR,Juniper Networks,US,NYSE,US,US,Information Technology,Communications Equipment,Hardware,Networking,10-K,2026-04-26T15:17:23Z,2026-04-26T15:24:26Z,0,0,0,0,0,0,0,
+KEYS,Keysight Technologies,US,NYSE,US,US,Information Technology,Tech Hardware,Semi,Test/Measurement,10-K,2026-04-26T15:17:22Z,2026-04-26T15:24:25Z,0,0,0,0,0,0,0,
+KLAC,KLA Corporation,US,NASDAQ,US,US,Information Technology,Semiconductor Equipment,Semi,Equipment (Metrology),10-K,2026-04-26T15:17:19Z,2026-04-26T15:24:31Z,1,0,1,0,0,0,1,
+LEU,Centrus Energy,US,NYSE,US,US,Energy,Energy Equipment,Nuclear,Uranium,10-K,2026-04-26T15:17:25Z,2026-04-26T15:24:28Z,0,0,0,0,0,0,0,
+LIN,Linde plc,US,NYSE,US,US,Materials,Industrial Gases,Semi,Industrial Gases,10-K,2026-04-26T15:17:22Z,2026-04-26T15:24:25Z,0,0,0,0,0,0,0,
+LITE,Lumentum Holdings,US,NASDAQ,US,US,Information Technology,Communications Equipment,Semi,Optical,10-K,2026-04-26T15:17:20Z,2026-04-26T15:24:31Z,1,0,1,0,0,0,1,
+LRCX,Lam Research,US,NASDAQ,US,US,Information Technology,Semiconductor Equipment,Semi,Equipment (Wafer Fab),10-K,2026-04-26T15:17:19Z,2026-04-26T15:24:31Z,1,0,1,0,0,0,1,
+MCHP,Microchip Technology,US,NASDAQ,US,US,Information Technology,Semiconductors,Semi,Analog/Power,10-K,2026-04-26T15:17:20Z,2026-04-26T15:24:29Z,1,0,0,0,0,0,0,
+META,Meta Platforms,US,NASDAQ,US,US,Communication Services,Interactive Media,Hyperscaler,AI Infra (Llama),10-K,2026-04-26T15:17:23Z,2026-04-26T15:24:26Z,0,0,0,0,0,0,0,
+MKSI,MKS Instruments,US,NASDAQ,US,US,Information Technology,Semiconductor Equipment,Semi,Equipment/Materials,10-K,2026-04-26T15:17:21Z,2026-04-26T15:24:24Z,0,0,0,0,0,0,0,
+MPWR,Monolithic Power Systems,US,NASDAQ,US,US,Information Technology,Semiconductors,Semi,Analog/Power,10-K,2026-04-26T15:17:20Z,2026-04-26T15:24:24Z,0,0,0,0,0,0,0,
+MRVL,Marvell Technology,US,NASDAQ,US,US,Information Technology,Semiconductors,Semi,Compute/AI,10-K,2026-04-26T15:17:19Z,2026-04-26T15:24:31Z,1,0,1,0,0,0,1,
+MSFT,Microsoft,US,NASDAQ,US,US,Information Technology,Software,Hyperscaler,Cloud (Azure),10-K,2026-04-26T15:17:23Z,2026-04-26T15:24:31Z,1,0,0,0,0,0,1,
+MU,Micron Technology,US,NASDAQ,US,US,Information Technology,Semiconductors,Semi,Memory,10-K,2026-04-26T15:17:19Z,2026-04-26T15:24:31Z,1,0,1,0,0,0,1,
+NEE,NextEra Energy,US,NYSE,US,US,Utilities,Electric Utilities,Power,Utility (AI demand),10-K,2026-04-26T15:17:25Z,2026-04-26T15:24:28Z,0,0,0,0,0,0,0,
+NTAP,NetApp,US,NASDAQ,US,US,Information Technology,Tech Hardware,Hardware,Storage Systems,10-K,2026-04-26T15:17:22Z,2026-04-26T15:24:26Z,0,0,0,0,0,0,0,
+NVDA,NVIDIA Corporation,US,NASDAQ,US,US,Information Technology,Semiconductors,Semi,Compute/AI,10-K,2026-04-26T15:17:19Z,2026-04-26T15:24:31Z,1,0,1,0,0,0,1,
+NVMI,Nova Ltd.,US,NASDAQ,US,US,Information Technology,Semiconductor Equipment,Semi,Equipment/Materials,10-K,2026-04-26T15:17:21Z,2026-04-26T15:24:25Z,0,0,0,0,0,0,0,
+OKLO,Oklo,US,NYSE,US,US,Industrials,Electrical Equipment,Nuclear,SMR,10-K,2026-04-26T15:17:24Z,2026-04-26T15:24:27Z,0,0,0,0,0,0,0,
+OLED,Universal Display,US,NASDAQ,US,US,Information Technology,Tech Hardware,Semi,Optical/Display,10-K,2026-04-26T15:17:21Z,2026-04-26T15:24:24Z,0,0,0,0,0,0,0,
+ON,ON Semiconductor,US,NASDAQ,US,US,Information Technology,Semiconductors,Semi,Analog/Power,10-K,2026-04-26T15:17:21Z,2026-04-26T15:24:24Z,0,0,0,0,0,0,0,
+ONTO,Onto Innovation,US,NYSE,US,US,Information Technology,Semiconductor Equipment,Semi,Equipment/Materials,10-K,2026-04-26T15:17:21Z,2026-04-26T15:24:25Z,0,0,0,0,0,0,0,
+ORCL,Oracle Corporation,US,NYSE,US,US,Information Technology,Software,Hyperscaler,Cloud (OCI),10-K,2026-04-26T15:17:23Z,2026-04-26T15:24:31Z,1,0,0,0,0,0,1,
+PLTR,Palantir Technologies,US,NASDAQ,US,US,Information Technology,Software,Software,AI,10-K,2026-04-26T15:17:23Z,2026-04-26T15:24:26Z,0,0,0,0,0,0,0,
+POWI,Power Integrations,US,NASDAQ,US,US,Information Technology,Semiconductors,Semi,Analog/Power,10-K,2026-04-26T15:17:21Z,2026-04-26T15:24:24Z,0,0,0,0,0,0,0,
+PSTG,Pure Storage,US,NYSE,US,US,Information Technology,Tech Hardware,Hardware,Storage Systems,10-K,2026-04-26T15:17:22Z,2026-04-26T15:24:26Z,0,0,0,0,0,0,0,
+PWR,Quanta Services,US,NYSE,US,US,Industrials,Construction & Engineering,Power,Utility Infrastructure,10-K,2026-04-26T15:17:24Z,2026-04-26T15:24:27Z,0,0,0,0,0,0,0,
+QCOM,QUALCOMM Inc.,US,NASDAQ,US,US,Information Technology,Semiconductors,Semi,RF/Connectivity,10-K,2026-04-26T15:17:19Z,2026-04-26T15:24:31Z,1,0,1,0,0,0,1,
+QRVO,Qorvo,US,NASDAQ,US,US,Information Technology,Semiconductors,Semi,RF/Connectivity,10-K,2026-04-26T15:17:20Z,2026-04-26T15:24:23Z,0,0,0,0,0,0,0,
+RMBS,Rambus,US,NASDAQ,US,US,Information Technology,Semiconductors,Semi,EDA/IP,10-K,2026-04-26T15:17:21Z,2026-04-26T15:24:25Z,0,0,0,0,0,0,0,
+SLAB,Silicon Laboratories,US,NASDAQ,US,US,Information Technology,Semiconductors,Semi,RF/Connectivity,10-K,2026-04-26T15:17:20Z,2026-04-26T15:24:24Z,0,0,0,0,0,0,0,
+SMCI,Super Micro Computer,US,NASDAQ,US,US,Information Technology,Tech Hardware,Hardware,Servers,10-K,2026-04-26T15:17:22Z,2026-04-26T15:24:29Z,1,0,0,0,0,0,0,
+SMR,NuScale Power,US,NYSE,US,US,Industrials,Electrical Equipment,Nuclear,SMR,10-K,2026-04-26T15:17:24Z,2026-04-26T15:24:27Z,0,0,0,0,0,0,0,
+SNDK,Sandisk Corporation,US,NASDAQ,US,US,Information Technology,Tech Hardware,Semi,Memory/Storage,10-K,2026-04-26T15:17:20Z,2026-04-26T15:24:23Z,0,0,0,0,0,0,0,
+SNOW,Snowflake,US,NYSE,US,US,Information Technology,Software,Software,Database/Cloud,10-K,2026-04-26T15:17:23Z,2026-04-26T15:24:26Z,0,0,0,0,0,0,0,
+SNPS,Synopsys,US,NASDAQ,US,US,Information Technology,Software,Semi,EDA,10-K,2026-04-26T15:17:19Z,2026-04-26T15:24:31Z,1,0,1,0,0,0,1,
+SO,Southern Company,US,NYSE,US,US,Utilities,Electric Utilities,Power,Utility (AI demand),10-K,2026-04-26T15:17:25Z,2026-04-26T15:24:28Z,0,0,0,0,0,0,0,
+STX,Seagate Technology,US,NASDAQ,US,US,Information Technology,Tech Hardware,Hardware,Storage,10-K,2026-04-26T15:17:20Z,2026-04-26T15:24:23Z,0,0,0,0,0,0,0,
+SWKS,Skyworks Solutions,US,NASDAQ,US,US,Information Technology,Semiconductors,Semi,RF/Connectivity,10-K,2026-04-26T15:17:20Z,2026-04-26T15:24:29Z,1,0,0,0,0,0,0,
+TDY,Teledyne Technologies,US,NYSE,US,US,Industrials,Tech Hardware,Semi,Test/Measurement,10-K,2026-04-26T15:17:22Z,2026-04-26T15:24:25Z,0,0,0,0,0,0,0,
+TEL,TE Connectivity,US,NYSE,US,US,Information Technology,Tech Hardware,Semi,Connectors,10-K,2026-04-26T15:17:22Z,2026-04-26T15:24:25Z,0,0,0,0,0,0,0,
+TER,Teradyne,US,NASDAQ,US,US,Information Technology,Semiconductor Equipment,Semi,Equipment (ATE),10-K,2026-04-26T15:17:19Z,2026-04-26T15:24:31Z,1,0,1,0,0,0,1,
+TLN,Talen Energy,US,NASDAQ,US,US,Utilities,Independent Power,Nuclear,Nuclear Utility,10-K,2026-04-26T15:17:24Z,2026-04-26T15:24:28Z,0,0,0,0,0,0,0,
+TXN,Texas Instruments,US,NASDAQ,US,US,Information Technology,Semiconductors,Semi,Analog/Power,10-K,2026-04-26T15:17:20Z,2026-04-26T15:24:30Z,1,0,0,0,0,0,0,
+VICR,Vicor Corporation,US,NASDAQ,US,US,Information Technology,Semiconductors,Semi,Analog/Power,10-K,2026-04-26T15:17:21Z,2026-04-26T15:24:24Z,0,0,0,0,0,0,0,
+VRT,Vertiv Holdings,US,NYSE,US,US,Industrials,Electrical Equipment,Power,Datacenter Power/Cooling,10-K,2026-04-26T15:17:24Z,2026-04-26T15:24:27Z,0,0,0,0,0,0,0,
+VST,Vistra,US,NYSE,US,US,Utilities,Independent Power,Nuclear,Nuclear Utility,10-K,2026-04-26T15:17:24Z,2026-04-26T15:24:28Z,0,0,0,0,0,0,0,
+WDC,Western Digital,US,NASDAQ,US,US,Information Technology,Tech Hardware,Hardware,Storage,10-K,2026-04-26T15:17:20Z,2026-04-26T15:24:23Z,0,0,0,0,0,0,0,
+WULF,TeraWulf,US,NASDAQ,US,US,Financials,Capital Markets,Neocloud,GPU Rental,10-K,2026-04-26T15:17:23Z,2026-04-26T15:24:30Z,1,0,0,0,0,0,0,
+ASML,,,,,,,,,,,2026-04-26T15:24:28Z,2026-04-26T15:24:28Z,1,0,0,0,0,0,0,
+TSM,,,,,,,,,,,2026-04-26T15:24:30Z,2026-04-26T15:24:30Z,1,0,0,0,0,0,0,

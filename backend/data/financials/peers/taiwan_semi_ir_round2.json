@@ -1,0 +1,301 @@
+{
+  "checked_at": "2026-04-26T08:32:12+00:00",
+  "peers": [
+    {
+      "ticker": "2303.TW",
+      "name_en": "UMC",
+      "segment": "foundry",
+      "homepage": "https://www.umc.com/",
+      "ir_link_candidates": [
+        {
+          "text": "",
+          "href": "https://www.facebook.com/sharer/sharer.php?u=https://www.umc.com/en/News/press_release/Content/investor/20260225-1"
+        },
+        {
+          "text": "",
+          "href": "https://twitter.com/intent/tweet?url=https://www.umc.com/en/News/press_release/Content/investor/20260225-1&text=UMC%20Board%20of%20Directors%20Announces%20Proposals%20for%20its%20Annual%20Shareholders%20Meeting"
+        },
+        {
+          "text": "",
+          "href": "https://www.linkedin.com/shareArticle?url=https://www.umc.com/en/News/press_release/Content/investor/20260225-1&title=UMC%20Board%20of%20Directors%20Announces%20Proposals%20for%20its%20Annual%20Shareholders%20Meeting"
+        },
+        {
+          "text": "",
+          "href": "https://lineit.line.me/share/ui?url=https://www.umc.com/en/News/press_release/Content/investor/20260225-1"
+        },
+        {
+          "text": "",
+          "href": "mailto:?subject=UMC%20Board%20of%20Directors%20Announces%20Proposals%20for%20its%20Annual%20Shareholders%20Meeting&body=https://www.umc.com/en/News/press_release/Content/investor/20260225-1"
+        }
+      ],
+      "ir_url_best_guess": "https://www.facebook.com/sharer/sharer.php?u=https://www.umc.com/en/News/press_release/Content/investor/20260225-1"
+    },
+    {
+      "ticker": "5347.TW",
+      "name_en": "Vanguard",
+      "segment": "foundry",
+      "homepage": "https://www.vis.com.tw/",
+      "ir_link_candidates": [
+        {
+          "text": "Investors",
+          "href": "https://www.vis.com.tw/en/ir"
+        },
+        {
+          "text": "Investors",
+          "href": "https://www.vis.com.tw/en/ir"
+        }
+      ],
+      "ir_url_best_guess": "https://www.vis.com.tw/en/ir"
+    },
+    {
+      "ticker": "6770.TW",
+      "name_en": "Powerchip (PSMC)",
+      "segment": "foundry",
+      "homepage": "https://www.psmc.com/",
+      "ir_link_candidates": [],
+      "ir_url_best_guess": null
+    },
+    {
+      "ticker": "3711.TW",
+      "name_en": "ASE Technology Holding",
+      "segment": "osat",
+      "homepage": "https://www.aseglobal.com/",
+      "ir_link_candidates": [
+        {
+          "text": "Investor Relations",
+          "href": "https://ir.aseglobal.com/html/index.php"
+        },
+        {
+          "text": "Investor Relations",
+          "href": "https://ir.aseglobal.com/html/index.php"
+        },
+        {
+          "text": "Investor Relations",
+          "href": "https://ir.aseglobal.com/html/index.php"
+        },
+        {
+          "text": "Investor Relations",
+          "href": "https://www.aseglobal.com/contact#IR-Contacts"
+        },
+        {
+          "text": "Investor Relations",
+          "href": "mailto:ir@aseglobal.com"
+        }
+      ],
+      "ir_url_best_guess": "https://ir.aseglobal.com/html/index.php"
+    },
+    {
+      "ticker": "2449.TW",
+      "name_en": "King Yuan Electronics (KYEC)",
+      "segment": "osat",
+      "homepage": "https://www.kyec.com.tw/",
+      "ir_link_candidates": [
+        {
+          "text": "投資人關係",
+          "href": "https://www.kyec.com.tw/zh-tw/Ir/Revenue"
+        }
+      ],
+      "ir_url_best_guess": "https://www.kyec.com.tw/zh-tw/Ir/Revenue"
+    },
+    {
+      "ticker": "2344.TW",
+      "name_en": "Winbond",
+      "segment": "memory_idm",
+      "homepage": "https://www.winbond.com/",
+      "ir_link_candidates": [
+        {
+          "text": "",
+          "href": "https://www.winbond.com/hq/about-winbond/investor/?__locale=en"
+        },
+        {
+          "text": "Investors",
+          "href": "https://www.winbond.com/hq/about-winbond/investor/investor-conference/?__locale=en"
+        },
+        {
+          "text": "Investors",
+          "href": "https://www.winbond.com/hq/about-winbond/investor/?__locale=en"
+        }
+      ],
+      "ir_url_best_guess": "https://www.winbond.com/hq/about-winbond/investor/?__locale=en"
+    },
+    {
+      "ticker": "2337.TW",
+      "name_en": "Macronix",
+      "segment": "memory_idm",
+      "homepage": "https://www.macronix.com/",
+      "ir_link_candidates": [
+        {
+          "text": "Investor Relations",
+          "href": "https://www.macronix.com/en-us/about/investor-relations/Pages/monthly-sales.aspx"
+        },
+        {
+          "text": "Investor Relations",
+          "href": "https://www.macronix.com/en-us/about/investor-relations"
+        },
+        {
+          "text": "Investor Relations",
+          "href": "https://www.macronix.com/en-us/about/investor-relations"
+        }
+      ],
+      "ir_url_best_guess": "https://www.macronix.com/en-us/about/investor-relations/Pages/monthly-sales.aspx"
+    },
+    {
+      "ticker": "2454.TW",
+      "name_en": "MediaTek",
+      "segment": "fabless",
+      "homepage": "https://corp.mediatek.com/",
+      "ir_link_candidates": [
+        {
+          "text": "Investor Relations",
+          "href": "https://www.mediatek.com/investor-relations"
+        },
+        {
+          "text": "Financial Information",
+          "href": "https://www.mediatek.com/investor-relations/financial-information"
+        },
+        {
+          "text": "Financial Reports",
+          "href": "https://www.mediatek.com/investor-relations/financial-information#financial-reports"
+        },
+        {
+          "text": "Quarterly Earnings",
+          "href": "https://www.mediatek.com/investor-relations/financial-information#quarterly-earnings-release"
+        },
+        {
+          "text": "Monthly Revenue",
+          "href": "https://www.mediatek.com/investor-relations/financial-information#monthly-reports"
+        }
+      ],
+      "ir_url_best_guess": "https://www.mediatek.com/investor-relations"
+    },
+    {
+      "ticker": "2379.TW",
+      "name_en": "Realtek",
+      "segment": "fabless",
+      "homepage": "https://www.realtek.com/",
+      "ir_link_candidates": [
+        {
+          "text": "Investor Relations",
+          "href": "https://www.realtek.com/#menuId13"
+        },
+        {
+          "text": "Investor Relations",
+          "href": "https://www.realtek.com/Article/Index?menu_id=854&lang=en-GB"
+        },
+        {
+          "text": "Investor Relations",
+          "href": "https://www.realtek.com/Article/Index?menu_id=854&lang=en-GB"
+        }
+      ],
+      "ir_url_best_guess": "https://www.realtek.com/#menuId13"
+    },
+    {
+      "ticker": "3034.TW",
+      "name_en": "Novatek",
+      "segment": "fabless",
+      "homepage": "https://www.novatek.com.tw/",
+      "ir_link_candidates": [
+        {
+          "text": "Investor Relations Overview",
+          "href": "https://www.novatek.com.tw/en-global/Html/ir_overview"
+        },
+        {
+          "text": "Investor Events",
+          "href": "https://www.novatek.com.tw/en-global/Download/ir_event"
+        },
+        {
+          "text": "Investor Relations Overview",
+          "href": "https://www.novatek.com.tw/en-global/Html/ir_overview"
+        },
+        {
+          "text": "Investor Events",
+          "href": "https://www.novatek.com.tw/en-global/Download/ir_event"
+        }
+      ],
+      "ir_url_best_guess": "https://www.novatek.com.tw/en-global/Html/ir_overview"
+    },
+    {
+      "ticker": "6271.TW",
+      "name_en": "Phison Electronics",
+      "segment": "fabless",
+      "homepage": "https://www.phison.com/",
+      "ir_link_candidates": [
+        {
+          "text": "",
+          "href": "https://www.phison.com/en/investor-relations"
+        },
+        {
+          "text": "Investors",
+          "href": "https://www.phison.com/en/investor-relations"
+        },
+        {
+          "text": "Investor Relations",
+          "href": "https://www.phison.com/en/investor-relations"
+        }
+      ],
+      "ir_url_best_guess": "https://www.phison.com/en/investor-relations"
+    },
+    {
+      "ticker": "8016.TW",
+      "name_en": "Sitronix",
+      "segment": "fabless",
+      "homepage": "https://www.sitronix.com.tw/",
+      "ir_link_candidates": [
+        {
+          "text": "Investors",
+          "href": "https://www.sitronix.com.tw/en/investors/"
+        },
+        {
+          "text": "Company Profile",
+          "href": "https://www.sitronix.com.tw/en/investors/company-profile/"
+        },
+        {
+          "text": "Financial Information",
+          "href": "https://www.sitronix.com.tw/en/investors/revenue-report/#"
+        },
+        {
+          "text": "Revenue Report",
+          "href": "https://www.sitronix.com.tw/en/investors/revenue-report/"
+        },
+        {
+          "text": "Monthly Revenue",
+          "href": "https://www.sitronix.com.tw/en/investors/monthly-revenue/"
+        }
+      ],
+      "ir_url_best_guess": "https://www.sitronix.com.tw/en/investors/"
+    },
+    {
+      "ticker": "5483.TW",
+      "name_en": "Sino-American Silicon (SAS)",
+      "segment": "wafer",
+      "homepage": null,
+      "ir_link_candidates": [],
+      "ir_url_best_guess": null
+    },
+    {
+      "ticker": "6488.TW",
+      "name_en": "GlobalWafers",
+      "segment": "wafer",
+      "homepage": "https://www.globalwafers.com/",
+      "ir_link_candidates": [],
+      "ir_url_best_guess": null
+    },
+    {
+      "ticker": "3037.TW",
+      "name_en": "Unimicron",
+      "segment": "substrate",
+      "homepage": "https://www.unimicron.com/",
+      "ir_link_candidates": [
+        {
+          "text": "投資人關係",
+          "href": "javascript:void(0);"
+        },
+        {
+          "text": "投資人關係",
+          "href": "https://www.unimicron.com/money01.html"
+        }
+      ],
+      "ir_url_best_guess": "javascript:void(0);"
+    }
+  ]
+}

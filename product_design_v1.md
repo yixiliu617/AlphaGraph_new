@@ -1,6 +1,8 @@
 # AlphaGraph — Product Design v1
 
-*Last updated: 2026-04-09*
+*Last updated: 2026-04-26 (sections 14-17 appended; revision history at section 17.5)*
+
+> **For agents reading this cold:** §1-13 describe the *vision and design*. §14-16 describe the *current actual state of implementation* and the multi-region scaling roadmap toward 2000 covered companies + multi-user agentic operation.
 
 ---
 
@@ -481,7 +483,7 @@ For institutional use, data sourcing needs:
 
 ---
 
-## 13. Phased Build Plan
+## 13. Phased Build Plan (vision-level — see §14-16 for current implementation status)
 
 | Phase | What to Build | Key Deliverable |
 |---|---|---|
@@ -491,6 +493,8 @@ For institutional use, data sourcing needs:
 | Phase 4 | Layer 5 (Output generation) + Team collaboration + Confidence scoring | Enterprise sales-ready |
 
 **The common mistake:** Building Layer 5 (output) before having enough Layer 2 data quality. The output is only as good as the fragments underneath it.
+
+> The phase numbers above refer to product-layer maturity. A separate **infrastructure/scaling** phasing — also numbered 1-4, but tracking a different axis — is documented in `architecture_and_design_v2.md` §13. The two phasings are orthogonal: a Layer 1+2 system can run on Phase-1 infra (today) or Phase-2 infra (DuckDB + Postgres + Redis) regardless of which product layers are built on top.
 
 ---
 
@@ -502,3 +506,188 @@ For institutional use, data sourcing needs:
 4. **The user's voice is the primary data source**: Their channel checks, theses, and observations are what makes their knowledge base unique.
 5. **Cold start is Day 1 revenue**: If the system isn't useful until Year 2, there is no Year 2.
 6. **Obsidian's graph lesson**: When users see their knowledge as a network, they discover connections they would never find with search alone.
+
+---
+
+## 15. Multi-Region Coverage Strategy
+
+*Goal: 2000 covered companies — 500 each across US, Taiwan, Japan, China — within ~12 months. Today: ~18 (15 US-EDGAR + 3 Taiwan).*
+
+### 15.1 Current footprint (2026-04-26)
+
+| Region | Source | Tickers covered | Coverage depth | Status |
+|---|---|---|---|---|
+| **US** | SEC EDGAR (XBRL + 8-K) | ~15 (NVDA, AAPL, AMD, AMAT, AVGO, CDNS, DELL, INTC, KLAC, LITE, LRCX, MRVL, MU, ORCL, …) | 8-Q income statements, balance sheet, cash flow, earnings releases | Live; runs through `data.py` + `earnings.py` routers. EDGAR backfill skill: `.claude/skills/edgar-topline-extraction/`. |
+| **Taiwan** | TSMC IR (Cloudflare-bypassed) + UMC IR + MediaTek IR + MOPS monthly revenue | 3 fully extracted (2330 / 2303 / 2454) plus 51-ticker monthly-revenue universe | Per-company quarterly P&L, segment, capacity, guidance vs actual; transcripts (TSMC); monthly revenue (51 tickers) | Live. Per-company panels live in DataExplorer. |
+| **Japan** | TDnet + EDINET (planned) | 0 | — | TODO. Largest issuers publish English XBRL; mid-caps Japanese-only. Translation step required. |
+| **China** | HKEX + SSE / SZSE (planned) | 0 | — | TODO. Mainland sites may need proxy / VPN access. Legal due-diligence required before scaling scraping. |
+
+### 15.2 The per-company idiosyncrasy budget problem
+
+Every company we deeply cover has eaten ~5-10 person-days of focused engineering: site recon, PDF layout reverse-engineering, period-detection traps, era-specific layout shifts, post-extraction integrity checks, then frontend wiring. Receipts:
+
+- **TSMC (2330.TW)** — Cloudflare bypass via `page.evaluate(fetch)` inside Playwright; Workiva PDF text quirks; 4-era layout drift; 8678 silver rows. Skill: `.claude/skills/tsmc-quarterly-reports/`.
+- **UMC (2303.TW)** — 8" → 12" wafer-equivalent unit shift in 2024; multi-line period-header trap in pre-2022 segment tables; verbal vs structured guidance parsing; per-FAB capacity table (deferred). Memory: `project_taiwan_ir_extraction_umc.md`.
+- **MediaTek (2454.TW)** — hybrid prose + table press release; `(Note2)` period-suffix trap in 2019 reports; HubSpot-hosted index. Memory: `project_taiwan_ir_extraction_mediatek.md`.
+
+**At 2000 companies × 1 week each = 40 person-years.** Unbuildable as a hand-rolled effort. Strategy:
+
+1. **~150 elite companies** (top market cap per region, top analyst-relevance) get hand-tuned extractors. These are the names users actually ask about. Each gets the per-company `SKILL.md` + memory note pattern that already works. 150 × 1 week = ~3 person-years — doable across a small team.
+
+2. **~1850 long-tail companies** use a **generic LLM-assisted extractor**. Pipeline:
+   - PDF → text (PyMuPDF) → LLM extraction prompt with company-specific JSON schema → structured output
+   - Cross-checked by a deterministic data-quality pass (`.claude/skills/data-quality-invariants/`): identity equations (gross + cogs = revenue), magnitude reasonableness, period consistency
+   - Anything failing identity checks gets flagged with `confidence < 0.8` and excluded from default panels
+   - Headline P&L: ~70-80% accuracy expected. Segment / guidance: lower; opt-in display only.
+
+3. **Manual upgrades** — when usage data shows 5+ users hitting a long-tail company in a week, promote it to the hand-tuned tier.
+
+### 15.3 Regional rollout sequence
+
+The Phase-2 storage refactor (DuckDB + hive-partitioned parquet) is a prerequisite for adding regions cleanly — without it, the per-region partitioning becomes painful retrofit. So:
+
+| Stage | Action | Timeline |
+|---|---|---|
+| **0 (done)** | TSMC + UMC + MediaTek prove the per-company pattern. Phase-1 perf shipped. | 2026-04 |
+| **1** | Phase-2 storage refactor (region-partitioned parquet, DuckDB query engine, parametrised `/companies/{ticker}` router). | 2-3 weeks |
+| **2** | Backfill US to 100 elite tickers using EDGAR (mostly already-built path). | 1-2 weeks |
+| **3** | Taiwan: extend from 3 elite extractors to ~50 elite (hand-tuned for major IR sites) + 200 generic-LLM extractors, all using existing TWSE / MOPS / per-company IR scrapers. | 4-6 weeks |
+| **4** | Japan: TDnet + EDINET integration. Translation pipeline (Japanese → English fact extraction). | 6-8 weeks |
+| **5** | China: HKEX + SSE / SZSE. Proxy infrastructure + legal review. | 8-12 weeks |
+| **6** | Reach 2000 covered tickers (mix of elite + generic) | ~Q4 2026 |
+
+---
+
+## 16. Multi-User Agentic Workflow Design
+
+*Goal: 500-1000 simultaneous active institutional users, each with their own agentic workflows querying the same back-end knowledge graph.*
+
+### 16.1 What "agentic workflow" means here
+
+An institutional user's research question rarely maps to a single backend query. Concrete examples from our coverage:
+
+- *"Show me Taiwan semis with margin compression in 2025."*
+  Agent expands to: query 50 Taiwan tickers' gross margin time series → compute 4Q YoY delta → rank → fetch transcript snippets for the bottom 5 → synthesize.
+  Backend cost: ~50 financials/wide queries + ~5 transcript searches + ~10 LLM calls.
+
+- *"What's UMC saying about pricing power vs the rest of the foundry sector?"*
+  Agent expands to: pull UMC blended-ASP series → pull TSMC blended-ASP series (where disclosed) → pull peer revenue/wafer ratios → vector-search "pricing power" / "pricing discipline" across 4 quarters of UMC + TSMC + GlobalFoundries transcripts → synthesize.
+  Backend cost: ~10 structured queries + ~20 vector searches + ~15 LLM calls.
+
+- *"Has TSMC ever missed its own guidance?"*
+  Agent expands to: pull `/tsmc/guidance` → filter by outcome=MISS → fetch the transcript turn for each quarter → cite.
+  Backend cost: 1 structured query + 5 transcript queries + ~5 LLM calls.
+
+Average agentic question ≈ **5-50 backend queries + 10-30 LLM calls + a synthesis pass.**
+
+### 16.2 Per-user concurrency budget
+
+A user typically has 1-2 active agentic queries running at a time, with 3-5 second think time between questions during exploration. So:
+
+- **Active concurrent users** ≈ users currently waiting on a query
+- **Burst** ≈ peak per-second query rate during active use
+
+If 500 users each issue 1 question per minute on average, and each question expands to 30 backend queries spread over 10 seconds:
+
+- Sustained query rate: 500 users × 30 queries / 60s = **250 queries/sec** at the backend
+- Burst: 500 users × 30 queries / 10s = **1500 queries/sec** during the agent expansion window
+
+**Today's capacity (Phase 1 done):** 4 workers × ~50 q/s/worker = 200 q/s. Just barely enough for sustained but not burst.
+
+**Phase 2 capacity:** DuckDB-backed shared cache + 8 workers ≈ 1500-2000 q/s. Enough for the burst pattern.
+
+**Phase 3 capacity:** agent runtime separated from web tier; queue-and-stream model; burst absorbed by the queue.
+
+### 16.3 Agentic UX requirements (institutional-grade)
+
+For institutional users, agent-driven research must satisfy:
+
+1. **Provenance on every claim.** Every fact in the agent's output traces back to a specific PDF page / transcript turn / data fragment. Today's silver layer already carries `source` per fact; the missing piece is end-to-end citation in the agent's response.
+
+2. **Reproducibility.** "What did your agent say last Tuesday about UMC?" must be answerable exactly. Implies: full audit trail of the LLM call chain, inputs, model version, point-in-time data snapshot. Phase 3 task.
+
+3. **Cost transparency.** Per-user query budgets visible in the UI ("This question used 14 tool calls + 8 LLM calls = $0.62"). Token meters on every response. Tier-based budget caps prevent runaway costs from one curious user.
+
+4. **Streaming partial results.** A 30-second agent run that returns nothing for 30 seconds feels broken. Stream the agent's intermediate plan, the tool calls in flight, partial results as they come back. SSE / WebSocket transport.
+
+5. **Editable agent plans.** When the agent picks the wrong companies for "Taiwan semis," the user should see and edit the list before the agent runs the actual queries. "Plan-confirm-execute" pattern, not "fire-and-forget."
+
+6. **Workspace persistence.** Every research session is saved with its full query trail. Users return to a thesis they were exploring 3 weeks ago and find every chart, every snippet, every agent run still there. Maps to Layer 4 (Wiki) + Layer 5 (Output) in the 6-layer architecture.
+
+### 16.4 Cost model at scale
+
+LLM tokens dominate operating cost beyond ~100 users:
+
+| Tier | Users | Avg questions/user/day | LLM calls/question | Tokens/call | Cost/question | $ / day |
+|---|---|---|---|---|---|---|
+| Free / trial | 100 | 5 | 8 | 5K (in) + 1K (out) | ~$0.05 | $25 |
+| Pro | 500 | 30 | 15 | 8K + 2K | ~$0.30 | $4,500 |
+| Institutional | 100 | 80 | 30 | 15K + 5K | ~$1.50 | $12,000 |
+| **Total at 700-user mix** | 700 | — | — | — | — | **~$16,500/day = ~$6M/year** |
+
+Mitigations needed (all Phase 3):
+- Aggressive prompt caching (Anthropic's prompt cache cuts repeat-context cost by ~90%)
+- Per-user response cache for repeated questions
+- Tier-based hard caps on agent loop depth
+- Cheaper models for routing / classification, premium models only for synthesis
+
+### 16.5 Backend changes required for multi-user
+
+| Today | Required for multi-user |
+|---|---|
+| No auth | OAuth (Google / Microsoft / SAML for institutional) |
+| Single-tenant SQLite | Postgres with tenant_id column on every user-state table; row-level security |
+| No session model | Sticky sessions or token-based auth on every request |
+| No watchlist / preferences | Per-user watchlist, dashboards, query history, agent memory |
+| No rate limits | Per-user + per-tier API rate limits + LLM-call budgets |
+| No audit trail | Every API call + LLM call logged with `(tenant_id, user_id, request_id, cost_usd)` |
+| Endpoints unaware of user | Endpoints honour tenant scoping; `GET /api/v1/companies/{ticker}` returns the current user's enriched view (their notes, their margins of interest, etc.) |
+
+These changes are concentrated in **Phase 3** of the infrastructure roadmap (`architecture_and_design_v2.md` § 13.5).
+
+---
+
+## 17. Status Snapshot — Where We Are Today (2026-04-26)
+
+### 17.1 What works for an end user today
+
+A single user (no auth) can hit the dev server at `localhost:3000` and:
+
+- Browse **18 covered tickers** (15 US-EDGAR + 3 Taiwan) in the DataExplorer.
+- For TSMC / UMC / MediaTek: see **financials, segments, capacity, guidance vs actual, transcripts (TSMC only)** as dense filings-style tables.
+- For NVDA / AAPL / AMD / etc.: see **8-Q income statement + earnings release text** via the EDGAR-backed `/data/fetch` path.
+- Browse **Taiwan monthly-revenue heatmap** for 51 tickers via `/taiwan/heatmap`.
+- Browse **news / Reddit / GPU-pricing** social tabs.
+- Chat with the EngineAgent (Anthropic Claude tool-use loop) — limited to the tools wired up: structured EDGAR data fetch + Pinecone semantic search.
+
+### 17.2 What is built but not yet user-facing
+
+- **Insight engine** (Layer 3): code stubs in `backend/app/services/insights/`, no live combinations.
+- **Wiki layer** (Layer 4): no service yet; `topology.py` router queries Neo4j but the relationship-extractor only runs ad-hoc.
+- **Output generation** (Layer 5): not built.
+- **Catalyst monitoring / daily briefing** (Layer 6): not built.
+- **Vector search index** of transcripts: built for TSMC LSEG transcripts only; Pinecone adapter exists but not deployed against the full transcript corpus.
+- **Auth + multi-tenant**: not started.
+
+### 17.3 What blocks the next user-visible milestone
+
+The next visible milestone for users is **multi-region coverage** (more tickers in their watchlist). Blocker order:
+1. **Phase 2 storage refactor** (DuckDB + hive-partitioned parquet + parametrised companies router) — required so adding tickers is a config change, not a router-add.
+2. **Generic LLM-assisted extractor** — required so the long-tail 1850 tickers don't each need 1 week of engineering.
+3. **Data-quality framework** — required so generic-extracted data has automatic confidence scoring + identity-check filtering.
+
+The next visible milestone for **multi-user** is **auth + per-tenant isolation** (Phase 3 § 16.5 of architecture v2).
+
+### 17.4 What we are explicitly NOT doing right now
+
+- Not building the Wiki / Insights / Output layers until coverage breadth is in. The 6-layer vision stays the destination but coverage breadth (Layer 1+2 across 2000 tickers) is the gating concern.
+- Not migrating off SQLite until multi-user concurrency is needed. Phase 1 WAL mode buys us months of headroom.
+- Not deploying Pinecone production-side until we have a transcript corpus large enough to justify it (today: TSMC only).
+- Not building China-region scraping until US + Taiwan + Japan are stable and the legal review is done.
+
+### 17.5 Revision history of this document
+
+| Date | Changes |
+|---|---|
+| 2026-04-09 | v1 initial — 6-layer vision, competitive landscape, dashboard tabs, cold-start design, phased build plan, design principles. |
+| 2026-04-26 | Added §15 (multi-region coverage strategy with per-company idiosyncrasy budget), §16 (multi-user agentic workflow design with cost model), §17 (status snapshot). Refreshed §13 to point at §14-16 for current implementation status. |

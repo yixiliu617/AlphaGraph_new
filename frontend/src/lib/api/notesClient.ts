@@ -44,6 +44,36 @@ export interface NoteStub {
     key_topics?: string[];
     segments?: PolishedSegment[];
     summary?: MeetingSummary;
+    audio_duration_sec?: number;
+    chunk_count?: number;
+    chunk_seconds?: number[];
+    gemini_seconds?: number;
+    total_seconds?: number;
+    /** What language Gemini rendered into segments[*].text_english.
+     * "none" means monolingual; otherwise either a preset code or a
+     * free-form name (e.g. "French", "Arabic"). */
+    translation_language?: "none" | "en" | "zh-hans" | "zh-hant" | "ja" | "ko" | string;
+    /** Header-friendly label resolved server-side (e.g. "English",
+     * "简体中文", "Arabic"). Used as the third column header in the
+     * polished_transcript table. */
+    translation_label?: string;
+    /** "hans" or "hant" -- only set after a /convert-chinese toggle.
+     * Default (unset) means the original Gemini output, which is "hans"
+     * for new uploads (per the prompt rule) but legacy notes may be either. */
+    chinese_variant?: "hans" | "hant";
+    /** Coverage gaps flagged by the backend gap detector. Each gap is a
+     * stretch of audio (>5 min) where Gemini produced no transcript --
+     * either because it skipped (the "lazy" failure mode) or because
+     * downstream errors lost the segments. The UI surfaces these as a
+     * banner with one-click "Retranscribe from {start_label}" buttons. */
+    coverage_gaps?: Array<{
+      kind: "lead" | "middle" | "tail";
+      start_sec: number;
+      end_sec: number;
+      duration_sec: number;
+      start_label: string;
+      end_label: string;
+    }>;
   } | null;
   summary_status: string;
   ai_summary: AISummary | null;
@@ -208,6 +238,69 @@ export const notesClient = {
       { transcript_lines: lines, duration_seconds: durationSeconds }
     ),
 
+  /**
+   * Upload an audio file and run the same Gemini polish pipeline as a live
+   * recording — returns a fresh note_id you can navigate to. Uses the
+   * built-in fetch (not apiRequest) so we can send multipart/form-data.
+   * Long-running: typical 30-min audio ~ 60-90 sec wait.
+   */
+  uploadTranscribeAudio: async (
+    file: File,
+    options?: {
+      title?: string;
+      language?: "auto" | "zh" | "ja" | "ko" | "en";
+      note_type?: string;
+      /** Translation target. Either one of the preset codes or any free-form
+       * language name (e.g. "French", "Arabic"). "none" skips translation
+       * entirely. Backend treats unknown strings as a literal language
+       * name in the Gemini prompt. */
+      translation_language?: "none" | "en" | "zh-hans" | "zh-hant" | "ja" | "ko" | string;
+    },
+  ): Promise<AR<{
+    note_id:            string;
+    language:           string;
+    language_source:    "user" | "auto";
+    is_bilingual:       boolean;
+    segments:           number;
+    key_topics:         string[];
+    input_tokens:       number;
+    output_tokens:      number;
+    audio_filename:     string;
+    gemini_seconds?:    number;
+    total_seconds?:     number;
+    audio_duration_sec?: number;
+    chunk_count?:       number;
+    chunk_seconds?:     number[];
+  }>> => {
+    const fd = new FormData();
+    fd.append("audio", file);
+    if (options?.title)     fd.append("title",     options.title);
+    if (options?.note_type) fd.append("note_type", options.note_type);
+    if (options?.language && options.language !== "auto") fd.append("language", options.language);
+    if (options?.translation_language) fd.append("translation_language", options.translation_language);
+
+    const url = `${(process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1")}${BASE}/upload-transcribe`;
+    const response = await fetch(url, { method: "POST", body: fd });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        (errorData as { detail?: string }).detail ||
+          `Upload failed: ${response.status} ${response.statusText}`,
+      );
+    }
+    return response.json();
+  },
+
+  /** Toggle a note's Chinese transcript between Simplified (zh-Hans) and
+   * Traditional (zh-Hant) using the local zhconv lib. No LLM cost. */
+  convertChineseVariant: (noteId: string, to: "hans" | "hant") =>
+    apiRequest<AR<{
+      note_id: string;
+      to: "hans" | "hant";
+      fields_changed: number;
+      total_segments: number;
+    }>>(`${BASE}/${noteId}/convert-chinese`, "POST", { to }),
+
   // ------------------------------------------------------------------
   // Post-meeting wizard
   // ------------------------------------------------------------------
@@ -238,6 +331,33 @@ export const notesClient = {
 
   regenerateSummary: (noteId: string) =>
     apiRequest<AR<NoteStub>>(`${BASE}/${noteId}/summary/regenerate`, "POST", {}),
+
+  /**
+   * Cut audio from `startSeconds` and re-transcribe just that portion via
+   * Gemini, splicing the new segments back into the note's existing
+   * polished transcript. Used to recover from Gemini repetition loops or
+   * partial chunk failures without re-paying for already-good earlier
+   * minutes.
+   */
+  retranscribeFrom: (
+    noteId: string,
+    startSeconds: number,
+    language?: "zh" | "ja" | "ko" | "en",
+  ) =>
+    apiRequest<AR<{
+      note_id: string;
+      dropped: number;
+      added: number;
+      total_segments: number;
+      start_seconds: number;
+      gemini_seconds: number | null;
+      chunk_count: number | null;
+      language: string;
+    }>>(
+      `${BASE}/${noteId}/retranscribe-from`,
+      "POST",
+      { start_seconds: startSeconds, language: language ?? null },
+    ),
 
   // ------------------------------------------------------------------
   // WebSocket helper — returns the WS URL (connection opened in component)

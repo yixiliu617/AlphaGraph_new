@@ -23,6 +23,8 @@ from pathlib import Path
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 
+from backend.app.services.data_cache import read_parquet_cached
+
 from backend.app.models.api_contracts import APIResponse
 
 router = APIRouter()
@@ -63,7 +65,7 @@ def _build_fiscal_map(ticker: str) -> list[tuple[pd.Timestamp, str]]:
     if not path.exists():
         return []
     try:
-        df = pd.read_parquet(path, columns=["end_date", "fiscal_year", "fiscal_quarter", "is_ytd"])
+        df = read_parquet_cached(path, columns=["end_date", "fiscal_year", "fiscal_quarter", "is_ytd"])
     except Exception:
         return []
     df = df[
@@ -146,7 +148,7 @@ def list_releases(
     for p in files:
         t = p.stem.replace("ticker=", "")
         try:
-            df = pd.read_parquet(
+            df = read_parquet_cached(
                 p,
                 columns=[
                     "accession_no", "exhibit", "filing_date",
@@ -188,7 +190,7 @@ def get_release(release_id: str) -> APIResponse:
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"No earnings releases for ticker {ticker}")
 
-    df = pd.read_parquet(path)
+    df = read_parquet_cached(path)
     match = df[
         (df["accession_no"].astype(str) == accession)
         & (df["exhibit"].astype(str) == exhibit)

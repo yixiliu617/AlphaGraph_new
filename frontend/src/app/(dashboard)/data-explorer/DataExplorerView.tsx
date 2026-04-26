@@ -20,6 +20,12 @@ import {
   type CorporateEvent,
 } from "@/lib/api/dataClient";
 import SemiPricingPanel from "./SemiPricingPanel";
+import TaiwanSemiHeatmapPanel from "./TaiwanSemiHeatmapPanel";
+import TaiwanDayTradingPanel from "./TaiwanDayTradingPanel";
+import TaiwanForeignFlowPanel from "./TaiwanForeignFlowPanel";
+import TSMCPanel from "./TSMCPanel";
+import UMCPanel from "./UMCPanel";
+import MediaTekPanel from "./MediaTekPanel";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -2690,7 +2696,7 @@ export default function DataExplorerView({
 
   const hasData = rows.length > 0;
 
-  const [viewMode, setViewMode] = useState<"financials" | "semi-pricing">("financials");
+  const [viewMode, setViewMode] = useState<"financials" | "semi-pricing" | "taiwan-semi" | "taiwan-day-trading" | "taiwan-foreign-flow">("financials");
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -2728,6 +2734,36 @@ export default function DataExplorerView({
             >
               Semi Pricing
             </button>
+            <button
+              onClick={() => setViewMode("taiwan-semi")}
+              className={`h-7 px-3 rounded-md text-xs font-semibold transition-colors ${
+                viewMode === "taiwan-semi"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              Taiwan Semi
+            </button>
+            <button
+              onClick={() => setViewMode("taiwan-day-trading")}
+              className={`h-7 px-3 rounded-md text-xs font-semibold transition-colors ${
+                viewMode === "taiwan-day-trading"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              TW Day-Trading
+            </button>
+            <button
+              onClick={() => setViewMode("taiwan-foreign-flow")}
+              className={`h-7 px-3 rounded-md text-xs font-semibold transition-colors ${
+                viewMode === "taiwan-foreign-flow"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              TW Foreign Flow
+            </button>
           </div>
           <button className="flex items-center gap-1.5 h-8 px-3 text-xs font-medium border border-slate-200 rounded-md text-slate-600 hover:bg-slate-50 transition-colors">
             <Download size={13} /> One Sheet
@@ -2744,6 +2780,28 @@ export default function DataExplorerView({
           <SemiPricingPanel />
         </div>
       )}
+
+      {/* ── Taiwan Semi monthly-revenue heatmap ── */}
+      {viewMode === "taiwan-semi" && (
+        <div className="flex-1 overflow-y-auto px-8 py-6 bg-slate-50">
+          <TaiwanSemiHeatmapPanel />
+        </div>
+      )}
+
+      {/* ── TWSE day-trading (當日沖銷) ── */}
+      {viewMode === "taiwan-day-trading" && (
+        <div className="flex-1 overflow-y-auto px-8 py-6 bg-slate-50">
+          <TaiwanDayTradingPanel />
+        </div>
+      )}
+
+      {/* ── TWSE 三大法人 (BFI82U) ── */}
+      {viewMode === "taiwan-foreign-flow" && (
+        <div className="flex-1 overflow-y-auto px-8 py-6 bg-slate-50">
+          <TaiwanForeignFlowPanel />
+        </div>
+      )}
+
 
       {/* ── Financials: Ticker tabs ── */}
       {viewMode === "financials" && (<>
@@ -2809,7 +2867,13 @@ export default function DataExplorerView({
       {/* ── Scrollable content ── */}
       <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6 bg-slate-50">
 
-        {loading && !hasData ? (
+        {activeTicker === "2330.TW" ? (
+          <TSMCPanel />
+        ) : activeTicker === "2303.TW" ? (
+          <UMCPanel />
+        ) : activeTicker === "2454.TW" ? (
+          <MediaTekPanel />
+        ) : loading && !hasData ? (
           <LoadingOverlay />
         ) : !hasData ? (
           <EmptyState ticker={activeTicker} />

@@ -71,15 +71,19 @@ function horizontalRule(): Json {
 
 /**
  * Build the TipTap table JSON for a bilingual transcript.
- * If `bilingual` is true, renders 3 columns: Time | Original | English.
+ * If `bilingual` is true, renders 3 columns: Time | 原文 | <translationLabel>.
  * Otherwise 2 columns: Time | Text.
+ *
+ * `translationLabel` defaults to "English" so legacy notes whose meta
+ * doesn't carry it render exactly as before.
  */
 export function buildBilingualTableJson(
   rows: { timestamp: string; textOriginal: string; textEnglish: string }[],
   bilingual: boolean,
+  translationLabel: string = "English",
 ): Json {
   const header = bilingual
-    ? row([headerCell("Time"), headerCell("原文"), headerCell("English")])
+    ? row([headerCell("Time"), headerCell("原文"), headerCell(translationLabel || "English")])
     : row([headerCell("Time"), headerCell("Text")]);
 
   const bodyRows = rows.map((r) =>
@@ -281,6 +285,7 @@ export function buildRawTranscriptSectionNodes(lines: TranscriptLine[]): Json[] 
 export function buildPolishedTranscriptSectionNodes(
   segments: PolishedSegment[],
   bilingual: boolean,
+  translationLabel: string = "English",
 ): Json[] {
   const rows = segments.map((s) => ({
     timestamp: s.timestamp,
@@ -291,7 +296,7 @@ export function buildPolishedTranscriptSectionNodes(
   return [
     horizontalRule(),
     sectionHeading("polished_transcript", "Polished Transcript"),
-    buildBilingualTableJson(rows, bilingual),
+    buildBilingualTableJson(rows, bilingual, translationLabel),
   ];
 }
 

@@ -1,0 +1,51 @@
+{
+  "ticker": "2330.TW",
+  "page_period_label": "4Q16",
+  "page_period_end": "2016-12-31",
+  "source_id": "tsmc_quarterly_results_page_4Q16",
+  "source_url": "https://investor.tsmc.com/chinese/quarterly-results/2016/q4",
+  "extracted_at": "2026-04-26T08:04:45+00:00",
+  "table_periods": [
+    "4Q16",
+    "1Q17"
+  ],
+  "table_rows_raw": [
+    [
+      "",
+      "",
+      "4Q16",
+      "1Q17"
+    ],
+    [
+      "",
+      "實際數",
+      "業績展望",
+      "業績展望"
+    ],
+    [
+      "營收金額",
+      "262.23 (NT$ billion)",
+      "255-258 (NT$ billion)",
+      "236-239 (NT$ billion)"
+    ],
+    [
+      "平均匯率 (美元兌新台幣)",
+      "31.77",
+      "31.5",
+      "32"
+    ],
+    [
+      "營業毛利率",
+      "52.30%",
+      "50.5%-52.5%",
+      "51.5%-53.5%"
+    ],
+    [
+      "營業淨利率",
+      "41.90%",
+      "40%-42%",
+      "40.5%-42.5%"
+    ]
+  ],
+  "fact_count": 13
+}

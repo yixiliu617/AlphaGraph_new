@@ -1,0 +1,527 @@
+{
+  "ticker_count": 17,
+  "verified_count": 6,
+  "checked_at": "2026-04-26T08:28:41+00:00",
+  "peers": [
+    {
+      "ticker": "2330.TW",
+      "name_en": "TSMC",
+      "name_zh": "台灣積體電路製造",
+      "segment": "foundry",
+      "candidates_tried": [
+        {
+          "url": "https://investor.tsmc.com/chinese/quarterly-results",
+          "status": 200,
+          "title": "2026 Q1 營運報告 - 台灣積體電路製造股份有限公司",
+          "pdf_count": 7,
+          "signals": [
+            "投資人關係",
+            "財務報告",
+            "法人說明會",
+            "重大訊息"
+          ]
+        }
+      ],
+      "best": {
+        "url": "https://investor.tsmc.com/chinese/quarterly-results",
+        "status": 200,
+        "title": "2026 Q1 營運報告 - 台灣積體電路製造股份有限公司",
+        "pdf_count": 7,
+        "signals": [
+          "投資人關係",
+          "財務報告",
+          "法人說明會",
+          "重大訊息"
+        ]
+      },
+      "ir_url": "https://investor.tsmc.com/chinese/quarterly-results",
+      "verified": true
+    },
+    {
+      "ticker": "2303.TW",
+      "name_en": "UMC",
+      "name_zh": "聯華電子",
+      "segment": "foundry",
+      "candidates_tried": [
+        {
+          "url": "https://www.umc.com/zh-TW/Investors/index",
+          "status": 404,
+          "title": "Home - 聯華電子",
+          "pdf_count": 1,
+          "signals": []
+        },
+        {
+          "url": "https://www.umc.com/en/Investors",
+          "status": 404,
+          "title": "Home - UMC",
+          "pdf_count": 1,
+          "signals": [
+            "investor",
+            "investors"
+          ]
+        },
+        {
+          "url": "https://www.umc.com/Investors",
+          "status": 200,
+          "title": "Home - UMC",
+          "pdf_count": 1,
+          "signals": [
+            "investor",
+            "investors"
+          ]
+        }
+      ],
+      "best": {
+        "url": "https://www.umc.com/Investors",
+        "status": 200,
+        "title": "Home - UMC",
+        "pdf_count": 1,
+        "signals": [
+          "investor",
+          "investors"
+        ]
+      },
+      "ir_url": "https://www.umc.com/Investors",
+      "verified": true
+    },
+    {
+      "ticker": "5347.TW",
+      "name_en": "Vanguard",
+      "name_zh": "世界先進",
+      "segment": "foundry",
+      "candidates_tried": [
+        {
+          "url": "https://www.vis.com.tw/zh-tw/Investors",
+          "status": 200,
+          "title": "Vanguard International Semiconductor Corporation",
+          "pdf_count": 0,
+          "signals": [
+            "investor",
+            "investors",
+            "earnings",
+            "annual report"
+          ]
+        }
+      ],
+      "best": {
+        "url": "https://www.vis.com.tw/zh-tw/Investors",
+        "status": 200,
+        "title": "Vanguard International Semiconductor Corporation",
+        "pdf_count": 0,
+        "signals": [
+          "investor",
+          "investors",
+          "earnings",
+          "annual report"
+        ]
+      },
+      "ir_url": "https://www.vis.com.tw/zh-tw/Investors",
+      "verified": true
+    },
+    {
+      "ticker": "6770.TW",
+      "name_en": "Powerchip (PSMC)",
+      "name_zh": "力積電",
+      "segment": "foundry",
+      "candidates_tried": [
+        {
+          "url": "https://www.psmc.com/psmc/zh-TW/investors",
+          "status": 404,
+          "title": "",
+          "pdf_count": 0,
+          "signals": []
+        },
+        {
+          "url": "https://www.psmc.com/psmc/en/investors",
+          "status": 404,
+          "title": "",
+          "pdf_count": 0,
+          "signals": []
+        }
+      ],
+      "best": null,
+      "ir_url": null,
+      "verified": false
+    },
+    {
+      "ticker": "3711.TW",
+      "name_en": "ASE Technology Holding",
+      "name_zh": "日月光投控",
+      "segment": "osat",
+      "candidates_tried": [
+        {
+          "url": "https://www.aseglobal.com/zh/investors/",
+          "status": 404,
+          "title": "Error Page 404 | ASE Holdings",
+          "pdf_count": 0,
+          "signals": [
+            "investor",
+            "investor relations"
+          ]
+        },
+        {
+          "url": "https://www.aseglobal.com/en/investors/",
+          "status": 404,
+          "title": "Error Page 404 | ASE Holdings",
+          "pdf_count": 0,
+          "signals": [
+            "investor",
+            "investor relations"
+          ]
+        }
+      ],
+      "best": null,
+      "ir_url": null,
+      "verified": false
+    },
+    {
+      "ticker": "2449.TW",
+      "name_en": "King Yuan Electronics (KYEC)",
+      "name_zh": "京元電子",
+      "segment": "osat",
+      "candidates_tried": [
+        {
+          "url": "https://www.kyec.com.tw/InvestorService/InvestorService.aspx",
+          "status": 200,
+          "title": "京元電子",
+          "pdf_count": 0,
+          "signals": [
+            "投資人關係"
+          ]
+        }
+      ],
+      "best": {
+        "url": "https://www.kyec.com.tw/InvestorService/InvestorService.aspx",
+        "status": 200,
+        "title": "京元電子",
+        "pdf_count": 0,
+        "signals": [
+          "投資人關係"
+        ]
+      },
+      "ir_url": "https://www.kyec.com.tw/InvestorService/InvestorService.aspx",
+      "verified": true
+    },
+    {
+      "ticker": "2344.TW",
+      "name_en": "Winbond",
+      "name_zh": "華邦電子",
+      "segment": "memory_idm",
+      "candidates_tried": [
+        {
+          "url": "https://www.winbond.com/hq/about-winbond/investor-relations/?__locale=zh_TW",
+          "status": 404,
+          "title": "華邦電子",
+          "pdf_count": 0,
+          "signals": [
+            "investor"
+          ]
+        },
+        {
+          "url": "https://www.winbond.com/hq/about-winbond/investor-relations/?__locale=en",
+          "status": 404,
+          "title": "華邦電子",
+          "pdf_count": 0,
+          "signals": [
+            "investor"
+          ]
+        }
+      ],
+      "best": null,
+      "ir_url": null,
+      "verified": false
+    },
+    {
+      "ticker": "2337.TW",
+      "name_en": "Macronix",
+      "name_zh": "旺宏電子",
+      "segment": "memory_idm",
+      "candidates_tried": [
+        {
+          "url": "https://www.macronix.com/zh-tw/about/Pages/InvestorRelations.aspx",
+          "status": 404,
+          "title": "Page Not Found",
+          "pdf_count": 2,
+          "signals": [
+            "投資人關係"
+          ]
+        },
+        {
+          "url": "https://www.macronix.com/en-us/about/Pages/InvestorRelations.aspx",
+          "status": 404,
+          "title": "Page Not Found",
+          "pdf_count": 2,
+          "signals": [
+            "investor",
+            "investor relations"
+          ]
+        }
+      ],
+      "best": null,
+      "ir_url": null,
+      "verified": false
+    },
+    {
+      "ticker": "2454.TW",
+      "name_en": "MediaTek",
+      "name_zh": "聯發科",
+      "segment": "fabless",
+      "candidates_tried": [
+        {
+          "url": "https://corp.mediatek.com/zh-tw/investor-relations",
+          "status": 404,
+          "title": "MediaTek: Semiconductor Products, Technologies and Innovations",
+          "pdf_count": 0,
+          "signals": [
+            "investor",
+            "investor relations"
+          ]
+        },
+        {
+          "url": "https://corp.mediatek.com/investor-relations",
+          "status": 200,
+          "title": "MediaTek | MediaTek Investor Relations",
+          "pdf_count": 3,
+          "signals": [
+            "investor",
+            "investors",
+            "earnings",
+            "investor relations"
+          ]
+        }
+      ],
+      "best": {
+        "url": "https://corp.mediatek.com/investor-relations",
+        "status": 200,
+        "title": "MediaTek | MediaTek Investor Relations",
+        "pdf_count": 3,
+        "signals": [
+          "investor",
+          "investors",
+          "earnings",
+          "investor relations"
+        ]
+      },
+      "ir_url": "https://corp.mediatek.com/investor-relations",
+      "verified": true
+    },
+    {
+      "ticker": "2379.TW",
+      "name_en": "Realtek",
+      "name_zh": "瑞昱半導體",
+      "segment": "fabless",
+      "candidates_tried": [
+        {
+          "url": "https://www.realtek.com/zh-tw/investor",
+          "status": 200,
+          "title": "Oops!",
+          "pdf_count": 0,
+          "signals": []
+        },
+        {
+          "url": "https://www.realtek.com/en/investor",
+          "status": 200,
+          "title": "Oops!",
+          "pdf_count": 0,
+          "signals": []
+        }
+      ],
+      "best": null,
+      "ir_url": null,
+      "verified": false
+    },
+    {
+      "ticker": "3034.TW",
+      "name_en": "Novatek",
+      "name_zh": "聯詠科技",
+      "segment": "fabless",
+      "candidates_tried": [
+        {
+          "url": "https://www.novatek.com.tw/zh-tw/Investor",
+          "status": 404,
+          "title": "Home - NOVATEK MICROELECTRONICS CORP.",
+          "pdf_count": 0,
+          "signals": [
+            "investor",
+            "investor relations"
+          ]
+        },
+        {
+          "url": "https://www.novatek.com.tw/en/Investor",
+          "status": 404,
+          "title": "Home - NOVATEK MICROELECTRONICS CORP.",
+          "pdf_count": 0,
+          "signals": [
+            "investor",
+            "investor relations"
+          ]
+        }
+      ],
+      "best": null,
+      "ir_url": null,
+      "verified": false
+    },
+    {
+      "ticker": "6271.TW",
+      "name_en": "Phison Electronics",
+      "name_zh": "群聯電子",
+      "segment": "fabless",
+      "candidates_tried": [
+        {
+          "url": "https://www.phison.com/zh-tw/about-phison/investors",
+          "status": 404,
+          "title": "PHISON Electronics Corp. - Error",
+          "pdf_count": 0,
+          "signals": [
+            "investor",
+            "investors",
+            "investor relations"
+          ]
+        },
+        {
+          "url": "https://www.phison.com/en/about-phison/investors",
+          "status": 404,
+          "title": "PHISON Electronics Corp. - Error",
+          "pdf_count": 0,
+          "signals": [
+            "investor",
+            "investors",
+            "investor relations"
+          ]
+        }
+      ],
+      "best": null,
+      "ir_url": null,
+      "verified": false
+    },
+    {
+      "ticker": "8016.TW",
+      "name_en": "Sitronix",
+      "name_zh": "矽創電子",
+      "segment": "fabless",
+      "candidates_tried": [
+        {
+          "url": "https://www.sitronix.com.tw/zh/investors",
+          "status": 200,
+          "title": "Investors - 矽創電子股份有限公司",
+          "pdf_count": 0,
+          "signals": [
+            "investor",
+            "investors"
+          ]
+        }
+      ],
+      "best": {
+        "url": "https://www.sitronix.com.tw/zh/investors",
+        "status": 200,
+        "title": "Investors - 矽創電子股份有限公司",
+        "pdf_count": 0,
+        "signals": [
+          "investor",
+          "investors"
+        ]
+      },
+      "ir_url": "https://www.sitronix.com.tw/zh/investors",
+      "verified": true
+    },
+    {
+      "ticker": "5483.TW",
+      "name_en": "Sino-American Silicon (SAS)",
+      "name_zh": "中美晶",
+      "segment": "wafer",
+      "candidates_tried": [
+        {
+          "url": "https://www.saswafer.com/zh-tw/Investors",
+          "status": null,
+          "title": null,
+          "pdf_count": 0,
+          "signals": [],
+          "error": "goto: Page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to \"https://www.saswafer.com/zh-tw/Investors\", waiting until \"domcontentloaded\"\n"
+        },
+        {
+          "url": "https://www.saswafer.com/en/Investors",
+          "status": null,
+          "title": null,
+          "pdf_count": 0,
+          "signals": [],
+          "error": "goto: Page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to \"https://www.saswafer.com/en/Investors\", waiting until \"domcontentloaded\"\n"
+        }
+      ],
+      "best": null,
+      "ir_url": null,
+      "verified": false
+    },
+    {
+      "ticker": "6488.TW",
+      "name_en": "GlobalWafers",
+      "name_zh": "環球晶圓",
+      "segment": "wafer",
+      "candidates_tried": [
+        {
+          "url": "https://www.gwafers.com/zh-tw/investor-information",
+          "status": null,
+          "title": null,
+          "pdf_count": 0,
+          "signals": [],
+          "error": "goto: Page.goto: net::ERR_NAME_NOT_RESOLVED at https://www.gwafers.com/zh-tw/investor-information\nCall log:\n  - navigating to \"https://www.gwafers.com/zh-tw/investor-information\", waiting until \"domcontentloaded\"\n"
+        },
+        {
+          "url": "https://www.gwafers.com/en/investor-information",
+          "status": null,
+          "title": null,
+          "pdf_count": 0,
+          "signals": [],
+          "error": "goto: Page.goto: net::ERR_NAME_NOT_RESOLVED at https://www.gwafers.com/en/investor-information\nCall log:\n  - navigating to \"https://www.gwafers.com/en/investor-information\", waiting until \"domcontentloaded\"\n"
+        }
+      ],
+      "best": null,
+      "ir_url": null,
+      "verified": false
+    },
+    {
+      "ticker": "3037.TW",
+      "name_en": "Unimicron",
+      "name_zh": "欣興電子",
+      "segment": "substrate",
+      "candidates_tried": [
+        {
+          "url": "https://www.unimicron.com/zh-tw/Investor",
+          "status": null,
+          "title": null,
+          "pdf_count": 0,
+          "signals": [],
+          "error": "goto: Page.goto: net::ERR_HTTP_RESPONSE_CODE_FAILURE at https://www.unimicron.com/zh-tw/Investor\nCall log:\n  - navigating to \"https://www.unimicron.com/zh-tw/Investor\", waiting until \"domcontentloaded\"\n"
+        },
+        {
+          "url": "https://www.unimicron.com/en/Investor",
+          "status": null,
+          "title": null,
+          "pdf_count": 0,
+          "signals": [],
+          "error": "goto: Page.goto: net::ERR_HTTP_RESPONSE_CODE_FAILURE at https://www.unimicron.com/en/Investor\nCall log:\n  - navigating to \"https://www.unimicron.com/en/Investor\", waiting until \"domcontentloaded\"\n"
+        }
+      ],
+      "best": null,
+      "ir_url": null,
+      "verified": false
+    },
+    {
+      "ticker": "2351.TW",
+      "name_en": "SiTronix Technology",
+      "name_zh": "順德工業",
+      "segment": "specialty",
+      "candidates_tried": [
+        {
+          "url": "https://www.shun-on.com.tw/en/investor/index.aspx",
+          "status": 404,
+          "title": "Page Not Found!",
+          "pdf_count": 0,
+          "signals": []
+        }
+      ],
+      "best": null,
+      "ir_url": null,
+      "verified": false
+    }
+  ]
+}

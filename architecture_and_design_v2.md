@@ -3,6 +3,9 @@
 > **Revision history**
 > - v1 — Initial design
 > - v2 — Refactor pass: extraction pipeline steps, executor registry, Container/View split, domain-split API clients, runtime contract guards, API version header.
+> - 2026-04-26 — Section 13 added: implementation status, performance baseline (Phase 1 perf shipped), and concrete Phase 2-4 scaling roadmap toward 2000-ticker / multi-user-agentic operation.
+
+> **For agents reading this cold:** §1-12 describe the *aspirational* full architecture. §13 describes the *current actual state* of the deployed system as of 2026-04-26, what's live, what's stubbed, and the planned path from here. When the two diverge, §13 is authoritative for "what works today"; §1-12 is authoritative for "where we're heading."
 
 ---
 
@@ -789,3 +792,211 @@ Full endpoint catalog, corner-case playbook (28 items across MOPS,
 TWSE, TPEx, and Python-3.13 TLS quirks), and a step-by-step
 rediscovery guide for when MOPS or TWSE redesigns next are in
 `.claude/skills/taiwan-monthly-data-extraction/SKILL.md`.
+
+---
+
+## 13. Implementation Status & Scaling Roadmap
+
+*Last updated: 2026-04-26.*
+
+This section is the **single source of truth for what is currently
+running**, what exists in code but is not yet wired in, and the
+sequenced plan for scaling from today's footprint (~18 tickers,
+single-process backend, dev-laptop scale) to the target footprint
+(2000+ tickers across US/TW/JP/CN, multi-user agentic queries, 500+
+concurrent active users with sub-second median latency).
+
+The earlier sections describe the design's destination. This section
+describes the journey.
+
+### 13.1 What is Actually Live Today (2026-04-26)
+
+**Backend process model.**
+- Single uvicorn worker on `localhost:8000` in dev (`uvicorn backend.main:app --reload`).
+- Production-shaped launch (`--workers 4`, no reload) is documented in `CLAUDE.md` but not yet running in a managed environment.
+- No load balancer, no reverse proxy, no auth layer.
+
+**Storage actually in use.**
+- **SQLite** (`alphagraph.db`, ~4.6 MB): `data_fragments` (154 rows), `extraction_recipes` (42 rows), `public_universe` (12 rows), `meeting_notes` (17 rows), `taiwan_scraper_heartbeat` (11 rows). WAL journaling enabled at engine connect since 2026-04-26 (see §13.3).
+- **Parquet (silver)** under `backend/data/financials/quarterly_facts/`: 3 Taiwan tickers (`2330.TW`, `2303.TW`, `2454.TW`) with 15K total rows. EDGAR-sourced US tickers (~15 of them) live in `backend/data/filing_data/filings/ticker={TICKER}.parquet`.
+- **Parquet (bronze)** under `backend/data/financials/raw/`: 226 JSON files, 82 MB. Raw page text + provenance from each PDF.
+- **Parquet (guidance)** under `backend/data/financials/guidance/`: TSMC + UMC structured guidance vs actual records.
+- **Parquet (transcripts)** under `backend/data/financials/transcripts/`: TSMC LSEG transcripts as long-format speaker turns.
+- **Market-data parquets** under `backend/data/market_data/`: Reddit, Google News, GPU prices, PCPartPicker, CamelCamelCamel, X/Twitter.
+
+**LLMs.**
+- Anthropic Claude (Sonnet 4.6) — wired via `backend/app/adapters/llm/anthropic_adapter.py`, used by the EngineAgent for tool-use chat (`POST /api/v1/chat/...`).
+- Google Gemini — wired for extraction + embeddings via `gemini_adapter.py`. Used for chart-vision and document-meta extraction.
+- OpenAI — adapter exists but unused in active code paths.
+
+**NOT live, despite adapter code existing:**
+- **Pinecone** vector DB — adapter exists at `backend/app/adapters/vector/pinecone_adapter.py`. Some scripts call it for embeddings, but no production query path depends on it for serving. Insights / Wiki layers (Layers 3-4 of the product) that would consume vector search are not built.
+- **Neo4j** graph DB — adapter exists at `backend/app/adapters/graph/neo4j_adapter.py`. Wired into the relationship-extraction script (`relationship_extractor.py`) but no API endpoint queries the graph. Topology view (Tab 2 in the product spec) is unbuilt.
+- **Postgres** — `engine = create_engine(settings.POSTGRES_URI)` resolves to a SQLite URI in dev. The variable name is aspirational; we run on SQLite.
+- **DuckDB** — adapter referenced in §1 but not in the active query path. All current API endpoints use pandas-on-parquet.
+
+**Active scrapers (running on a schedule).**
+- `backend/app/services/social/scheduler.py` — APScheduler, runs news / Reddit / GPU price / Reddit-keyword-search scrapers on staggered cadences.
+- `backend/app/services/taiwan/scheduler.py` — APScheduler, runs MOPS monthly-revenue + material-info scrapers in TPE timezone.
+- Scrapers write directly to parquet; no write queue, no validation gate.
+
+**API endpoint surface.**
+- 16 routers under `backend/app/api/routers/v1/` totaling ~80 routes.
+- Per-company panels: `tsmc.py`, `umc.py`, `mediatek.py` (one router per ticker — see §13.4 for why this won't scale).
+- Cross-cutting: `data.py` (EDGAR financial data), `taiwan.py` (heatmap + monthly revenue), `social.py`, `pricing.py`, `earnings.py`, `chat.py`, `notes.py`, `insights.py`, `topology.py`.
+- Diagnostics: `admin.py` — `GET /api/v1/admin/cache` for cache hit rate, `GET /api/v1/admin/runtime` for worker PID. Added 2026-04-26.
+
+**Frontend.**
+- Next.js 15 + React 19 dashboard at `frontend/`.
+- Single-tenant: no auth, no user model, no per-user state.
+- Container/View pattern enforced for new panels (TSMC/UMC/MediaTek panels follow it; some legacy NVDA-style code is in `DataExplorerView.tsx` directly).
+
+### 13.2 Coverage Footprint Today
+
+| Region | Source | Tickers integrated | Per-ticker silver rows | Notes |
+|---|---|---|---|---|
+| US (EDGAR) | XBRL + 8-K text | ~15 | varies (financials + earnings releases) | NVDA, AAPL, AMD, AMAT, AVGO, CDNS, DELL, INTC, KLAC, LITE, LRCX, MRVL, MU, etc. — semis + AI infra focus |
+| Taiwan | UMC + TSMC + MediaTek | 3 | 1.7K-8.7K | All have full quarterly extraction (UMC: 48 metrics, TSMC: 30+, MediaTek: 18). Plus 51-ticker monthly-revenue universe via MOPS. |
+| Japan | — | 0 | — | No extraction yet. Target sources: TDnet (immediate disclosure) + EDINET (annual/quarterly filings). |
+| China (HK + mainland) | — | 0 | — | No extraction yet. Target sources: HKEX (HKEX news), SSE / SZSE filings; major risk is access (proxy / VPN may be required). |
+
+### 13.3 Phase 1 — Performance Baseline (DONE 2026-04-26)
+
+**Goal:** unblock multi-user concurrency and eliminate redundant
+parquet I/O before any storage refactor. Measured ~10× headroom from
+~3 hours of work.
+
+**Shipped:**
+
+1. **Mtime-keyed LRU cache for parquet reads** — `backend/app/services/data_cache.py`. Wraps `pd.read_parquet` with `functools.lru_cache` keyed by `(path_str, mtime_ns, columns_tuple)`. Auto-invalidates when an extractor writes a new parquet (mtime changes → cache key changes → fresh read). All 38+ `pd.read_parquet` call sites across 8 routers (`tsmc`, `umc`, `mediatek`, `taiwan`, `pricing`, `earnings`, `data`, `social`) swapped to `read_parquet_cached`. Pandas copy-on-write enabled module-side as a safety net for accidental mutations of cached frames.
+2. **Multi-worker uvicorn** — production launch command documented in `CLAUDE.md`. Each worker has its own in-process LRU cache (no IPC needed; mtime-keyed reads stay coherent across workers). 4 workers on a 4-core box ≈ 4× concurrent throughput.
+3. **SQLite WAL mode** — `backend/app/db/session.py` wires an SQLAlchemy `event.listens_for(engine, "connect")` hook that runs `PRAGMA journal_mode=WAL` + `synchronous=NORMAL` + `busy_timeout=5000` on every connection. Eliminates the global write-lock that previously stalled all reads during heartbeat upserts.
+4. **Admin diagnostics router** — `backend/app/api/routers/v1/admin.py`. `GET /api/v1/admin/cache` returns `{lru_size, lru_hits, lru_misses, hit_rate, ...}`. `GET /api/v1/admin/runtime` returns the worker PID. `POST /api/v1/admin/cache/clear` for tests.
+
+**Measured impact** (TSMC silver, 8678 rows):
+
+| Metric | Before | After | Speedup |
+|---|---|---|---|
+| `pd.read_parquet` per call | 6.11 ms | 0.028 ms | **214×** |
+| Cross-ticker scan (100 reads) | 498 ms | 19 ms | **26×** |
+| End-to-end UMC tab load (3 endpoints) | 124 ms | 118 ms | 1.05× (cache headroom not yet visible at this data scale; payoff is at 100+ ticker workloads) |
+| Cache hit rate after warmup | n/a | 97% | — |
+
+**Effective concurrency ceiling after Phase 1:** ~50-100 simultaneous
+active users with snappy UI (vs ~5-10 before), assuming a mix of
+single-ticker drilldowns and the occasional cross-ticker heatmap.
+
+### 13.4 Phase 2 — Storage & Query Engine Refactor (PLANNED)
+
+**Goal:** make cross-ticker queries first-class. Get the system into
+the right shape for 500-2000 tickers. ~2-3 weeks of work.
+
+**Critical task list:**
+
+1. **Re-partition silver to hive-style layout.**
+   - From: `backend/data/financials/quarterly_facts/{TICKER}.parquet` (one file per ticker)
+   - To: `backend/data/financials/quarterly_facts/region={US,TW,JP,CN}/ticker={TICKER}/data.parquet`
+   - All 7 endpoints already use the long-format silver schema `(ticker, period_end, metric, dimension, value, unit, source, extracted_at)` — no schema change needed; just file layout change.
+   - Migration script: walk existing parquets, write to new layout, sanity-check row counts and identity invariants.
+
+2. **Wire DuckDB as the query engine.** Endpoints become parameterised SQL templates instead of hand-written pandas pivots. Example:
+   ```python
+   query = """
+     SELECT period_label, metric, AVG(value) AS value, ANY_VALUE(unit) AS unit
+     FROM 'backend/data/financials/quarterly_facts/region=*/ticker=*/data.parquet'
+     WHERE ticker = ? AND dimension = '' AND metric IN ?
+     GROUP BY period_label, metric
+   """
+   ```
+   - DuckDB does columnar reads + predicate pushdown over hive-partitioned parquet, so cross-ticker queries don't load 2000 files into memory.
+   - Keeps the existing parquet files as the system of record — no new database to operate.
+
+3. **Replace per-ticker routers with a parametrised router.** Today: `tsmc.py`, `umc.py`, `mediatek.py` are near-duplicates. At 2000 tickers this is unbuildable. Move to `companies.py`:
+   ```
+   GET  /api/v1/companies/{ticker}/financials/wide
+   GET  /api/v1/companies/{ticker}/segments?metric=...
+   GET  /api/v1/companies/{ticker}/cashflow
+   GET  /api/v1/companies/{ticker}/guidance
+   GET  /api/v1/companies/{ticker}/capacity      (returns 404 for non-foundries)
+   ```
+   - Per-ticker idiosyncrasies (e.g. UMC has capacity tables, MediaTek doesn't) live in a `CompanyProfile` record describing which endpoints make sense.
+
+4. **Migrate user state from SQLite to Postgres** (managed: Neon / Supabase / RDS).
+   - User accounts, sessions, watchlists, query history, agent intermediate state — all need concurrent-write capability that SQLite can't deliver above ~100 writes/sec.
+   - Keep SQLite for the `data_fragments` knowledge graph if it remains read-mostly; or migrate everything for consistency.
+   - Schema migration via Alembic.
+
+5. **Add Redis (or DragonflyDB) for two purposes:**
+   - **Result-level cache** keyed by `(endpoint, params, data_mtime)` for the hottest endpoints. Phase-1 cache is per-worker in-process; Phase-2 Redis cache is shared across workers. Eliminates the duplicate computation when the same endpoint is hit by multiple users.
+   - **Agent session state** — agents that span multiple LLM round-trips need a place to park intermediate results. Redis is the canonical choice.
+
+6. **Streaming responses via SSE for long agent queries.** Today every endpoint is a request-response. An agentic question that runs 50 sub-queries blocks the UI for seconds. Move to `text/event-stream` for chat + long-running queries; partial results stream as they're computed.
+
+**Capacity ceiling after Phase 2:** ~500-1000 simultaneous active users with the right shape for 2000 tickers. Cost dominated by infrastructure rather than software.
+
+### 13.5 Phase 3 — Multi-Tenant + Agentic Infrastructure (PLANNED)
+
+**Goal:** make the system multi-user safe + agent-first. Months of
+work, real product investment.
+
+**Critical task list:**
+
+1. **Auth + tenant isolation.** OAuth (Google / Microsoft / SSO) + per-tenant row-level isolation. Every query carries `tenant_id`. User watchlists, fragments, and outputs are scoped to a tenant. Postgres row-level security (RLS) enforces this at the DB level so application bugs can't leak cross-tenant data.
+
+2. **Per-user query budgets + audit trail.** LLM tokens dominate cost at scale. A single agentic question can chain 5-50 LLM calls (≈ $0.10-2.00). Budgets enforced at the API gateway: monthly token cap per tier, per-question hard cap (e.g. 100 LLM calls before the agent surrenders), full audit trail of every model call with cost attribution.
+
+3. **Vector index for transcripts + management commentary.** Agents need semantic search ("find supply-chain anxiety in 2025 calls") far more than they need exact-match. Two viable choices: pgvector (no new operational surface, great if Postgres is already there) or Qdrant / Pinecone (better at scale, separate ops). At 2000 companies × 5 years × 4 transcripts × 50 turns/transcript = 2M turn-level embeddings — pgvector handles this comfortably.
+
+4. **Agent runtime separated from web tier.** The web tier becomes thin: auth, query queue submission, result streaming. Agents run in a worker pool (Celery + Redis, or RQ, or Temporal) with their own concurrency limits, retry semantics, and timeouts. Web tier never blocks on an agent loop.
+
+5. **Point-in-time queries (`as_of_date`).** For backtesting any agent that does "predict next quarter," every fact must answer "what would I have known on date X?". Schema add: `extracted_at` already there; need `effective_from` / `effective_to` for amendments. Critical for trust — institutional users will ask "show me what your agent said in Q3 2024" and the data must reproduce that point-in-time view exactly.
+
+6. **Caching at the (user, query_signature) level.** Agentic loops re-ask the same question many times during exploration. Per-user query cache (Redis) with TTL ≈ 1h cuts LLM bills meaningfully and improves perceived latency.
+
+**Capacity ceiling after Phase 3:** 10K+ users, but cost (LLM tokens, infra) becomes the binding constraint, not throughput.
+
+### 13.6 Phase 4 — Scrape Farm + Region-Specific Engineering (PLANNED)
+
+**Goal:** reliable scraping of 2000 sources at the cadence each one
+publishes. Months of work, plus geopolitical / legal review.
+
+**Critical task list:**
+
+1. **Per-source rate limits + back-off.** Some sources throttle aggressively. A single misbehaving scraper that hammers a Cloudflare-protected site can poison our IP for hours. Each scraper records its rate-limit budget and back-off state.
+
+2. **Browser pool for Playwright-bound scrapers.** TSMC's Cloudflare bypass requires `page.evaluate(fetch)` inside a warm browser context. Today we use one persistent profile. At 200 such sources we need a pool: launch on demand, re-use within a session, recycle after N requests. Budget: ~50 MB RAM per Chrome instance × 20 concurrent = 1 GB.
+
+3. **Per-region scraper farm.**
+   - **US**: SEC EDGAR is open-data + bulk APIs; existing path scales without redesign.
+   - **Taiwan**: TWSE bulk + MOPS SPA; existing path documented in `.claude/skills/taiwan-monthly-data-extraction/` already handles 51 watchlist tickers; expanding to 500 needs cadence tuning + browser pool.
+   - **Japan**: TDnet + EDINET (XBRL). Format: largely XBRL with English filings available for the largest issuers; Japanese-only for mid-caps. Translation step needed.
+   - **China**: HKEX (HK), SSE / SZSE (mainland). Mainland sites may require proxy / VPN access depending on hosting region. Significant due-diligence required before scraping at scale (terms of service, jurisdiction).
+
+4. **Per-company idiosyncrasy budget.** TSMC + UMC + MediaTek each took ~1 week of focused engineering for clean extraction. At 2000 × 1 week, that's 40 person-years — unbuildable. Strategy:
+   - **~100-150 "elite" companies** get hand-tuned extractors (top market cap per region, most analyst-relevant). These get the per-company `SKILL.md` + memory note pattern that already works for TSMC/UMC/MediaTek.
+   - **~1850 "config-driven" companies** use a generic LLM-assisted extractor: ~70-80% accuracy on headline metrics, every fact flagged with a confidence score, data-quality framework (`.claude/skills/data-quality-invariants/`) drops anything that fails identity checks (gross + cogs = revenue, etc.).
+   - Manually upgrade companies from "config" to "elite" as user demand surfaces them.
+
+5. **Automatic re-extraction on parser improvement.** When we improve an extractor, re-run on cached bronze (no need to re-fetch PDFs). Bronze + silver split was designed for this; the re-extract path needs to be a routine command + observability for which silver rows changed.
+
+### 13.7 Concrete Capacity Per Phase
+
+| Stage | Workers | State store | Cache | Sustained concurrent users | Heatmap latency (100 tickers) |
+|---|---|---|---|---|---|
+| Pre-Phase 1 (start of session) | 1 (single uvicorn) | SQLite (no WAL) | none | 5-10 | 5+ s |
+| **Phase 1 DONE** | 1-4 (config'd) | SQLite (WAL) | per-worker LRU | 50-100 | 200 ms |
+| **Phase 2** | 4-8 (with worker pool) | Postgres + Redis | shared Redis result-cache + DuckDB query-engine | 500-1000 | 100 ms |
+| **Phase 3** | autoscaled | Postgres + pgvector + Redis | + per-user query memoization | 10K (cost-bound) | <100 ms |
+
+### 13.8 Where to Find What
+
+| Concern | Code path | Skill / doc |
+|---|---|---|
+| Phase 1 cache implementation | `backend/app/services/data_cache.py` | — (single 130-line module) |
+| Per-company quarterly extractors | `backend/scripts/extractors/{tsmc,umc,mediatek}_*.py` | `.claude/skills/tsmc-quarterly-reports/SKILL.md`; per-company memory in `~/.claude/projects/.../memory/project_taiwan_ir_extraction_*.md` |
+| Taiwan monthly revenue (51 tickers) | `backend/app/services/taiwan/` | `.claude/skills/taiwan-monthly-data-extraction/SKILL.md` |
+| Social scheduler (news/reddit/gpu) | `backend/app/services/social/scheduler.py` | — |
+| Time-axis sort rule (UI tables) | — | `.claude/skills/time-axis-sort-convention/SKILL.md` + `CLAUDE.md` |
+| Readable financial table aesthetics | — | `.claude/skills/readable-data-table/SKILL.md` |
+| Backend launch (dev vs prod) | — | `CLAUDE.md` § "Backend Launch" |
+| Admin / cache stats | `backend/app/api/routers/v1/admin.py` | `/api/v1/admin/cache` and `/api/v1/admin/runtime` |

@@ -5,7 +5,7 @@
 // ---------------------------------------------------------------------------
 
 import { useRef, useEffect } from "react";
-import { ArrowLeft, Mic, Save, CheckCircle, Sparkles, Link2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Mic, Save, CheckCircle, Sparkles, Link2, RefreshCw, Loader2, Download } from "lucide-react";
 import type { Editor } from "@tiptap/react";
 import type { NoteStub, TranscriptLine, PolishedSegment, MeetingSummary } from "@/lib/api/notesClient";
 import RichTextEditor from "@/components/domain/notes/RichTextEditor";
@@ -67,6 +67,15 @@ interface Props {
   ) => void;
   onRegenerateSections: () => Promise<void>;
   onRegenerateSummary: () => Promise<void>;
+  /** Cut audio from a chosen timestamp and re-transcribe just that portion.
+   * Used to recover from Gemini repetition loops without re-paying for the
+   * already-good earlier segments. Frontend prompts for the start time. */
+  onRetranscribeFrom: (startSeconds: number) => Promise<void>;
+  isRetranscribing: boolean;
+  /** Toggle Chinese script for the entire transcript (Simplified <-> Traditional).
+   * Local zhconv conversion — no LLM cost. */
+  onConvertChinese: (to: "hans" | "hant") => Promise<void>;
+  isConvertingChinese: boolean;
   isRegeneratingSummary: boolean;
 }
 
@@ -77,6 +86,8 @@ export default function NotesEditorView({
   onOpenRecording, onCloseRecording, onRecordingComplete,
   onOpenUrlIngest, onCloseUrlIngest, onUrlIngestComplete, onRegenerateSections,
   onRegenerateSummary, isRegeneratingSummary,
+  onRetranscribeFrom, isRetranscribing,
+  onConvertChinese, isConvertingChinese,
   onSaveSpeakers, onExtractTopics, onDelta, onMarkComplete, onStartAISummary,
   onEditorReady,
 }: Props) {
@@ -176,6 +187,47 @@ export default function NotesEditorView({
             </>
           )}
 
+          {/* Chinese script toggle — only shows when the note actually has Chinese
+           * content. Uses zhconv server-side (no LLM cost) to convert text_original,
+           * text_english, speaker labels, and key_topics in one shot. The current
+           * variant is tracked in polished_transcript_meta.chinese_variant. */}
+          {(() => {
+            const segs = note.polished_transcript_meta?.segments ?? [];
+            const sample = segs.slice(0, 8).map((s) => `${s.text_original ?? ""}${s.text_english ?? ""}`).join("");
+            const hasChinese = /[一-鿿]/.test(sample);
+            if (!hasChinese) return null;
+            const current = note.polished_transcript_meta?.chinese_variant ?? "hans";
+            const target: "hans" | "hant" = current === "hans" ? "hant" : "hans";
+            return (
+              <button
+                onClick={() => onConvertChinese(target)}
+                disabled={isConvertingChinese}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 rounded-md hover:bg-amber-100 disabled:opacity-60 transition-colors"
+                title={`Convert all Chinese in this transcript to ${target === "hans" ? "Simplified (简体)" : "Traditional (繁體)"}`}
+              >
+                {isConvertingChinese ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                {isConvertingChinese
+                  ? "Converting…"
+                  : `Show as ${target === "hans" ? "简体" : "繁體"}`}
+              </button>
+            );
+          })()}
+
+          {/* Download button — exports the polished transcript as a Word document.
+           * Bilingual notes get a 3-column Time / Original / English table;
+           * monolingual notes get paragraphs with timestamps. */}
+          {(note.polished_transcript_meta?.segments?.length ?? 0) > 0 && (
+            <a
+              href={`http://localhost:8000/api/v1/notes/${note.note_id}/export.docx`}
+              download
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md hover:bg-emerald-100 transition-colors"
+              title="Download polished transcript as a Word document"
+            >
+              <Download size={13} />
+              Download .docx
+            </a>
+          )}
+
           {/* Ingest URL button */}
           <button
             onClick={onOpenUrlIngest}
@@ -210,6 +262,44 @@ export default function NotesEditorView({
             onTickersChange={onTickersChange}
             onNoteTypeChange={onNoteTypeChange}
           />
+
+          {/* Coverage-gap banner -- surfaces audio sections that Gemini skipped
+           * or failed on (>5 min between consecutive segment timestamps).
+           * Each gap is a one-click "Retranscribe from {start_label}" button. */}
+          {(note.polished_transcript_meta?.coverage_gaps?.length ?? 0) > 0 && (
+            <div className="px-6 py-3 border-b border-amber-200 bg-amber-50">
+              <div className="text-[11px] font-semibold text-amber-900 mb-1.5 flex items-center gap-1.5">
+                <RefreshCw size={12} />
+                Transcript coverage gaps detected ({note.polished_transcript_meta!.coverage_gaps!.length})
+              </div>
+              <div className="text-[10px] text-amber-800 mb-2">
+                The transcript is missing the audio segments below. Click any gap to re-run Gemini on just that range and splice it back in.
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {note.polished_transcript_meta!.coverage_gaps!.map((g, i) => {
+                  const mins = (g.duration_sec / 60).toFixed(1);
+                  const label =
+                    g.kind === "lead"
+                      ? `Start of audio → ${g.end_label} (${mins} min)`
+                      : g.kind === "tail"
+                        ? `${g.start_label} → end of audio (${mins} min)`
+                        : `${g.start_label} → ${g.end_label} (${mins} min)`;
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => onRetranscribeFrom(g.start_sec)}
+                      disabled={isRetranscribing}
+                      className="text-[10px] font-medium px-2 py-1 rounded-md border border-amber-300 bg-white text-amber-800 hover:bg-amber-100 disabled:opacity-60"
+                      title={`Cuts audio from ${g.start_label} and re-runs Gemini on just that portion`}
+                    >
+                      {isRetranscribing ? <Loader2 size={10} className="inline animate-spin mr-1" /> : null}
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Audio player for meeting recordings */}
           {note.recording_path && (

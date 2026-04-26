@@ -39,3 +39,32 @@ This skill runs the full interactive workflow:
 ## Print Statement Rule
 
 No Unicode characters in print statements anywhere in `scripts/` or `services/`. Use ASCII only (Windows cp950 encoding). Use `->` not `->`, `>>` not `>>`.
+
+## Backend Launch (uvicorn workers + reload)
+
+**Dev (single worker, hot-reload):**
+```
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+```
+Use this when iterating on the API. `--reload` is incompatible with `--workers`.
+
+**Prod / load-test (multi-worker, no reload):**
+```
+uvicorn backend.main:app --workers 4 --host 0.0.0.0 --port 8000
+```
+4 workers ≈ 4× throughput on a 4-core box. Each worker has its own parquet
+LRU cache (no IPC needed; mtime-keyed reads stay coherent across workers).
+
+**Cache visibility:** `GET /api/v1/admin/cache` returns hit rate + LRU stats per worker. `GET /api/v1/admin/runtime` returns the worker PID so you can confirm load is spreading.
+
+**Storage layer:** SQLite is now in WAL mode (set on every engine connect via the `_set_sqlite_pragmas` listener). Concurrent reads no longer block on writes — one in-flight heartbeat upsert won't stall a dashboard query.
+
+## Time-Axis Sort Convention (project-wide)
+
+**Tables** that show metrics across time: most recent period on the **LEFT** (or **TOP** when time is on rows). Applies to financials wide tables, segment shares, capacity grids, balance sheet pivots, guidance vs actual lists, and every coverage / quarters table in the dashboard.
+
+**Charts** that plot metrics across time: oldest on the **LEFT** of the X-axis (universal chart convention; never invert).
+
+Concretely: backend `/financials/wide`, `/segments`, `/cashflow`, `/balance-sheet`, `/annual`, `/capacity`, `/guidance` endpoints return `periods` newest-first. Frontend tables iterate `data.periods` as-is. Frontend charts reverse with `[...data.periods].reverse()` and a comment explaining why. For mixed FY+quarterly period labels (e.g. UMC's annual capex guidance interleaved with quarterly margin guidance), use the `_period_sort_key` helper that converts `'4Q25'` and `'FY26'` into `(year, q_or_5)` tuples — naive lexicographic sort over period strings clusters all `4Q*` together regardless of year, which is wrong.
+
+Full rationale, code patterns, and edge cases: `.claude/skills/time-axis-sort-convention/SKILL.md`.

@@ -40,8 +40,19 @@ export default function NotesEditorContainer({ noteId }: Props) {
 
   // TipTap editor instance (populated via RichTextEditor's onEditorReady callback).
   const editorRef = useRef<Editor | null>(null);
+  // Tracks which note IDs we've already auto-rebuilt — prevents the effect
+  // from running again on subsequent note edits / re-renders. Used so a note
+  // landing in /notes/<id> with polished_transcript_meta.segments populated
+  // but editor_content still the empty default doc gets its sections drawn
+  // exactly once on first mount. Affects the upload-transcribe flow where
+  // the backend persists segments/summary but doesn't itself build Tiptap JSON.
+  const autoRebuiltFor = useRef<Set<string>>(new Set());
+  const [editorReadyTick, setEditorReadyTick] = useState(0);
   const handleEditorReady = useCallback((editor: Editor) => {
     editorRef.current = editor;
+    // Bump a state value so the auto-rebuild effect can react when both the
+    // editor instance and the note are available (refs don't trigger renders).
+    setEditorReadyTick((n) => n + 1);
   }, []);
 
   // Load note on mount / noteId change — clear first so stale note never shows
@@ -51,6 +62,55 @@ export default function NotesEditorContainer({ noteId }: Props) {
       if (res.success && res.data) setNote(res.data);
     });
   }, [noteId, setNote, clearNote]);
+
+  // Auto-build editor sections from saved polished data once both the note
+  // and the editor are mounted, IF the editor content is empty but the note
+  // already has segments saved (the upload-transcribe path leaves it like
+  // this). One-shot per note ID so user edits aren't clobbered on re-render.
+  useEffect(() => {
+    if (!note || !editorRef.current) return;
+    if (autoRebuiltFor.current.has(note.note_id)) return;
+
+    const meta = note.polished_transcript_meta;
+    const segments = (meta?.segments ?? []) as PolishedSegment[];
+    const summary  = (meta?.summary  ?? null) as MeetingSummary | null;
+    if (segments.length === 0 && !summary) return;
+
+    // Detect empty editor: editor_content is `{type: "doc", content: []}` (or missing).
+    const ec = note.editor_content as { content?: unknown[] } | null | undefined;
+    const editorIsEmpty = !ec || !Array.isArray(ec.content) || ec.content.length === 0;
+    if (!editorIsEmpty) return;
+
+    autoRebuiltFor.current.add(note.note_id);
+
+    const editor = editorRef.current;
+    const isBilingual = Boolean(meta?.is_bilingual);
+    const lines: TranscriptLine[] = segments.map((s, idx) => ({
+      line_id: idx + 1,
+      timestamp: s.timestamp,
+      speaker_label: s.speaker || "",
+      speaker_name: null,
+      text: s.text_original,
+      is_flagged: false,
+      is_interim: false,
+    }));
+    insertOrReplaceSection(editor, "user_notes", buildUserNotesHeadingNodes());
+    if (summary) {
+      insertOrReplaceSection(editor, "ai_summary", buildAISummarySectionNodes(summary));
+    }
+    if (lines.length > 0) {
+      insertOrReplaceSection(editor, "raw_transcript", buildRawTranscriptSectionNodes(lines));
+    }
+    if (segments.length > 0) {
+      insertOrReplaceSection(
+        editor,
+        "polished_transcript",
+        buildPolishedTranscriptSectionNodes(segments, isBilingual, (meta?.translation_label) || "English"),
+      );
+    }
+    // Mark dirty so the just-built editor_content gets persisted.
+    setDirty(true);
+  }, [note, editorReadyTick, setDirty]);
 
   // Core save — called by both the debounced auto-save and the Ctrl+S
   // force-save. Sends every editable field; the backend patches whatever
@@ -232,7 +292,7 @@ export default function NotesEditorContainer({ noteId }: Props) {
           insertOrReplaceSection(
             editor,
             "polished_transcript",
-            buildPolishedTranscriptSectionNodes(polished.segments, polished.is_bilingual),
+            buildPolishedTranscriptSectionNodes(polished.segments, polished.is_bilingual, (note?.polished_transcript_meta?.translation_label) || "English"),
           );
         }
       }
@@ -247,6 +307,106 @@ export default function NotesEditorContainer({ noteId }: Props) {
   // updates polished_transcript_meta.summary, pull the fresh note and
   // regenerate the editor sections from it.
   const [isRegeneratingSummary, setIsRegeneratingSummary] = useState(false);
+  const [isRetranscribing, setIsRetranscribing] = useState(false);
+  const [isConvertingChinese, setIsConvertingChinese] = useState(false);
+
+  // Toggle the note's Chinese script variant via local zhconv (no LLM cost).
+  // Backend updates segments + key_topics + editor_content + markdown in one
+  // call; we then refresh the note state and rebuild the editor sections.
+  const handleConvertChinese = useCallback(async (to: "hans" | "hant") => {
+    if (!note) return;
+    setIsConvertingChinese(true);
+    try {
+      const res = await notesClient.convertChineseVariant(note.note_id, to);
+      if (res.success && res.data) {
+        const fresh = await notesClient.get(note.note_id);
+        if (fresh.success && fresh.data) {
+          setNote(fresh.data);
+          updateNote(fresh.data);
+          if (editorRef.current) {
+            const editor = editorRef.current;
+            const meta = fresh.data.polished_transcript_meta;
+            const segments = (meta?.segments ?? []) as PolishedSegment[];
+            const summary  = (meta?.summary  ?? null) as MeetingSummary | null;
+            const isBilingual = Boolean(meta?.is_bilingual);
+            insertOrReplaceSection(editor, "user_notes", buildUserNotesHeadingNodes());
+            if (summary) {
+              insertOrReplaceSection(editor, "ai_summary", buildAISummarySectionNodes(summary));
+            }
+            if (segments.length > 0) {
+              insertOrReplaceSection(
+                editor,
+                "polished_transcript",
+                buildPolishedTranscriptSectionNodes(segments, isBilingual, (meta?.translation_label) || "English"),
+              );
+            }
+          }
+        }
+      } else {
+        window.alert(`Convert failed: ${res.error || "unknown error"}`);
+      }
+    } catch (err) {
+      window.alert(`Convert error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsConvertingChinese(false);
+    }
+  }, [note, setNote, updateNote]);
+
+  // Cut audio from a chosen timestamp, re-run Gemini on just the tail, and
+  // splice the new segments back into the existing polished transcript.
+  // The backend handles all the splicing + editor_content rebuild; we just
+  // refresh the note from the server and let the editor re-mount with new
+  // content. Costs another Gemini call, but only for the bad/missing tail
+  // (not the already-good earlier segments).
+  const handleRetranscribeFrom = useCallback(async (startSeconds: number) => {
+    if (!note) return;
+    setIsRetranscribing(true);
+    try {
+      const res = await notesClient.retranscribeFrom(note.note_id, startSeconds);
+      if (res.success && res.data) {
+        // Pull fresh note (now has new segments + rebuilt editor_content).
+        const fresh = await notesClient.get(note.note_id);
+        if (fresh.success && fresh.data) {
+          setNote(fresh.data);
+          updateNote(fresh.data);
+          // Rebuild the editor sections in-place so the user sees the new
+          // splice without a hard reload.
+          if (editorRef.current) {
+            const editor = editorRef.current;
+            const meta = fresh.data.polished_transcript_meta;
+            const segments = (meta?.segments ?? []) as PolishedSegment[];
+            const summary = (meta?.summary ?? null) as MeetingSummary | null;
+            const isBilingual = Boolean(meta?.is_bilingual);
+            insertOrReplaceSection(editor, "user_notes", buildUserNotesHeadingNodes());
+            if (summary) {
+              insertOrReplaceSection(editor, "ai_summary", buildAISummarySectionNodes(summary));
+            }
+            if (segments.length > 0) {
+              insertOrReplaceSection(
+                editor,
+                "polished_transcript",
+                buildPolishedTranscriptSectionNodes(segments, isBilingual, (meta?.translation_label) || "English"),
+              );
+            }
+          }
+        }
+        window.alert(
+          `Retranscribe done.\n` +
+            `Replaced ${res.data.dropped} segment(s) at-or-after ${startSeconds}s; ` +
+            `added ${res.data.added} new segments.\n` +
+            (res.data.gemini_seconds != null
+              ? `Gemini time: ${res.data.gemini_seconds.toFixed(1)}s`
+              : ""),
+        );
+      } else {
+        window.alert(`Retranscribe failed: ${res.error || "unknown error"}`);
+      }
+    } catch (err) {
+      window.alert(`Retranscribe error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsRetranscribing(false);
+    }
+  }, [note, setNote, updateNote]);
   const handleRegenerateSummary = useCallback(async () => {
     if (!note) return;
     setIsRegeneratingSummary(true);
@@ -286,7 +446,7 @@ export default function NotesEditorContainer({ noteId }: Props) {
             insertOrReplaceSection(
               editor,
               "polished_transcript",
-              buildPolishedTranscriptSectionNodes(segments, isBilingual),
+              buildPolishedTranscriptSectionNodes(segments, isBilingual, (meta?.translation_label) || "English"),
             );
           }
         }
@@ -343,7 +503,7 @@ export default function NotesEditorContainer({ noteId }: Props) {
         insertOrReplaceSection(
           editor,
           "polished_transcript",
-          buildPolishedTranscriptSectionNodes(segments, isBilingual),
+          buildPolishedTranscriptSectionNodes(segments, isBilingual, (meta?.translation_label) || "English"),
         );
       }
     }
@@ -385,7 +545,7 @@ export default function NotesEditorContainer({ noteId }: Props) {
           insertOrReplaceSection(
             editor,
             "polished_transcript",
-            buildPolishedTranscriptSectionNodes(polished.segments, polished.is_bilingual),
+            buildPolishedTranscriptSectionNodes(polished.segments, polished.is_bilingual, (note?.polished_transcript_meta?.translation_label) || "English"),
           );
         }
       }
@@ -427,6 +587,10 @@ export default function NotesEditorContainer({ noteId }: Props) {
       onRegenerateSections={handleRegenerateSections}
       onRegenerateSummary={handleRegenerateSummary}
       isRegeneratingSummary={isRegeneratingSummary}
+      onRetranscribeFrom={handleRetranscribeFrom}
+      isRetranscribing={isRetranscribing}
+      onConvertChinese={handleConvertChinese}
+      isConvertingChinese={isConvertingChinese}
       onSaveSpeakers={handleSaveSpeakers}
       onExtractTopics={handleExtractTopics}
       onDelta={handleDelta}

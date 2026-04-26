@@ -36,7 +36,7 @@ from backend.app.services.taiwan.amendments import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_DATA_DIR = Path(__file__).resolve().parents[4] / "data" / "taiwan"
+DEFAULT_DATA_DIR = Path(__file__).resolve().parents[3] / "data" / "taiwan"
 
 
 @dataclass
@@ -87,6 +87,7 @@ def upsert_monthly_revenue(
 
     updated_rows = current.copy()
     history_additions: list[dict] = []
+    touched_tickers: set[str] = set()
 
     for row in rows:
         canonical = dict(row)
@@ -99,6 +100,8 @@ def upsert_monthly_revenue(
             canonical["amended"] = False
             updated_rows = pd.concat([updated_rows, pd.DataFrame([canonical])], ignore_index=True)
             stats.inserted += 1
+            if canonical.get("ticker"):
+                touched_tickers.add(str(canonical["ticker"]))
 
         elif decision is AmendmentDecision.TOUCH_ONLY:
             mask = (updated_rows["ticker"] == canonical["ticker"]) & \
@@ -121,6 +124,8 @@ def upsert_monthly_revenue(
             for col, val in canonical.items():
                 updated_rows.loc[mask, col] = val
             stats.amended += 1
+            if canonical.get("ticker"):
+                touched_tickers.add(str(canonical["ticker"]))
 
     updated_rows.to_parquet(data_path, index=False)
     if history_additions:
@@ -129,6 +134,16 @@ def upsert_monthly_revenue(
             existing_hist = pd.read_parquet(history_path)
             hist_df = pd.concat([existing_hist, hist_df], ignore_index=True)
         hist_df.to_parquet(history_path, index=False)
+
+    # Stamp has_monthly_revenue=1 in the platform universe registry for any
+    # ticker that just got new/amended rows. Best-effort.
+    if touched_tickers:
+        try:
+            from backend.app.services.universe_registry import mark_data_coverage
+            for t in touched_tickers:
+                mark_data_coverage(t, has_monthly_revenue=True)
+        except Exception as exc:
+            logger.warning("registry mark_data_coverage failed: %s", exc)
 
     logger.info("upsert_monthly_revenue stats=%s", stats)
     return stats

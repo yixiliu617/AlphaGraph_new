@@ -1,0 +1,51 @@
+{
+  "ticker": "2330.TW",
+  "page_period_label": "2Q13",
+  "page_period_end": "2013-06-30",
+  "source_id": "tsmc_quarterly_results_page_2Q13",
+  "source_url": "https://investor.tsmc.com/chinese/quarterly-results/2013/q2",
+  "extracted_at": "2026-04-26T08:04:43+00:00",
+  "table_periods": [
+    "2Q13",
+    "3Q13"
+  ],
+  "table_rows_raw": [
+    [
+      "",
+      "",
+      "2Q13",
+      "3Q13"
+    ],
+    [
+      "",
+      "實際數",
+      "業績展望",
+      "業績展望"
+    ],
+    [
+      "營收金額",
+      "155.89 (NT$ billion)",
+      "154-156 (NT$ billion)",
+      "161-164 (NT$ billion)"
+    ],
+    [
+      "平均匯率 (美元兌新台幣)",
+      "29.83",
+      "29.82",
+      "29.83"
+    ],
+    [
+      "營業毛利率",
+      "49.00%",
+      "47.5%-49.5%",
+      "47%-49%"
+    ],
+    [
+      "營業淨利率",
+      "37.00%",
+      "35%-37%",
+      "35%-37%"
+    ]
+  ],
+  "fact_count": 13
+}
