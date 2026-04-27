@@ -42,6 +42,14 @@ export interface CalendarEvent {
     | ""
     | null;
 
+  // NASDAQ-rich fields. null for non-NASDAQ rows (past 8-K events, etc.)
+  time_of_day_code:        "BMO" | "AMC" | "TBD" | "" | null;
+  eps_forecast:            number | null;
+  eps_estimates_count:     number | null;
+  market_cap:              number | null;
+  last_year_eps:           number | null;
+  last_year_report_date:   string | null;   // YYYY-MM-DD
+
   first_seen_at: string;
   last_updated_at: string;
 }

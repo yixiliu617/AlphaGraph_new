@@ -200,6 +200,38 @@ function fmtDateInTz(iso: string, tz: string): { date: string; time: string } {
   }
 }
 
+function TimeOfDayBadge({ code }: { code: CalendarEvent["time_of_day_code"] }) {
+  if (!code || code === "") return null;
+  const cfg = {
+    BMO: { color: "bg-sky-50 text-sky-700 border-sky-200",
+            tip: "Before-Market-Open: ~08:00 US Eastern" },
+    AMC: { color: "bg-violet-50 text-violet-700 border-violet-200",
+            tip: "After-Market-Close: ~16:30 US Eastern" },
+    TBD: { color: "bg-slate-50 text-slate-600 border-slate-200",
+            tip: "Time of day not specified by NASDAQ" },
+  } as const;
+  const c = cfg[code as keyof typeof cfg];
+  if (!c) return null;
+  return (
+    <span title={c.tip}
+          className={`px-1.5 py-0.5 text-[9px] font-mono font-semibold uppercase border rounded ${c.color}`}>
+      {code}
+    </span>
+  );
+}
+
+function fmtMoney(v: number | null, opts?: { compact?: boolean }): string {
+  if (v == null || Number.isNaN(v)) return "";
+  if (opts?.compact) {
+    const abs = Math.abs(v);
+    if (abs >= 1e12) return `$${(v / 1e12).toFixed(2)}T`;
+    if (abs >= 1e9)  return `$${(v / 1e9).toFixed(2)}B`;
+    if (abs >= 1e6)  return `$${(v / 1e6).toFixed(2)}M`;
+    return `$${v.toFixed(0)}`;
+  }
+  return `$${v.toFixed(2)}`;
+}
+
 function MarketBadge({ market }: { market: CalendarEvent["market"] }) {
   const colors = {
     US: "bg-blue-50 text-blue-700 border-blue-200",
@@ -263,10 +295,13 @@ function EventTable({
         <thead className="bg-slate-50 text-slate-600">
           <tr className="border-b border-slate-200">
             <th className="text-left px-3 py-2 w-32 font-semibold">Date</th>
-            <th className="text-left px-3 py-2 w-16 font-semibold">Time</th>
+            <th className="text-left px-3 py-2 w-28 font-semibold">Time</th>
             <th className="text-left px-3 py-2 w-12 font-semibold">Mkt</th>
             <th className="text-left px-3 py-2 w-20 font-semibold">Ticker</th>
-            <th className="text-left px-3 py-2 w-28 font-semibold">Period</th>
+            <th className="text-left px-3 py-2 w-24 font-semibold">Period</th>
+            <th className="text-right px-3 py-2 w-20 font-semibold" title="Consensus EPS estimate (USD/share)">EPS Est</th>
+            <th className="text-right px-3 py-2 w-20 font-semibold">Mkt Cap</th>
+            <th className="text-right px-3 py-2 w-24 font-semibold" title="Last year's same-quarter reported EPS and date">Last Yr</th>
             <th className="text-left px-3 py-2 font-semibold">Source</th>
             <th className="text-right px-3 py-2 w-32 font-semibold">Links</th>
           </tr>
@@ -281,7 +316,12 @@ function EventTable({
                 className={`border-b border-slate-100 last:border-0 hover:bg-indigo-50/40 ${isFuture ? "bg-amber-50/30" : ""}`}
               >
                 <td className="px-3 py-2 whitespace-nowrap text-slate-700">{date}</td>
-                <td className="px-3 py-2 whitespace-nowrap font-mono text-[10px] text-slate-500">{time}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-slate-500">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="font-mono text-[10px]">{time}</span>
+                    <TimeOfDayBadge code={e.time_of_day_code} />
+                  </span>
+                </td>
                 <td className="px-3 py-2"><MarketBadge market={e.market} /></td>
                 <td className="px-3 py-2 font-semibold text-slate-900">{e.ticker}</td>
                 <td className="px-3 py-2 font-mono text-[10px] text-slate-600 whitespace-nowrap">
@@ -290,6 +330,41 @@ function EventTable({
                   ) : (
                     e.fiscal_period
                   )}
+                </td>
+                <td
+                  className="px-3 py-2 text-right tabular-nums text-slate-700 whitespace-nowrap"
+                  title={
+                    e.eps_forecast != null
+                      ? `Consensus EPS: ${fmtMoney(e.eps_forecast)} from ${e.eps_estimates_count ?? "?"} analyst${e.eps_estimates_count === 1 ? "" : "s"}`
+                      : ""
+                  }
+                >
+                  {e.eps_forecast != null
+                    ? <>
+                        {fmtMoney(e.eps_forecast)}
+                        {e.eps_estimates_count != null && (
+                          <span className="ml-1 text-[9px] text-slate-400">·{e.eps_estimates_count}</span>
+                        )}
+                      </>
+                    : <span className="text-slate-300">—</span>}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums text-slate-700">
+                  {e.market_cap != null
+                    ? fmtMoney(e.market_cap, { compact: true })
+                    : <span className="text-slate-300">—</span>}
+                </td>
+                <td
+                  className="px-3 py-2 text-right tabular-nums text-slate-500 whitespace-nowrap"
+                  title={e.last_year_report_date ? `Reported on ${e.last_year_report_date}` : ""}
+                >
+                  {e.last_year_eps != null
+                    ? <>
+                        <span className="text-[10px]">{fmtMoney(e.last_year_eps)}</span>
+                        {e.last_year_report_date && (
+                          <span className="ml-1 text-[9px] text-slate-400">{e.last_year_report_date.slice(5)}</span>
+                        )}
+                      </>
+                    : <span className="text-slate-300">—</span>}
                 </td>
                 <td className="px-3 py-2 text-[10px] text-slate-500">
                   <span className="flex items-center gap-1.5">

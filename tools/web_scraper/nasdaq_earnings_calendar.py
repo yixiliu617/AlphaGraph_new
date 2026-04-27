@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 import sys
 import time
 from datetime import datetime, timedelta, timezone
@@ -37,8 +38,12 @@ from pathlib import Path
 from typing import Any
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
+
+_ET  = ZoneInfo("America/New_York")
+_UTC = ZoneInfo("UTC")
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _RAW_DIR = _PROJECT_ROOT / "backend" / "data" / "_raw" / "nasdaq_earnings_calendar"
@@ -66,6 +71,60 @@ _TIME_OF_DAY_ET: dict[str, tuple[int, int] | None] = {
     "time-after-hours": (16, 30),  # AMC: 16:30 ET
     "":                 None,      # unspecified
 }
+
+# Friendly time-of-day code shown in the UI badge.
+_TIME_OF_DAY_LABEL: dict[str, str] = {
+    "time-pre-market":  "BMO",
+    "time-after-hours": "AMC",
+    "":                 "TBD",
+}
+
+
+# ---------------------------------------------------------------------------
+# Field parsers
+# ---------------------------------------------------------------------------
+
+def _parse_money(s: str | None) -> float | None:
+    """Parse strings like '$3,500,000,000,000' or '$2.81' to a float USD value.
+    Returns None if parsing fails or the string is empty / 'N/A'."""
+    if not s:
+        return None
+    cleaned = re.sub(r"[$,\s]", "", s)
+    if not cleaned or cleaned.upper() in ("N/A", "NA", "-"):
+        return None
+    try:
+        return float(cleaned)
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_int(s: str | None) -> int | None:
+    """Parse '13' or '13 ' to int; None if invalid."""
+    if not s:
+        return None
+    cleaned = re.sub(r"[,\s]", "", s)
+    if not cleaned or cleaned.upper() in ("N/A", "NA", "-"):
+        return None
+    try:
+        return int(cleaned)
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_date_us(s: str | None) -> str | None:
+    """Parse NASDAQ date strings like '4/24/2025', 'Apr 24, 2025' to
+    'YYYY-MM-DD'. Returns None if parsing fails."""
+    if not s:
+        return None
+    s = s.strip()
+    if not s or s.upper() in ("N/A", "NA", "-"):
+        return None
+    for fmt in ("%m/%d/%Y", "%b %d, %Y", "%B %d, %Y"):
+        try:
+            return datetime.strptime(s, fmt).date().isoformat()
+        except ValueError:
+            continue
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -137,21 +196,23 @@ def _parse_day_payload(date: str, payload: dict | None) -> list[dict]:
             continue
         time_code = (r.get("time") or "").strip()
         tod = _TIME_OF_DAY_ET.get(time_code)
-        # Use midnight local-tz when time is unspecified -- the orchestrator
-        # treats that as date-only rather than a specific hour.
+
+        # DST-aware ET -> UTC. zoneinfo handles the EDT (-4) / EST (-5)
+        # transition automatically based on the actual date. We KEEP tzinfo
+        # on the returned datetime because the parquet column is typed as
+        # datetime64[us, UTC] and pandas refuses naive assignments.
         if tod is not None:
             hour, minute = tod
-            # Compute a UTC timestamp from America/New_York. Without a tz
-            # library we use a fixed -4h offset (EDT); during November-March
-            # the actual offset is -5h. Acceptable for MVP since we display
-            # in user's chosen tz and only need the date right.
-            local_naive = datetime.combine(date_dt, datetime.min.time()).replace(
-                hour=hour, minute=minute,
+            local_aware = datetime(
+                date_dt.year, date_dt.month, date_dt.day, hour, minute,
+                tzinfo=_ET,
             )
-            release_utc = local_naive + timedelta(hours=4)  # EDT->UTC
+            release_utc = local_aware.astimezone(_UTC)
         else:
-            # Date only: midnight UTC. Frontend just shows the date.
-            release_utc = datetime.combine(date_dt, datetime.min.time())
+            # Date only: midnight UTC, tz-aware.
+            release_utc = datetime(
+                date_dt.year, date_dt.month, date_dt.day, 0, 0, tzinfo=_UTC,
+            )
 
         # Fiscal period from "Mar/2026" -> "FY2026-Q?" requires per-ticker
         # fiscal-calendar knowledge we don't have here. Use a date stamp;
@@ -175,8 +236,15 @@ def _parse_day_payload(date: str, payload: dict | None) -> list[dict]:
             "dial_in_pin":          None,
             "source":               "nasdaq_calendar",
             "source_id":            f"nasdaq:{date}:{symbol}",
-            "_nasdaq_time_code":    time_code,
-            "_nasdaq_fiscal_q":     fq,
+            # Friendly time-of-day code (BMO/AMC/TBD) — preserved through the
+            # parquet so the UI can show a tz-independent badge.
+            "time_of_day_code":     _TIME_OF_DAY_LABEL.get(time_code, "TBD"),
+            # NASDAQ-rich estimate fields. None when missing.
+            "eps_forecast":         _parse_money(r.get("epsForecast")),
+            "eps_estimates_count":  _parse_int(r.get("noOfEsts")),
+            "market_cap":           _parse_money(r.get("marketCap")),
+            "last_year_eps":        _parse_money(r.get("lastYearEPS")),
+            "last_year_report_date": _parse_date_us(r.get("lastYearRptDt")),
         })
     return out
 

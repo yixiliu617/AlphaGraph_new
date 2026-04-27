@@ -32,6 +32,10 @@ backend/data/taiwan/monthly_revenue/data.parquet
 backend/data/taiwan/monthly_revenue/history.parquet
 backend/data/taiwan/_registry/mops_company_master.parquet
 
+# Calendar feature bronze caches (NASDAQ JSON + Yahoo per-ticker dicts).
+# Regenerable via `python -m backend.scripts.refresh_calendar_us`.
+backend/data/_raw/
+
 # Social media (X, WeChat): ingested parquet data is rebuildable via
 # tools/x_backfill.py. Config + validated_accounts.json ARE committed.
 backend/data/social/

@@ -37,6 +37,17 @@ Schema (one row per (ticker, fiscal_period)):
                             | "date_disagreement"  (both have, dates differ > 1 day)
                             | ""                   (single-source / past event)
 
+  -- NASDAQ-rich fields (when source includes NASDAQ calendar data; else NaN):
+  time_of_day_code      str   "BMO" (before-market-open, ~08:00 ET)
+                            | "AMC" (after-market-close, ~16:30 ET)
+                            | "TBD" (unspecified)
+                            | ""   (non-NASDAQ source)
+  eps_forecast          float consensus EPS forecast (USD/share); None if unavailable
+  eps_estimates_count   Int64 number of analyst estimates contributing to consensus
+  market_cap            float market cap in USD at time of NASDAQ snapshot
+  last_year_eps         float reported EPS for the prior-year same quarter
+  last_year_report_date date  date of the prior-year same quarter's earnings release
+
   -- Audit:
   first_seen_at         ts
   last_updated_at       ts
@@ -73,6 +84,10 @@ ALL_COLS = [
     "webcast_url", "transcript_url", "dial_in_phone", "dial_in_pin",
     "source", "source_id",
     "verification",
+    # NASDAQ-rich fields:
+    "time_of_day_code",
+    "eps_forecast", "eps_estimates_count", "market_cap",
+    "last_year_eps", "last_year_report_date",
     "first_seen_at", "last_updated_at",
 ]
 
@@ -85,6 +100,21 @@ class UpsertStats:
     inserted: int = 0
     updated: int = 0
     touched: int = 0   # row already existed with same data, only last_updated_at bumped
+
+
+def _is_empty(v) -> bool:
+    """True for None, empty string, NaN/NA/NaT. Robust against pandas'
+    ambiguous-truth error on `value in (..., pd.NA)`."""
+    if v is None:
+        return True
+    if isinstance(v, str):
+        return v == ""
+    if isinstance(v, (list, tuple, dict, set)):
+        return False
+    try:
+        return bool(pd.isna(v))
+    except (TypeError, ValueError):
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -235,11 +265,11 @@ def upsert_events(
                 if col in ("first_seen_at", "last_updated_at"):
                     continue
                 new_v = row.get(col)
-                if new_v in (None, "", pd.NA):
+                if _is_empty(new_v):
                     continue  # don't clobber existing with empty
                 old_v = updated_rows.at[i, col]
                 # NaN-safe compare
-                if pd.isna(old_v) or old_v != new_v:
+                if _is_empty(old_v) or old_v != new_v:
                     updated_rows.at[i, col] = new_v
                     changed_any = True
             updated_rows.at[i, "last_updated_at"] = now
