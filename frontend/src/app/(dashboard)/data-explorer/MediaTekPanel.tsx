@@ -2,29 +2,45 @@
 
 /**
  * MediaTekPanel — review what the MediaTek quarterly press-release ingestion
- * has captured. Two sub-tabs:
+ * has captured. Sub-tabs:
  *   1. Financials — wide pivot of P&L (NT$ M, 18 metrics × up to 40 quarters)
- *   2. Coverage   — period coverage table
+ *   2. Materials  — full catalog of every IR PDF (Press Release, Presentation,
+ *                  Transcript, Financial Statements, upcoming Earnings Call
+ *                  Invitation, plus TWSE Consolidated/Unconsolidated reports)
+ *   3. Coverage   — period coverage table for the silver layer
  *
  * No segments tab (MediaTek doesn't publish them in the press release).
- * No transcripts tab (different format from TSMC's LSEG; not yet ingested).
+ * No transcripts-text tab yet (transcript is published as PDF; viewer/search
+ * UI not built yet — for now the Materials tab links to the source).
  */
 
 import { useEffect, useState } from "react";
-import { Loader2, BarChart2, FileText } from "lucide-react";
+import { Loader2, BarChart2, FileText, ExternalLink, FileBarChart, FileSearch, Mic, Calendar, Files, TrendingUp, Search, ChevronDown, ChevronRight, LineChart as LineChartIcon } from "lucide-react";
+import PricesTab from "./PricesTab";
 import {
   mediatekClient,
   type MediaTekSummary,
   type MediaTekFinancialsWide,
   type MediaTekMetricRow,
   type MediaTekQuarter,
+  type MediaTekPDFCatalog,
+  type MediaTekPDFEntry,
+  type MediaTekTranscriptQuarter,
+  type MediaTekTranscriptTurn,
+  type MediaTekTranscriptMatch,
+  type MediaTekGuidanceRow,
+  type MediaTekSourceIssue,
 } from "@/lib/api/mediatekClient";
 
-type SubTab = "financials" | "quarters";
+type SubTab = "prices" | "financials" | "guidance" | "transcripts" | "materials" | "quarters";
 
 const SUBTABS: { key: SubTab; label: string; icon: React.ReactNode }[] = [
-  { key: "financials", label: "Financials", icon: <BarChart2 size={14} /> },
-  { key: "quarters",   label: "Coverage",   icon: <FileText size={14} /> },
+  { key: "prices",      label: "Prices",      icon: <LineChartIcon size={14} /> },
+  { key: "financials",  label: "Financials",  icon: <BarChart2 size={14} /> },
+  { key: "guidance",    label: "Guidance",    icon: <TrendingUp size={14} /> },
+  { key: "transcripts", label: "Transcripts", icon: <Mic size={14} /> },
+  { key: "materials",   label: "Materials",   icon: <Files size={14} /> },
+  { key: "quarters",    label: "Coverage",    icon: <FileText size={14} /> },
 ];
 
 function fmtNum(v: number | null | undefined, digits = 2): string {
@@ -135,8 +151,12 @@ export default function MediaTekPanel() {
       </div>
 
       <div>
-        {tab === "financials" && <FinancialsTab />}
-        {tab === "quarters"   && <QuartersTab />}
+        {tab === "prices"      && <PricesTab ticker="2454.TW" currency="TWD" />}
+        {tab === "financials"  && <FinancialsTab />}
+        {tab === "guidance"    && <GuidanceTab />}
+        {tab === "transcripts" && <TranscriptsTab />}
+        {tab === "materials"   && <MaterialsTab />}
+        {tab === "quarters"    && <QuartersTab />}
       </div>
     </div>
   );
@@ -252,6 +272,479 @@ function FinancialsTab() {
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Guidance tab — forward guidance card + per-metric historical tables.
+// Same pattern as TSMC/UMC; rule documented in
+// .claude/skills/guidance-tab-pattern/SKILL.md.
+// ---------------------------------------------------------------------------
+
+function GuidanceTab() {
+  const [rows, setRows] = useState<MediaTekGuidanceRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    mediatekClient.guidance(20)
+      .then((d) => setRows(d.rows))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <SectionLoading />;
+  if (!rows.length) return <Empty>No guidance data.</Empty>;
+
+  const byMetric: Record<string, MediaTekGuidanceRow[]> = {};
+  rows.forEach((r) => { (byMetric[r.metric] = byMetric[r.metric] || []).push(r); });
+
+  // Forward card: latest issuing report's view
+  const latestIssued = rows[0]?.issued_in_period;
+  const forwardRows = latestIssued ? rows.filter((r) => r.issued_in_period === latestIssued) : [];
+  const forwardByMetric = new Map<string, MediaTekGuidanceRow>();
+  forwardRows.forEach((r) => { if (!forwardByMetric.has(r.metric)) forwardByMetric.set(r.metric, r); });
+
+  const FORWARD_CARD_ORDER: Array<[string, string]> = [
+    ["guidance_revenue",          "Revenue (NT$ B)"],
+    ["guidance_gross_margin",     "Gross Margin"],
+    ["guidance_usd_ntd_avg_rate", "USD/NTD"],
+  ];
+
+  const fmtForward = (r: MediaTekGuidanceRow): string => {
+    if (r.metric === "guidance_revenue" && r.guide_low != null && r.guide_high != null) {
+      return `${r.guide_low.toFixed(1)}–${r.guide_high.toFixed(1)}B`;
+    }
+    if (r.metric === "guidance_gross_margin" && r.guide_low != null && r.guide_high != null) {
+      return `${r.guide_low.toFixed(1)}–${r.guide_high.toFixed(1)}%`;
+    }
+    if (r.guide_point != null) return r.guide_point.toFixed(2);
+    return "—";
+  };
+
+  const METRIC_TITLES: Record<string, string> = {
+    "guidance_revenue":          "Revenue (NT$ B) — guidance vs actual",
+    "guidance_gross_margin":     "Gross Margin (%) — guidance vs actual",
+    "guidance_usd_ntd_avg_rate": "USD/NTD forecast — verbal only (realized FX not in our silver yet)",
+  };
+
+  const fmtVal = (v: number | null | undefined, digits = 1, suffix = "%") =>
+    v == null ? "—" : `${v.toFixed(digits)}${suffix}`;
+
+  const outcomeClass = (o: string | null) =>
+    o === "BEAT high" ? "bg-emerald-100 text-emerald-700"
+    : o === "MISS low" ? "bg-rose-100 text-rose-700"
+    : o === "in range" ? "bg-slate-100 text-slate-600"
+    : "text-slate-300";
+
+  return (
+    <div className="space-y-4">
+      {forwardByMetric.size > 0 && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-indigo-900">
+              Forward guidance{" "}
+              <span className="text-[11px] font-normal text-indigo-700">
+                issued in {latestIssued} earnings call
+              </span>
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+            {FORWARD_CARD_ORDER.map(([metric, label]) => {
+              const r = forwardByMetric.get(metric);
+              if (!r) return null;
+              return (
+                <div key={metric} className="bg-white/50 border border-indigo-200/60 rounded p-2">
+                  <div className="flex items-baseline justify-between">
+                    <div className="text-[10px] uppercase tracking-wide text-indigo-700 font-semibold">{label}</div>
+                    <div className="text-[10px] text-indigo-500 font-mono">{r.for_period}</div>
+                  </div>
+                  <div className="text-base font-bold text-indigo-900 mt-1">
+                    {fmtForward(r)}
+                  </div>
+                  {r.verbal && (
+                    <div className="text-[10px] text-indigo-700 mt-0.5 italic line-clamp-2" title={r.verbal}>
+                      &ldquo;{r.verbal.replace(/\s+/g, " ").trim()}&rdquo;
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="bg-amber-50 border border-amber-200 rounded-md px-3 py-2 text-[11px] text-amber-800">
+        <strong>Source:</strong> MediaTek issues forward guidance verbally at the end of the
+        prepared remarks portion of each earnings call (CFO David Ku reads the
+        revenue range, gross margin point ± spread, and forecasted FX rate).
+        We extract these structured ranges from the published transcript PDF.
+        <strong> Realized actuals</strong>: revenue from the press release table
+        (NT$ million → divided by 1000 to compare in NT$ B); gross margin
+        derived as gross_profit / net_revenue.
+      </div>
+
+      {Object.entries(METRIC_TITLES).map(([metric, title]) => {
+        const subset = (byMetric[metric] || []).filter((r) => r.actual != null || r.verbal);
+        if (!subset.length) return null;
+        const tally = subset.reduce(
+          (acc, r) => {
+            if (r.outcome === "BEAT high") acc.beat += 1;
+            else if (r.outcome === "MISS low") acc.miss += 1;
+            else if (r.outcome === "in range") acc.in_range += 1;
+            else acc.na += 1;
+            return acc;
+          },
+          { beat: 0, miss: 0, in_range: 0, na: 0 },
+        );
+        const isPct = metric === "guidance_gross_margin";
+        const isB = metric === "guidance_revenue";
+        const suffix = isPct ? "%" : isB ? "B" : "";
+
+        return (
+          <div key={metric} className="bg-white border border-slate-200 rounded-lg shadow-sm">
+            <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 bg-slate-50/80">
+              <h3 className="text-sm font-bold text-slate-900">{title}</h3>
+              <div className="flex items-center gap-3 text-[11px]">
+                {tally.beat > 0 &&     <span className="text-emerald-600 font-semibold">Beat: {tally.beat}</span>}
+                {tally.in_range > 0 && <span className="text-slate-500 font-semibold">In range: {tally.in_range}</span>}
+                {tally.miss > 0 &&     <span className="text-rose-600 font-semibold">Miss: {tally.miss}</span>}
+                {tally.na > 0 &&       <span className="text-slate-400">Verbal-only: {tally.na}</span>}
+                <span className="text-slate-400 font-mono">· {subset.length} qtr</span>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50">
+                  <tr className="border-b border-slate-200">
+                    <th className="text-left  px-3 py-2 font-semibold text-slate-700 w-20">For period</th>
+                    <th className="text-left  px-3 py-2 font-semibold text-slate-500 w-24">Issued in</th>
+                    <th className="text-left  px-3 py-2 font-semibold text-slate-700 w-72">Verbal guidance</th>
+                    <th className="text-right px-2 py-2 font-semibold text-slate-500">Low</th>
+                    <th className="text-right px-2 py-2 font-semibold text-slate-500">Mid</th>
+                    <th className="text-right px-2 py-2 font-semibold text-slate-500">High</th>
+                    <th className="text-right px-2 py-2 font-semibold text-slate-700">Actual</th>
+                    <th className="text-center px-2 py-2 font-semibold text-slate-700">Outcome</th>
+                    <th className="text-right px-2 py-2 font-semibold text-slate-700">vs Mid</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {subset.map((r) => {
+                    const ppFmt = (v: number | null) => v == null ? "—"
+                      : `${v >= 0 ? "+" : ""}${v.toFixed(2)}${isPct ? "pp" : isB ? "B" : ""}`;
+                    const ppClass = (v: number | null) => v == null ? "text-slate-300"
+                      : v > 0.5  ? "text-emerald-600 font-semibold"
+                      : v < -0.5 ? "text-rose-600 font-semibold"
+                      : "text-slate-500";
+                    return (
+                      <tr key={`${r.issued_in_period}-${r.for_period}-${r.metric}`}
+                          className="border-b border-slate-100 hover:bg-slate-50">
+                        <td className="px-3 py-1.5 font-semibold text-slate-800">{r.for_period}</td>
+                        <td className="px-3 py-1.5 text-slate-500">{r.issued_in_period}</td>
+                        <td className="px-3 py-1.5 text-[11px] text-slate-700 max-w-[280px] truncate" title={r.verbal ?? ""}>
+                          {(r.verbal ?? "").replace(/\s+/g, " ").trim() || "—"}
+                        </td>
+                        <td className="px-2 py-1.5 text-right tabular-nums text-slate-500">{fmtVal(r.guide_low,  1, suffix)}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums text-slate-500">{fmtVal(r.guide_mid,  1, suffix)}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums text-slate-500">{fmtVal(r.guide_high, 1, suffix)}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums font-bold text-slate-900">{fmtVal(r.actual, 2, suffix)}</td>
+                        <td className="px-2 py-1.5 text-center">
+                          {r.outcome ? (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${outcomeClass(r.outcome)}`}>
+                              {r.outcome}
+                            </span>
+                          ) : <span className="text-slate-300 text-[10px]">verbal</span>}
+                        </td>
+                        <td className={`px-2 py-1.5 text-right tabular-nums ${ppClass(r.vs_mid_pp)}`}>{ppFmt(r.vs_mid_pp)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+
+// ---------------------------------------------------------------------------
+// Transcripts tab — quarter list + expand-to-read + full-text search.
+// Same shape as TSMC's transcripts tab.
+// ---------------------------------------------------------------------------
+
+function TranscriptsTab() {
+  const [quarters, setQuarters] = useState<MediaTekTranscriptQuarter[]>([]);
+  const [sourceIssues, setSourceIssues] = useState<MediaTekSourceIssue[]>([]);
+  const [openPeriod, setOpenPeriod] = useState<string | null>(null);
+  const [turns, setTurns] = useState<MediaTekTranscriptTurn[]>([]);
+  const [loadingQ, setLoadingQ] = useState(true);
+  const [loadingT, setLoadingT] = useState(false);
+  const [query, setQuery] = useState("");
+  const [matches, setMatches] = useState<MediaTekTranscriptMatch[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    mediatekClient.transcriptQuarters().then((d) => {
+      setQuarters(d.quarters);
+      setSourceIssues(d.source_issues || []);
+    }).finally(() => setLoadingQ(false));
+  }, []);
+
+  useEffect(() => {
+    if (!openPeriod) { setTurns([]); return; }
+    setLoadingT(true);
+    mediatekClient.transcriptTurns(openPeriod).then((d) => setTurns(d.turns)).finally(() => setLoadingT(false));
+  }, [openPeriod]);
+
+  const runSearch = async () => {
+    if (!query.trim() || query.trim().length < 2) { setMatches([]); return; }
+    setSearching(true);
+    try {
+      const r = await mediatekClient.transcriptSearch(query.trim(), 50);
+      setMatches(r.matches);
+    } finally { setSearching(false); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-3">
+        <form onSubmit={(e) => { e.preventDefault(); runSearch(); }} className="flex items-center gap-2">
+          <Search size={14} className="text-slate-400" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search MediaTek transcripts (e.g. 'data center ASIC', 'Wi-Fi 8', 'NVIDIA')"
+            className="flex-1 h-8 px-2 text-sm border border-slate-200 rounded focus:border-slate-400 outline-none"
+          />
+          <button type="submit" disabled={searching}
+            className="h-8 px-3 text-xs font-semibold bg-slate-900 text-white rounded hover:bg-slate-800 disabled:opacity-50">
+            {searching ? "Searching…" : "Search"}
+          </button>
+        </form>
+        {matches.length > 0 && (
+          <div className="mt-3 max-h-96 overflow-y-auto border-t border-slate-100 pt-2">
+            <div className="text-[11px] text-slate-500 mb-2">{matches.length} matches:</div>
+            {matches.map((m, i) => (
+              <div key={i} className="px-2 py-2 hover:bg-slate-50 border-b border-slate-100">
+                <div className="text-[11px] flex items-center gap-2">
+                  <span className="font-semibold text-slate-700">{m.period_label}</span>
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] ${m.section === "qa" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>{m.section}</span>
+                  <span className="text-slate-600">{m.speaker_name}</span>
+                  <span className="text-slate-400">— {m.speaker_role}</span>
+                </div>
+                <div className="text-xs text-slate-700 mt-1 leading-relaxed">{m.snippet}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Source-issue banner — surfaced when MediaTek's IR site has known
+          per-quarter problems (e.g. wrong-file-uploaded-at-source). One
+          card per affected quarter. */}
+      {sourceIssues.length > 0 && (
+        <div className="space-y-2">
+          {sourceIssues.map((issue) => (
+            <div key={`${issue.period_label}-${issue.file_type}`}
+                 className="bg-amber-50 border border-amber-300 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-200 text-amber-800 mt-0.5 whitespace-nowrap">
+                  {issue.period_label} · SOURCE ISSUE
+                </span>
+                <div className="text-[11px] text-amber-900 leading-relaxed flex-1">
+                  <p className="mb-1.5">{issue.user_facing_message}</p>
+                  {issue.evidence?.url ? (
+                    <p className="text-[10px] text-amber-700 font-mono break-all mb-1">
+                      Affected URL:{" "}
+                      <a href={String(issue.evidence.url)} target="_blank" rel="noopener" className="underline hover:text-amber-900">
+                        {String(issue.evidence.url).slice(0, 120)}…
+                      </a>
+                    </p>
+                  ) : null}
+                  {issue.mitigation?.guidance_fallback && (
+                    <p className="text-[10px] text-amber-800">
+                      <strong>Fallback:</strong> {issue.mitigation.guidance_fallback}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="bg-white border border-slate-200 rounded-lg shadow-sm">
+        <div className="px-4 py-2 border-b border-slate-200">
+          <h3 className="text-sm font-bold text-slate-900">Earnings call transcripts ({quarters.length} quarters)</h3>
+          <p className="text-[11px] text-slate-500 mt-0.5">
+            MediaTek publishes its own English transcript starting 2021Q2. Pre-2021Q2 calls have no transcript.
+            {sourceIssues.length > 0 && ` ${sourceIssues.length} quarter(s) flagged with source-side issues — see banners above.`}
+          </p>
+        </div>
+        {loadingQ ? <SectionLoading /> : (
+          <div className="divide-y divide-slate-100">
+            {quarters.map((q) => (
+              <div key={q.period_label}>
+                <button onClick={() => setOpenPeriod(openPeriod === q.period_label ? null : q.period_label)}
+                  className="w-full text-left px-4 py-2 flex items-center gap-3 hover:bg-slate-50">
+                  {openPeriod === q.period_label ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  <span className="font-semibold text-sm text-slate-800 w-16">{q.period_label}</span>
+                  <span className="text-xs text-slate-500 w-32">{q.event_date}</span>
+                  <span className="text-xs text-slate-600">{q.turns} turns · {(q.chars / 1000).toFixed(0)}k chars · {q.speakers} speakers</span>
+                </button>
+                {openPeriod === q.period_label && (
+                  <div className="px-6 pb-4 bg-slate-50 max-h-[600px] overflow-y-auto">
+                    {loadingT ? <SectionLoading /> : (
+                      <div className="space-y-3 pt-2">
+                        {turns.map((t) => (
+                          <div key={t.turn_index} className="text-xs">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] ${t.section === "qa" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>{t.section}</span>
+                              <span className="font-semibold text-slate-800">{t.speaker_name}</span>
+                              <span className="text-slate-500 text-[11px]">{t.speaker_role}</span>
+                            </div>
+                            <div className="text-slate-700 leading-relaxed whitespace-pre-wrap pl-2 border-l-2 border-slate-200">{t.text}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+// ---------------------------------------------------------------------------
+// Materials tab — full PDF catalog: every Press Release / Presentation /
+// Transcript / Financial Statements / Earnings Call Invitation that
+// MediaTek has published, plus TWSE Consolidated/Unconsolidated reports.
+//
+// MediaTek posts the upcoming earnings call invitation ~3 weeks before the
+// call. The most recent quarter often has only the invitation until the
+// call itself happens, then the other 4-5 PDFs land. We surface this via
+// a yellow "Upcoming call" badge.
+// ---------------------------------------------------------------------------
+
+const MATERIAL_COLUMNS: Array<{ type: string; label: string; icon: React.ReactNode; tooltip: string }> = [
+  { type: "earnings_call_invitation",       label: "Invite",       icon: <Calendar size={11} />,    tooltip: "Earnings Call Invitation (date / dial-in details)" },
+  { type: "press_release",                  label: "Press Rel.",   icon: <FileText size={11} />,    tooltip: "Press Release (headline P&L, prose narrative, Consolidated Income Statement table)" },
+  { type: "presentation",                   label: "Presentation", icon: <FileBarChart size={11} />,tooltip: "Investor Presentation (slide deck — revenue charts, guidance, segment mix)" },
+  { type: "transcript",                     label: "Transcript",   icon: <Mic size={11} />,         tooltip: "Earnings call transcript (PREPARED REMARKS + Q&A; published since 2021Q2)" },
+  { type: "financial_statements",           label: "Statements",   icon: <FileSearch size={11} />,  tooltip: "Financial Statements (full TIFRS income statement, balance sheet, cash flow)" },
+  { type: "consolidated_financial_report",  label: "10-Q (Cons.)", icon: <FileText size={11} />,    tooltip: "TWSE-mandated Consolidated Financial Report (full audited statements)" },
+];
+
+function MaterialsTab() {
+  const [catalog, setCatalog] = useState<MediaTekPDFCatalog | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    mediatekClient.pdfs()
+      .then(setCatalog)
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <SectionLoading />;
+  if (!catalog || catalog.quarter_count === 0) return <Empty>No PDF catalog.</Empty>;
+
+  // Quarters newest-first per project convention
+  const yqs = Object.keys(catalog.quarters).sort().reverse();
+  const todayYQ = yqs[0];
+
+  const findPdf = (yq: string, type: string): MediaTekPDFEntry | undefined =>
+    catalog.quarters[yq]?.pdfs.find((p) => p.type === type);
+
+  const isUpcoming = (yq: string): boolean => {
+    // "Upcoming" = the most recent quarter that has ONLY an invitation
+    // (no press release / transcript yet — call hasn't happened)
+    const q = catalog.quarters[yq];
+    if (!q) return false;
+    const types = new Set(q.pdfs.map((p) => p.type));
+    return types.has("earnings_call_invitation") && !types.has("press_release") && !types.has("transcript");
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-indigo-50 border border-indigo-200 rounded-md px-3 py-2 text-[11px] text-indigo-800">
+        <strong>Source:</strong> direct anchors from{" "}
+        <a href={catalog.index_url} target="_blank" rel="noopener" className="underline font-mono text-[10px]">
+          mediatek.com/investor-relations/financial-information
+        </a>
+        {" "}·{" "}<span className="font-mono text-[10px]">{catalog.quarter_count}</span> quarters indexed
+        {" "}·{" "}refreshed <span className="font-mono text-[10px]">{catalog.enumerated_at?.slice(0, 10)}</span>.
+        The <strong>upcoming earnings call invitation</strong> typically lands ~3 weeks before the call;
+        the other 4-5 PDFs land within hours of the call itself.
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+        <div className="px-4 py-2 border-b border-slate-200 bg-slate-50/80">
+          <h3 className="text-sm font-bold text-slate-900">
+            IR materials catalog
+            <span className="text-[11px] font-normal text-slate-500 ml-2">
+              · click any cell to open the source PDF in a new tab
+            </span>
+          </h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-slate-50">
+              <tr className="border-b border-slate-200">
+                <th className="text-left px-3 py-2 font-semibold text-slate-700 sticky left-0 bg-slate-50 w-24">Quarter</th>
+                {MATERIAL_COLUMNS.map((col) => (
+                  <th key={col.type} className="text-center px-2 py-2 font-semibold text-slate-700" title={col.tooltip}>
+                    <div className="flex items-center justify-center gap-1">
+                      {col.icon}
+                      <span>{col.label}</span>
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {yqs.map((yq) => {
+                const upcoming = isUpcoming(yq);
+                return (
+                  <tr key={yq} className={`border-b border-slate-100 hover:bg-slate-50 ${upcoming ? "bg-amber-50/40" : ""}`}>
+                    <td className="px-3 py-1.5 font-semibold text-slate-800 sticky left-0 bg-white whitespace-nowrap">
+                      {yq.replace(/(\d{4})Q(\d)/, "$2Q$1").replace(/Q(\d{4})/, (_, y) => `Q${y.slice(2)}`)}
+                      {upcoming && (
+                        <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-200 text-amber-800">
+                          UPCOMING
+                        </span>
+                      )}
+                    </td>
+                    {MATERIAL_COLUMNS.map((col) => {
+                      const pdf = findPdf(yq, col.type);
+                      return (
+                        <td key={col.type} className="px-2 py-1.5 text-center">
+                          {pdf ? (
+                            <a href={pdf.url} target="_blank" rel="noopener"
+                               className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 hover:underline">
+                              <FileText size={11} />
+                              <ExternalLink size={9} />
+                            </a>
+                          ) : (
+                            <span className="text-slate-300">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 function QuartersTab() {
   const [quarters, setQuarters] = useState<MediaTekQuarter[]>([]);

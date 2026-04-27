@@ -127,20 +127,37 @@ def _annual_vs_quarters(
         # Q1+Q2+Q3 share period_start with the Annual row.
         q123_mask = (df["period_start"] == ann_ps) & (df["fiscal_quarter"].isin(["Q1", "Q2", "Q3"]))
         q4_mask   = (df["fiscal_year"] == ann_fy) & (df["fiscal_quarter"] == "Q4")
-        q_sum = df[q123_mask][metric].sum() + df[q4_mask][metric].sum()
-        if pd.isna(q_sum):
+        # Skip if no quarterly rows exist at all for this FY -- common at the
+        # history edge where we have a 10-K but the matching 10-Qs are out of
+        # the build window. Not a bug, just sparsity.
+        n_q_rows = int(q123_mask.sum() + q4_mask.sum())
+        if n_q_rows == 0:
             continue
+        # Only count NON-NaN quarterly values toward the sum. If we have <4
+        # quarterly rows for this metric, this isn't a true reconciliation;
+        # downgrade to INFO so it doesn't drown the report.
+        q_vals = pd.concat([df[q123_mask][metric], df[q4_mask][metric]]).dropna()
+        if q_vals.empty:
+            continue
+        q_sum = q_vals.sum()
         diff_pct = abs(q_sum - ann_v) / abs(ann_v) * 100
         if diff_pct <= threshold_pct:
             continue
-        sev = "CRITICAL" if (severity_at is not None and diff_pct >= severity_at) else "WARN"
+        partial_period = len(q_vals) < 4
+        if partial_period:
+            sev = "INFO"   # incomplete quarterly history; cannot reliably reconcile
+        elif severity_at is not None and diff_pct >= severity_at:
+            sev = "CRITICAL"
+        else:
+            sev = "WARN"
         out.append(Violation(
             severity=sev, ticker=ticker, rule="annual_vs_quarters",
             statement=statement, period=f"FY{int(ann_fy)}", metric=metric,
-            expected=f"{q_sum:.0f} (sum of quarters)",
+            expected=f"{q_sum:.0f} (sum of {len(q_vals)} non-null quarters)",
             actual=f"{ann_v:.0f} (annual)",
-            message=(f"FY{int(ann_fy)} {metric}: Annual={ann_v:.0f} vs Q1+Q2+Q3+Q4={q_sum:.0f} "
-                     f"({diff_pct:.1f}% discrepancy)"),
+            message=(f"FY{int(ann_fy)} {metric}: Annual={ann_v:.0f} vs Q-sum={q_sum:.0f} "
+                     f"({diff_pct:.1f}% discrepancy"
+                     + (f"; only {len(q_vals)}/4 quarters present)" if partial_period else ")")),
         ))
     return out
 
@@ -172,10 +189,15 @@ def _nan_coverage(
 
 def _q4_sign_anomaly(df: pd.DataFrame, metric: str, ticker: str, statement: str) -> list[Violation]:
     """Q4 sign opposite to Q1+Q2+Q3 average AND magnitude > 2x annual sum
-    suggests a derivation cascade from a wrong annual."""
+    suggests a derivation cascade from a wrong annual.
+
+    Noise floor: only fire when |Q4| AND |Q1-Q3 avg| are both >= 100 (i.e.
+    100 million) to avoid flagging tiny rounding-noise differences at the
+    edges of history."""
     out: list[Violation] = []
     if metric not in df.columns:
         return out
+    NOISE_FLOOR_M = 100.0
     for _, q4 in df[df["fiscal_quarter"] == "Q4"].iterrows():
         ann_ps = q4.get("period_start")
         # Q4 has its own period_start (Q3_end + 1 day), so find Q1-Q3 by fiscal_year.
@@ -188,7 +210,7 @@ def _q4_sign_anomaly(df: pd.DataFrame, metric: str, ticker: str, statement: str)
         if pd.isna(q4_v) or q123_v.empty:
             continue
         q123_mean = q123_v.mean()
-        if abs(q123_mean) < 1:  # too small to evaluate sign
+        if abs(q123_mean) < NOISE_FLOOR_M or abs(q4_v) < NOISE_FLOOR_M:
             continue
         sign_q4   = 1 if q4_v   >= 0 else -1
         sign_q123 = 1 if q123_mean >= 0 else -1
@@ -315,13 +337,13 @@ def audit_ticker(ticker: str) -> TickerAudit:
     if cf is not None:
         a.rows_cashflow = len(cf)
         # Annual = sum of quarters for ALL CF metrics. This is the AMD smoking gun.
-        for m in ("operating_cf", "investing_cf", "financing_cf", "capex"):
+        for m in ("operating_cf", "investing_cf", "financing_cf", "capex", "depreciation"):
             a.violations += _annual_vs_quarters(
                 cf, m, ticker, "cash_flow",
                 threshold_pct=5.0, severity_at=25.0,
             )
         # Q4 sign anomaly (derivation cascade from bad Annual).
-        for m in ("operating_cf", "investing_cf", "financing_cf"):
+        for m in ("operating_cf", "investing_cf", "financing_cf", "depreciation"):
             a.violations += _q4_sign_anomaly(cf, m, ticker, "cash_flow")
         # NaN coverage on the most basic CF metrics.
         for m in ("operating_cf",):
@@ -348,13 +370,19 @@ def audit_ticker(ticker: str) -> TickerAudit:
                 ))
 
     # ---- Cross-statement: OCF / revenue plausibility ----
-    if income is not None and cf is not None:
-        # Match by fiscal_quarter + period_end.
+    if (
+        income is not None and cf is not None
+        and {"period_end", "fiscal_quarter", "revenue"} <= set(income.columns)
+        and {"period_end", "fiscal_quarter", "operating_cf"} <= set(cf.columns)
+    ):
+        # Match by fiscal_quarter + period_end. Defensive col selection: only
+        # take what exists.
+        inc_cols = [c for c in ("period_end", "fiscal_quarter", "fiscal_year",
+                                "revenue", "net_income") if c in income.columns]
+        cf_cols  = [c for c in ("period_end", "fiscal_quarter", "operating_cf") if c in cf.columns]
         merged = pd.merge(
-            income[["period_end", "fiscal_quarter", "fiscal_year", "revenue", "net_income"]],
-            cf[["period_end", "fiscal_quarter", "operating_cf"]],
-            on=["period_end", "fiscal_quarter"],
-            how="inner",
+            income[inc_cols], cf[cf_cols],
+            on=["period_end", "fiscal_quarter"], how="inner",
         )
         # OCF / revenue plausibility: operating CF as a fraction of revenue.
         # For most software/semis: -10% to +60% is normal. Outside that range

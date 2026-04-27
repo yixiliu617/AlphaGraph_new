@@ -1,0 +1,36 @@
+# AlphaGraph local development services.
+#
+# Bring up: `docker compose up -d`
+# Tear down: `docker compose down`
+# Reset DB:  `docker compose down -v` (drops the named volume, deletes data)
+#
+# Production note: this file is for local dev only. AWS deploy uses RDS for
+# Postgres, not a containerised one. Keep the connection contract the same
+# (port 5432, libpq env vars) so the .env can swap host between local and
+# RDS without code changes.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: alphagraph-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-alphagraph}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-alphagraph_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-alphagraph}
+      # Quiet log
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-alphagraph} -d ${POSTGRES_DB:-alphagraph}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  postgres_data:
+    name: alphagraph_postgres_data

@@ -1,6 +1,12 @@
 ---
 name: tsmc-quarterly-reports
 description: Ingest TSMC quarterly management reports (and the four other PDFs published per quarter — earnings release, presentation, transcript, full financial statements) from investor.tsmc.com. Covers Cloudflare bypass via same-origin fetch in Playwright, Workiva PDF text quirks, the long-format silver schema for cross-company financial comps, and corner cases discovered while building the extractor. Use when adding a new TSMC report quarter, debugging extraction drift, building cross-company comparisons against TSMC data, or porting the parser pattern to other Workiva-published Asian filings.
+version: 1.1
+last_validated_at: 2026-04-26
+conditions:
+  - playwright_profile_dir: "C:/Users/Sharo/.alphagraph_tsmc_profile"
+prerequisites: [data-quality-invariants]
+tags: [extractor, ticker-specific, tsmc, taiwan, ir, cloudflare, workiva]
 ---
 
 # TSMC Quarterly Management Report Extraction

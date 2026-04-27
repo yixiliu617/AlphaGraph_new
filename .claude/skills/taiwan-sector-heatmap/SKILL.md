@@ -1,6 +1,12 @@
 ---
 name: taiwan-sector-heatmap
 description: Build a dense heatmap table + drill-down combo chart for Taiwan-listed companies' monthly revenue / YoY% / MoM%. Heatmap rows grouped by subsector, columns = trailing months (most-recent on left). Click a row to load that ticker's 10-year history into a ComposedChart below (bars=revenue NT$B, lines=YoY%/MoM% on right axis). Use when the user asks for a Taiwan sector heatmap (semi, financials, TMT, anything) in DataExplorer or as a standalone panel — or for a subset of tickers (single subsector, custom ticker list, different market like TPEx-only). Covers the Taiwan data layout, the storage-path gotcha, the reusable panel + chart template, and how to swap in a different universe.
+version: 1.0
+last_validated_at: 2026-04-28
+conditions:
+  - requires_dir: [backend/data/taiwan]
+prerequisites: [taiwan-monthly-data-extraction, time-axis-sort-convention, readable-data-table]
+tags: [ui, taiwan, heatmap, sector-analysis, frontend]
 ---
 
 # Taiwan Sector Heatmap — Build Skill

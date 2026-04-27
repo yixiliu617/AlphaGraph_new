@@ -1000,3 +1000,263 @@ publishes. Months of work, plus geopolitical / legal review.
 | Readable financial table aesthetics | — | `.claude/skills/readable-data-table/SKILL.md` |
 | Backend launch (dev vs prod) | — | `CLAUDE.md` § "Backend Launch" |
 | Admin / cache stats | `backend/app/api/routers/v1/admin.py` | `/api/v1/admin/cache` and `/api/v1/admin/runtime` |
+
+---
+
+## 14. Hermes-Inspired Migration Roadmap (Q3-Q4 2026)
+
+*Added 2026-04-27 after a deep architectural review of the `hermes-agent` codebase at `C:\Users\Sharo\AI_projects\hermes-agent`. Hermes is a production-grade self-improving conversational agent with multi-platform gateway, sandboxed subagent delegation, FTS5-backed session search, pluggable memory providers, and YAML-frontmatter skills. This section captures **which 9 Hermes patterns we're adopting**, the dependency graph between them, and the execution-detail roadmap.*
+
+> **For agents reading this cold:** This is the authoritative roadmap for everything happening Q3-Q4 2026. Decisions captured in §14.7 are locked-in unless explicitly revisited. Status of each phase: see "**Status**" line under each subsection.
+
+### 14.1 Scope summary
+
+We're adopting **9 Hermes patterns** (from an initial audit of 14 candidates):
+
+**Adopting (from original CTO review):**
+1. Auto-discovery tool registry (Hermes `tools/registry.py`)
+2. YAML-frontmatter skill metadata + condition gating (`agent/skill_utils.py`)
+3. FTS5 SQLite for session + audit history (`hermes_state.py`)
+4. Pluggable memory provider abstraction (`agent/memory_provider.py`)
+5. JSON-driven cron scheduler (`cron/scheduler.py`)
+
+**Adopting (added per user direction 2026-04-27):**
+6. Honcho user modeling (via the memory provider abstraction; self-hosted)
+7. Subagent delegation framework (`tools/delegate_tool.py` with safety rails)
+8. Prompt caching (Anthropic `cache_control`; expanding to Gemini when supported)
+9. Gateway multi-platform layer (Telegram + Slack + Email — narrowed from Hermes' 6 channels)
+
+**Skipping:**
+- ACP IDE integration (`acp_adapter/`) — wrong product target
+
+**Plus 4 novel Hermes patterns** that we're picking up alongside:
+- Tool error trajectory capture for RL feedback (`agent/trajectory.py`)
+- Model metadata registry with auto-fallback (`agent/model_metadata.py` + `smart_model_routing.py`)
+- Prompt-injection scanning of context files (`agent/prompt_builder.py`)
+- Skill `last_validated_at` + staleness signaling (frontmatter + validation harness)
+
+**Total estimated effort:** 18-27 weeks (4-6 months) for a small focused team. Single engineer: 6-8 months. Two engineers: 4-5 months.
+
+### 14.2 Dependency graph
+
+```
+Phase 1 (DONE 2026-04-26) — performance baseline
+    │
+    └─→ Phase 2: Storage + auth foundation (4-6 weeks)
+        ├─ Hive-partitioned parquet + DuckDB
+        ├─ Postgres for user/session/audit state
+        ├─ Redis for shared cache + agent intermediate state
+        └─ OAuth (Google + Microsoft) — minimal flow
+            │
+            └─→ Phase 3a: Agent infrastructure foundation (3-4 weeks)
+                ├─ A. Auto-discovery tool registry  ← Hermes pattern #1
+                ├─ B. Skill frontmatter + condition gating  ← Hermes pattern #2
+                ├─ C. FTS5 session/audit log  ← Hermes pattern #3
+                ├─ D. Pluggable memory provider abstraction  ← Hermes pattern #4
+                ├─ E. JSON-driven cron scheduler  ← Hermes pattern #5
+                ├─ F. Skill validation harness  ← derived from `last_validated_at`
+                └─ G. Tool error trajectory capture  ← novel Hermes pattern
+                    │
+                    └─→ Phase 3b: Agent service v1 (3-4 weeks)
+                        ├─ Main agent (clarify → plan → confirm → execute)
+                        ├─ Subagent delegation framework  ← Hermes pattern #7
+                        ├─ Fact-check / citation discipline (silver-layer provenance)
+                        ├─ Chart generation tool
+                        └─ SSE streaming responses
+                            │
+                            └─→ Phase 3c: Token + cost discipline (1-2 weeks)
+                                ├─ Prompt caching (cache_control markers)  ← Hermes pattern #8
+                                ├─ Model metadata registry + auto-fallback  ← novel Hermes pattern
+                                └─ Per-user query budgets
+                                    │
+                                    └─→ Phase 4a: First channel — Telegram MVP (2-3 weeks)
+                                        ├─ Gateway scaffolding  ← Hermes pattern #9 (narrowed)
+                                        ├─ Telegram adapter
+                                        └─ User identity mapping (one user, multiple platform handles)
+                                            │
+                                            └─→ Phase 4b: User evolution — Honcho (1-2 weeks)
+                                                ├─ Self-hosted Honcho service  ← Hermes pattern #6
+                                                └─ HonchoProvider (slot into MemoryManager)
+                                                    │
+                                                    └─→ Phase 4c: Multi-channel rollout (4-6 weeks)
+                                                        ├─ Slack adapter
+                                                        ├─ Email (SMTP + IMAP) adapter
+                                                        └─ Cross-channel identity
+```
+
+### 14.3 Phase 3a — Agent infrastructure foundation
+
+**Status:** PLANNED. Two cheap warmups (skill frontmatter migration + JSON cron) starting this week as preparation; main work begins after Phase 2.
+
+**A. Auto-discovery tool registry** *(2-3 days)*
+- **From Hermes:** `tools/registry.py` lines 41-73 — modules call `registry.register()` at import time; AST scan finds all registrations.
+- **What we change:** Convert `backend/main.py`'s 16 router mounts to `@register_router("/api/v1/{prefix}")` decorator pattern.
+- **Files:** `backend/app/api/registry.py` (new), update of every router file (~5 lines each).
+- **Test:** unit test that asserts every router file declares itself, no double registrations.
+
+**B. Skill frontmatter + condition gating** *(1-2 days)*
+- **From Hermes:** `agent/skill_utils.py` lines 52-83 — `parse_frontmatter()` with CSafeLoader + simple-keyvalue fallback.
+- **Adding fields:** `version`, `last_validated_at`, `conditions`, `prerequisites`, `tags`.
+- **Files:** `backend/app/services/skills/loader.py` (new), migration of 17 existing `.claude/skills/*/SKILL.md`.
+- **Test:** loader correctly skips skills whose conditions don't evaluate true; prerequisites are checked at load.
+
+**C. FTS5 session + audit history** *(2-3 days)*
+- **From Hermes:** `hermes_state.py` lines 36-90 — schema + FTS virtual table + parent_session_id chain.
+- **Storage:** `~/.alphagraph/state.db` (separate from `alphagraph.db` to keep audit isolated).
+- **Files:** `backend/app/services/audit_log/store.py` (new), migration script for existing `taiwan_scraper_heartbeat` rows.
+- **New endpoint:** `GET /api/v1/admin/audit-log/search?q=...`
+- **Test:** sub-100ms full-text search across 10K rows; parent-child chains correctly join long sessions.
+
+**D. Pluggable memory provider abstraction** *(3-4 days; foundation only)*
+- **From Hermes:** `agent/memory_provider.py` (abstract base) + `agent/memory_manager.py` lines 71-110 (orchestrator).
+- **Concrete provider in Phase 3a:** `BuiltinMarkdownProvider` reading/writing today's `memory/*.md`.
+- **Slot for second provider** (Honcho) wired but not implemented until Phase 4b.
+- **Files:** `backend/app/services/memory/{provider.py, manager.py, providers/builtin.py}`.
+- **Test:** swap providers via config, confirm reads/writes go to the right place; concurrent writes don't corrupt.
+
+**E. JSON-driven cron scheduler** *(1-2 days)*
+- **From Hermes:** `cron/scheduler.py` lines 67-76 — `_resolve_delivery_target()` validates platform names.
+- **What we change:** lift Taiwan + social schedulers to use shared infrastructure; declare jobs in `cron/jobs.json`.
+- **Files:** `backend/app/services/cron/scheduler.py`, `backend/data/cron_jobs.json`.
+- **New endpoint:** `GET /api/v1/admin/cron` — lists jobs + last run + next run.
+- **Test:** cron tick fires registered jobs at correct time; invalid platform names rejected.
+
+**F. Skill validation harness** *(2-3 days)*
+- **Per skill:** `.claude/skills/{name}/tests/{fixture.json, expected_output.json}`.
+- **Runner:** every git push runs all skill tests; failures bump `staleness: high` in skill frontmatter; UI banner appears next time the skill is invoked.
+- **Files:** `backend/app/services/skills/validator.py`, `.github/workflows/skill-tests.yml`.
+- **Test:** seed a known-broken skill, confirm staleness flag fires.
+
+**G. Tool error trajectory capture** *(1-2 days)*
+- **From Hermes:** `agent/trajectory.py`, `environments/agent_loop.py` lines 52-78.
+- **What it captures:** `{turn, tool, args, error_text, action_taken, result}` per failed tool call.
+- **Storage:** JSONL + indexed in FTS5 (so we can search "all instances where pdf fetch failed").
+- **Files:** `backend/app/services/agent/trajectory.py`.
+- **Long-term:** these trajectories become RL fine-tuning data for our audit-resolution agents.
+
+**Phase 3a deliverable:** clean agent infrastructure substrate. No user-facing agent yet, but every primitive needed to build one is in place.
+
+### 14.4 Phase 3b — Agent service v1
+
+**Status:** PLANNED. Depends on Phase 3a complete.
+
+- **Main agent loop**: `backend/app/services/agent/main_agent.py` — clarify → plan → confirm → execute. Tools: structured EDGAR/Taiwan/silver queries, vector search over transcripts, chart generation, citation/fact-check. Streaming response via SSE.
+- **Subagent delegation** *(1-2 weeks; newly in scope per user request 2026-04-27)*: `backend/app/services/agent/delegate.py`. Adopting Hermes' safety rails verbatim — `MAX_DEPTH=2`, `BLOCKED_TOOLS=[delegate, clarify, send_message, execute_code]`, `max_concurrent_children=3`. Use cases that justify the complexity:
+  - "Compare TSMC, UMC, MediaTek margins over last 8 quarters" → 3 parallel children.
+  - "Find peers + suppliers + customers for NVDA" → 3 parallel relationship-lookup children.
+  - "Research these 5 stocks" → 5 parallel children with bounded toolsets.
+- **Fact-check / citation discipline**: every numeric claim MUST round-trip to a silver-layer fact with `(ticker, period_end, metric, source)` provenance. Failed checks → agent regenerates with the corrected value, marking which claim was changed.
+- **Chart generation tool**: produces a recharts-compatible JSON config from a query spec. Renders client-side.
+
+**Phase 3b deliverable:** an agent that can answer multi-dimensional analysis questions ("compare a company against peers/suppliers/customers, with provenance, with charts") via clarify-plan-confirm-execute. Single-tenant, single-channel (web).
+
+### 14.5 Phase 3c — Token + cost discipline
+
+**Status:** PLANNED. Depends on Phase 3b in flight.
+
+- **Prompt caching** *(2-3 days; newly in scope)*: wrap Anthropic API calls with `cache_control: {type: "ephemeral"}` markers on stable blocks. **Cacheable for AlphaGraph:**
+  - CLAUDE.md project rules (always-on, immutable per session)
+  - IR knowledge base section for the ticker being analyzed (immutable per ticker per session)
+  - Agent's tool schema (immutable per agent version)
+  - User's profile / past memory (immutable per user per session)
+- **Expected hit rate:** 60-80% on the static portion = 50-70% reduction in input tokens for multi-turn sessions.
+- **Provider lock-in note:** Anthropic-specific today. Add `LLMProvider.supports_caching` flag; make caching optional. Gemini will likely add similar; OpenAI's prompt-cache works automatically.
+- **Model metadata registry** *(2-3 days)*: `backend/app/services/llm/model_registry.py` — `{model_id → context_length, output_token_max, cache_supported, $/M_input, $/M_output}`. On context-overflow API error: parse the error, identify available budget, retry with summarized inputs OR fall back to next-tier model.
+- **Per-user query budget** *(2 days)*: per-tier hard caps in Postgres — free=20 LLM calls/day, pro=300/day, institutional=2000/day. Plus per-question hard cap on agent loop depth (default: 50 LLM calls).
+
+### 14.6 Phase 4a — Telegram MVP
+
+**Status:** PLANNED. Depends on Phase 3c complete.
+
+- **Gateway scaffolding** *(narrowed scope from Hermes)*: only what Telegram needs. Skip the multi-platform features for now.
+- **Files:** `backend/app/services/gateway/__init__.py`, `gateway/session_store.py`, `gateway/platforms/telegram.py`.
+- **User identity mapping**: Postgres table `(user_id, platform, platform_user_id, verified_at)`. Telegram start command: `/start <linking_token>` where the linking token is generated in the web app.
+- **Cross-channel parity**: same agent service, same memory, same fact-check. Just a different IO surface.
+- **Realistic effort estimate:** 2-3 weeks for a clean implementation including session routing + idempotency + retry handling.
+
+### 14.7 Phase 4b — Honcho user modeling
+
+**Status:** PLANNED. Depends on Phase 4a complete (need users + channel identity first).
+
+**Hosting decision (LOCKED IN per user direction 2026-04-27):** **self-host Honcho.** Open-source, full data control, institutional-grade privacy posture. ~1-2 days extra over the cloud option.
+
+- **What Honcho gives us:** dialectic user modeling — agent learns each user's communication style, recurring interests, preferred level of detail, factual preferences ("I always want NTD numbers in billions, not millions").
+- **What it does NOT replace:** structured fact storage stays in our silver layer.
+- **Integration:** slot Honcho in as a `HonchoProvider` alongside `BuiltinMarkdownProvider`. MemoryManager orchestrates: builtin = facts/rules, Honcho = user dialectic.
+- **What to capture in the user model:**
+  - Communication preferences (terse vs thorough, technical vs prose, prefers tables vs charts)
+  - Recurring topics/coverage (which tickers do they always ask about?)
+  - Confidence calibration (do they want hedged answers or strong conclusions?)
+  - Time patterns (when do they typically engage?)
+- **Files:** `backend/app/services/memory/providers/honcho.py`, deployment manifest for self-hosted Honcho.
+- **Privacy policy:** need a 1-page policy before shipping — what user info we capture vs not, retention, deletion rights.
+
+### 14.8 Phase 4c — Multi-channel rollout
+
+**Status:** PLANNED. Depends on Phase 4b complete.
+
+- **Slack adapter** *(1-2 weeks)*: institutional standard. Slash commands (`/alphagraph TSMC vs UMC`) → bot creates a thread with response. DM mode for full clarify-plan-confirm flow.
+- **Email adapter** *(1-2 weeks)*: SMTP outbound + IMAP inbound (or SendGrid Inbound Parse). Particularly valuable for scheduled deliverables ("Email me a daily summary of my watchlist at 7am EST"). Cron jobs trigger naturally.
+- **Cross-channel identity** *(1-2 weeks)*: one user account linked to Telegram, Slack workspace member, email. "Continue our conversation" — message arriving on Slack continues the thread that started on Telegram.
+- **Anti-pattern alert:** don't build all 6 channels Hermes has. **Telegram + Slack + Email = 95% of institutional use.** Discord (not institutional), WhatsApp (not US/EU institutional), Signal (overkill) are deferred unless specific customer demand.
+
+### 14.9 Locked-in decisions (as of 2026-04-27)
+
+These are LOCKED-IN per user direction. Don't revisit without explicit re-discussion:
+
+| # | Decision | Why locked |
+|---|---|---|
+| D1 | **Honcho hosting:** self-host (Option B) | Privacy posture for institutional users + no vendor lock-in |
+| D2 | **Sandbox for subagents:** Python threads (Hermes default) | Lower latency than processes/Docker; revisit only if memory issues surface |
+| D3 | **Subagent depth:** `MAX_DEPTH=2` | Hermes value, prevents infinite delegation |
+| D4 | **Subagent concurrency:** `max_concurrent_children=3` | Hermes value; revisit when first user complains |
+| D5 | **Prompt caching:** Anthropic-only initially, abstracted via `LLMProvider.supports_caching` | Pragmatic; provider-agnostic when others add it |
+| D6 | **First channel:** web only for v1, Telegram for v2, Slack + Email later | Lowest-risk rollout sequence |
+| D7 | **Channels we WILL ship:** Telegram, Slack, Email | Covers 95% of institutional use |
+| D8 | **Channels we will NOT ship:** Discord, WhatsApp, Signal, ACP IDE | Wrong product target |
+| D9 | **Cost ceiling per tier:** free=20 LLM calls/day, pro=300/day, institutional=2000/day | Prevents single curious user from racking up $100/day |
+| D10 | **Auth:** Google + Microsoft direct OAuth (not Auth0) for v1 | Simpler ops; switch to Auth0 if institutional volume demands SSO |
+
+### 14.10 Open decisions still needed
+
+These need to be answered before specific phases can start:
+
+- **DEC-1 (before Phase 3b):** Subagent failure mode — gracefully degrade and alert humans, or page on-call? Default suggestion: graceful degrade until institutional contracts demand on-call SLAs.
+- **DEC-2 (before Phase 4b):** Honcho privacy policy approval — what user info is captured? Need 1-page policy approved before shipping.
+- **DEC-3 (before Phase 4c):** Cross-channel verification — how does a user prove they own their Slack workspace handle AND their Telegram handle? Linking-token UX needs design.
+- **DEC-4 (ongoing):** Cost re-evaluation — if Anthropic prices change or Gemini cache hits parity, revisit prompt caching strategy.
+
+### 14.11 Risks + mitigations
+
+| Risk | Likelihood | Mitigation |
+|---|---|---|
+| Honcho integration takes >2 weeks because docs are thin | Medium | Self-host means we can read source. Budget +1 week. |
+| Subagent delegation makes debugging harder | High | Tool error trajectory capture (Phase 3a/G) gives full visibility — mandatory before delegation ships. |
+| Prompt caching's actual hit rate < 40% | Medium | Measure for 1 week before relying on cost projections. If <40%, optimize cache block design before going further. |
+| Telegram bot policies bite us | Low | Telegram is bot-friendly; their public APIs are forgiving. |
+| Honcho ↔ memory abstraction has subtle conflicts (both writing about same thing) | Medium | MemoryManager assigns clear domains: Honcho = dialectic, builtin = facts. Don't overlap. |
+| Subagent delegation tempts over-decomposition | High (cultural) | Code-review rule: no delegation unless tasks genuinely run parallel AND benefit. Start with budget ≤3 delegations per user query. |
+| Phase 2 (storage refactor) blocks everything else and slips | Medium | Phase-2 already documented in §13.4. Track it weekly. Don't let Phase 3 work begin until Phase 2 is stable. |
+
+### 14.12 This-week warmups (started 2026-04-27)
+
+Two cheap wins that don't block anything but pre-position us:
+
+- **W1: Skill frontmatter migration.** Add `version`, `last_validated_at`, `conditions`, `prerequisites`, `tags` to existing 17 skills. Loader lives in current ad-hoc location for now; formal `loader.py` lands in Phase 3a/B.
+- **W2: cron/jobs.json shape.** Migrate the Taiwan + social APScheduler config to a declarative `backend/data/cron_jobs.json` even though we keep APScheduler as the runner for now. Sets us up for Phase 3a/E.
+
+Status of warmups updated in `memory/project_alphagraph_q3_roadmap.md`.
+
+### 14.13 Where to find what (as of 2026-04-27)
+
+| Artifact | Location |
+|---|---|
+| This roadmap | `architecture_and_design_v2.md` § 14 (you're here) |
+| Phase 1 details (DONE) | `architecture_and_design_v2.md` § 13.3 |
+| Hermes audit findings (full report) | `memory/project_alphagraph_q3_roadmap.md` |
+| Active warmup tasks | `memory/project_alphagraph_q3_roadmap.md` |
+| Locked decisions | this section, §14.9 |
+| Open decisions | this section, §14.10 |
+| User vision (multi-channel + Honcho) | `product_design_v1.md` § 18 (added 2026-04-27) |
+| Skill validation harness (Phase 3a/F) | `backend/app/services/skills/validator.py` (TODO) |
+| Cron job declarations (W2) | `backend/data/cron_jobs.json` (TODO) |

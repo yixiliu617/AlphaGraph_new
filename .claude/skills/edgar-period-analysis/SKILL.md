@@ -1,6 +1,12 @@
 ---
 name: edgar-period-analysis
 description: HIGH PRIORITY. Read EDGAR-sourced fiscal data safely when building charts, tables, or analyses across tickers. Never guess the fiscal period; always anchor on the most-recent-row label as reported by edgartools, then step backward by exactly one fiscal quarter per row (sorted by end_date descending). When an older row's edgartools label disagrees with the stepped-back label, prefer the stepped-back label for display and keep a mismatch note below the table. Use whenever the user asks to build a multi-ticker time-series, a sector heatmap, a YoY comparison, a quarterly table, or asks to "see the last N quarters" for any ticker sourced from EDGAR.
+version: 1.0
+last_validated_at: 2026-04-28
+conditions:
+  - requires_dir: [backend/data/filing_data]
+prerequisites: []
+tags: [edgar, fiscal-periods, data-analysis, high-priority]
 ---
 
 # EDGAR Period Analysis — High Priority Skill

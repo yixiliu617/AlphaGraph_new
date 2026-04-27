@@ -26,6 +26,7 @@ import TaiwanForeignFlowPanel from "./TaiwanForeignFlowPanel";
 import TSMCPanel from "./TSMCPanel";
 import UMCPanel from "./UMCPanel";
 import MediaTekPanel from "./MediaTekPanel";
+import PricesTab from "./PricesTab";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -2698,6 +2699,11 @@ export default function DataExplorerView({
 
   const [viewMode, setViewMode] = useState<"financials" | "semi-pricing" | "taiwan-semi" | "taiwan-day-trading" | "taiwan-foreign-flow">("financials");
 
+  // Default ticker sub-tab toggle: Prices vs Financials. Applies to any
+  // ticker that doesn't have a specialised panel (TSMC/UMC/MediaTek).
+  // Lands on Prices so NVDA, AAPL, AMD, etc. show the chart immediately.
+  const [usEquityTab, setUsEquityTab] = useState<"prices" | "financials">("prices");
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
 
@@ -2875,10 +2881,51 @@ export default function DataExplorerView({
           <MediaTekPanel />
         ) : loading && !hasData ? (
           <LoadingOverlay />
-        ) : !hasData ? (
+        ) : !hasData && usEquityTab !== "prices" ? (
           <EmptyState ticker={activeTicker} />
         ) : (
           <>
+            {/* ── Sub-tab toggle: Prices | Financials (US equities) ── */}
+            <div className="flex items-center gap-2">
+              <div className="flex bg-white border border-slate-200 rounded-md overflow-hidden text-xs shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setUsEquityTab("prices")}
+                  className={`px-4 py-1.5 ${
+                    usEquityTab === "prices"
+                      ? "bg-indigo-600 text-white"
+                      : "bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  Prices
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUsEquityTab("financials")}
+                  className={`px-4 py-1.5 border-l border-slate-200 ${
+                    usEquityTab === "financials"
+                      ? "bg-indigo-600 text-white"
+                      : "bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  Financials
+                </button>
+              </div>
+              <span className="text-[11px] text-slate-500 font-mono">{activeTicker}</span>
+            </div>
+
+            {usEquityTab === "prices" && (
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+                <PricesTab ticker={activeTicker} />
+              </div>
+            )}
+
+            {usEquityTab === "financials" && !hasData && (
+              <EmptyState ticker={activeTicker} />
+            )}
+
+            {usEquityTab === "financials" && hasData && (
+              <>
             {/* ── Financial table ── */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="flex items-center justify-between px-6 py-3 border-b border-slate-100 bg-slate-50/80">
@@ -3304,6 +3351,8 @@ export default function DataExplorerView({
               onGroupDefChange={onHeatmapGroupDefChange}
               onMetricChange={onHeatmapMetricChange}
             />
+              </>
+            )}
           </>
         )}
       </div>

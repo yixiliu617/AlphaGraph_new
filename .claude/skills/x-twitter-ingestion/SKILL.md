@@ -1,6 +1,12 @@
 ---
 name: x-twitter-ingestion
 description: Ingesting X (Twitter) data for account-level + trending tracking via twitterapi.io. Covers endpoint catalog, canonical schema, engagement-drift amendment detection, rate-limit handling, cost model, handle-verification gotchas, and the xAI x_search vs twitterapi.io trade-off. Use when building or troubleshooting social/X ingestion, adding new tracked accounts, or debugging coverage issues.
+version: 1.0
+last_validated_at: 2026-04-28
+conditions:
+  - requires_env: [TWITTERAPI_IO_KEY]
+prerequisites: []
+tags: [social, x, twitter, ingestion, third-party-api]
 ---
 
 # X (Twitter) Ingestion

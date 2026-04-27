@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
-from backend.app.api.routers.v1 import ingest, chat, ledger, topology, insights, notes, data, earnings, research, pricing, social, taiwan, tsmc, umc, mediatek, admin
+from backend.app.api.routers.v1 import ingest, chat, ledger, topology, insights, notes, data, earnings, research, pricing, prices, social, taiwan, tsmc, umc, mediatek, admin, calendar
 from backend.app.core.config import settings
 from backend.app.db.session import init_db
 
@@ -46,9 +46,11 @@ app.include_router(topology.router, prefix=f"{settings.API_V1_STR}/topology", ta
 app.include_router(insights.router, prefix=f"{settings.API_V1_STR}/insights", tags=["insights"])
 app.include_router(notes.router,   prefix=f"{settings.API_V1_STR}/notes",   tags=["notes"])
 app.include_router(earnings.router, prefix=f"{settings.API_V1_STR}/earnings", tags=["earnings"])
+app.include_router(calendar.router, prefix=f"{settings.API_V1_STR}/calendar", tags=["calendar"])
 app.include_router(research.router, prefix=f"{settings.API_V1_STR}/research", tags=["research"])
 app.include_router(data.router,    prefix=f"{settings.API_V1_STR}",         tags=["data"])
 app.include_router(pricing.router, prefix=f"{settings.API_V1_STR}/pricing", tags=["pricing"])
+app.include_router(prices.router,  prefix=f"{settings.API_V1_STR}/prices",  tags=["prices"])
 app.include_router(social.router,  prefix=f"{settings.API_V1_STR}/social",  tags=["social"])
 app.include_router(taiwan.router,  prefix=f"{settings.API_V1_STR}/taiwan",  tags=["taiwan"])
 app.include_router(tsmc.router,    prefix=f"{settings.API_V1_STR}/tsmc",    tags=["tsmc"])

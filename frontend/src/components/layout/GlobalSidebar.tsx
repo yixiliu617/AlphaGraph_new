@@ -12,6 +12,7 @@ import {
   Settings,
   MessageSquare,
   Flag,
+  CalendarDays,
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -28,6 +29,7 @@ const TABS = [
   { name: "Social Media", href: "/social-media", icon: MessageSquare },
   { name: "Taiwan", href: "/taiwan", icon: Flag },
   { name: "Synthesis", href: "/synthesis", icon: PenTool },
+  { name: "Calendar", href: "/calendar", icon: CalendarDays },
   { name: "Monitors", href: "/monitors", icon: Activity },
 ];
 

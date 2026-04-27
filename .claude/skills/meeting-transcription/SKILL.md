@@ -1,6 +1,12 @@
 ---
 name: meeting-transcription
 description: Generating high-quality multilingual meeting transcripts from audio using Gemini native audio + vocabulary context. Covers EN/ZH/JA/KO code-switching, anti-repetition, domain terms, and clickable timestamps.
+version: 1.0
+last_validated_at: 2026-04-28
+conditions:
+  - requires_env: [GEMINI_API_KEY]
+prerequisites: []
+tags: [audio, transcription, gemini, multilingual, llm]
 ---
 
 # Meeting Transcription Skill

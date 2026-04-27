@@ -1,6 +1,11 @@
 ---
 name: data-quality-invariants
 description: Design a scalable data quality framework for a domain data pipeline — sign consistency, range checks, cross-metric identities, temporal-stability cliff detection — plus a pattern for handling retroactive adjustments (stock splits, restatements) that would otherwise fire false positives. Use when the user wants to harden a data pipeline against silently-wrong values, trace a bug back to its invariant, or generalize one-off checks into a reusable framework. Covers rule declaration, runner design, suppression of legitimate anomalies, and when to fix the source vs. add an exception.
+version: 1.0
+last_validated_at: 2026-04-28
+conditions: []
+prerequisites: []
+tags: [data-quality, framework, design, invariants]
 ---
 
 # Data Quality Invariants — Build & Maintain Skill

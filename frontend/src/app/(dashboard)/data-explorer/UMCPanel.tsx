@@ -18,7 +18,8 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Layers, Globe, BarChart2, Users, AppWindow, FileText, Factory, Wallet, Scale, Calendar, TrendingUp } from "lucide-react";
+import { Loader2, Layers, Globe, BarChart2, Users, AppWindow, FileText, Factory, Wallet, Scale, Calendar, TrendingUp, LineChart as LineChartIcon } from "lucide-react";
+import PricesTab from "./PricesTab";
 import {
   Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, LineChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -35,10 +36,11 @@ import {
   type UMCGuidanceRow,
 } from "@/lib/api/umcClient";
 
-type SubTab = "financials" | "tech" | "geo" | "application" | "customer"
+type SubTab = "prices" | "financials" | "tech" | "geo" | "application" | "customer"
   | "capacity" | "cashflow" | "balanceSheet" | "annual" | "guidance" | "quarters";
 
 const SUBTABS: { key: SubTab; label: string; icon: React.ReactNode }[] = [
+  { key: "prices",       label: "Prices",        icon: <LineChartIcon size={14} /> },
   { key: "financials",   label: "Financials",    icon: <BarChart2 size={14} /> },
   { key: "annual",       label: "Annual",        icon: <Calendar size={14} /> },
   { key: "cashflow",     label: "Cash Flow",     icon: <Wallet size={14} /> },
@@ -155,6 +157,7 @@ export default function UMCPanel() {
       </div>
 
       <div>
+        {tab === "prices"      && <PricesTab ticker="2303.TW" currency="TWD" />}
         {tab === "financials"  && <FinancialsTab />}
         {tab === "tech"        && <SegmentTab metric="revenue_share_by_technology"   title="Wafer Revenue by Geometry"        unit="%" />}
         {tab === "geo"         && <SegmentTab metric="revenue_share_by_geography"    title="Net Revenue by Region"             unit="%" />}
@@ -697,6 +700,44 @@ function GuidanceTab() {
     "guidance_annual_capex":         "Annual CAPEX (US$ B) — guidance vs realized (sum of qtrly capex_total ÷ avg FX)",
   };
 
+  // ── Forward guidance card data ──────────────────────────────────────────
+  // Project rule: every guidance tab leads with the latest forward guidance,
+  // matching TSMC's "Forward guidance for 1Q26" pattern. See
+  // .claude/skills/guidance-tab-pattern/SKILL.md.
+  //
+  // The /umc/guidance endpoint sorts rows newest-first (by for_period date),
+  // so the FIRST row is from the most recent issuing report. Filter all rows
+  // sharing that issuing period to populate the card.
+  const latestIssued = rows[0]?.issued_in_period;
+  const forwardRows = latestIssued
+    ? rows.filter((r) => r.issued_in_period === latestIssued)
+    : [];
+  // De-dupe to one row per metric (the for_period is constant per metric in
+  // a single report's forward guidance — quarterly metrics → next-Q,
+  // annual capex → next-FY)
+  const forwardByMetric = new Map<string, UMCGuidanceRow>();
+  forwardRows.forEach((r) => {
+    if (!forwardByMetric.has(r.metric)) forwardByMetric.set(r.metric, r);
+  });
+
+  const FORWARD_CARD_ORDER: Array<[string, string]> = [
+    ["guidance_gross_margin",         "Gross Margin"],
+    ["guidance_capacity_utilization", "Capacity Util."],
+    ["guidance_wafer_shipments_qoq",  "Wafer Ship. QoQ"],
+    ["guidance_asp_usd_qoq",          "ASP (USD) QoQ"],
+    ["guidance_annual_capex",         "Annual CAPEX"],
+  ];
+
+  const fmtForwardValue = (r: UMCGuidanceRow): string => {
+    const isCapex = r.metric === "guidance_annual_capex";
+    if (r.guide_point != null && isCapex) return `$${r.guide_point.toFixed(2)}B`;
+    if (r.guide_point != null)            return r.guide_point.toFixed(2);
+    if (r.guide_low != null && r.guide_high != null) {
+      return `${r.guide_low.toFixed(0)}–${r.guide_high.toFixed(0)}%`;
+    }
+    return "—";  // verbal-only, shown via the verbal line below
+  };
+
   const fmtVal = (v: number | null | undefined, digits = 1, suffix = "%", prefix = "") =>
     v == null ? "—" : `${prefix}${v.toFixed(digits)}${suffix}`;
 
@@ -711,14 +752,52 @@ function GuidanceTab() {
 
   return (
     <div className="space-y-4">
+      {/* Forward guidance card — newest report's view of next period(s).
+          Project rule: every guidance tab leads with this. */}
+      {forwardByMetric.size > 0 && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-indigo-900">
+              Forward guidance{" "}
+              <span className="text-[11px] font-normal text-indigo-700">
+                issued in {latestIssued} report
+              </span>
+            </h3>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 text-xs">
+            {FORWARD_CARD_ORDER.map(([metric, label]) => {
+              const r = forwardByMetric.get(metric);
+              if (!r) return null;
+              return (
+                <div key={metric} className="bg-white/50 border border-indigo-200/60 rounded p-2">
+                  <div className="flex items-baseline justify-between">
+                    <div className="text-[10px] uppercase tracking-wide text-indigo-700 font-semibold">{label}</div>
+                    <div className="text-[10px] text-indigo-500 font-mono">{r.for_period}</div>
+                  </div>
+                  <div className="text-base font-bold text-indigo-900 mt-1">
+                    {fmtForwardValue(r)}
+                  </div>
+                  {r.verbal && (
+                    <div className="text-[10px] text-indigo-700 mt-0.5 italic line-clamp-2" title={r.verbal}>
+                      &ldquo;{r.verbal}&rdquo;
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="bg-amber-50 border border-amber-200 rounded-md px-3 py-2 text-[11px] text-amber-800">
         <strong>Note on UMC&apos;s guidance:</strong> UMC issues qualitative
         QoQ guidance (e.g. &quot;high-20% range&quot;, &quot;mid-70%
         range&quot;) rather than TSMC-style numeric ranges. We map qualifiers
         to implied ranges (low-Xx% → X to X+3%; mid-Xx% → X+3 to X+7%; high-Xx%
         → X+6 to X+9%). The verbal guidance is preserved alongside.
-        Annual CAPEX guidance (e.g. &quot;US$1.5 billion&quot;) is in USD —
-        we do not yet compare to realized NTD-denominated capex; verbal-only.
+        Annual CAPEX guidance (e.g. &quot;US$1.5 billion&quot;) is shown
+        as a point estimate; realized values come from sum of quarterly
+        capex_total ÷ avg USD/NTD rate.
       </div>
 
       {Object.entries(METRIC_TITLES).map(([metric, title]) => {

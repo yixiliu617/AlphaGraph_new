@@ -1,9 +1,19 @@
 ---
 name: taiwan-monthly-data-extraction
 description: Extracting Taiwan-listed monthly revenue data. Two-source design — MOPS SPA (latest 12m, per-ticker JSON via Playwright CDP) for freshness + TWSE open-data C04003 ZIPs (10+ years, bulk XLS via plain HTTP) for backfill. Covers anti-bot WAF bypass, ROC calendar, thousand-TWD units, Python 3.13 TLS fixes, and endpoint rediscovery when either site is redesigned.
+version: 1.0
+last_validated_at: 2026-04-28
+conditions:
+  - requires_dir: [backend/data/taiwan]
+prerequisites: [web-scraping]
+tags: [taiwan, mops, twse, monthly-revenue, scraping, playwright]
 ---
 
 # Taiwan Monthly Data Extraction (MOPS / 公開資訊觀測站)
+
+## Cache-first rule (project-wide)
+
+Persist raw responses to disk before any downstream processing. The Taiwan ingestion layer already does this — every MOPS / TWSE / TPEx fetch is dumped under `backend/data/taiwan/_raw/` (bronze) before parsing into `data.parquet` (silver). Adding a new endpoint follows the same pattern: write raw payload → derive structured rows → upsert. Full rule: `CLAUDE.md` § "External-Data Cache-First Rule".
 
 ## TL;DR — Don't Repeat Our Mistakes
 

@@ -172,6 +172,37 @@ _CASHFLOW_MAP: dict[str, str] = {
     "Depreciation":                    "depreciation",
     "DepreciationExpense":             "depreciation",
     "DepreciationAndAmortization":     "depreciation",
+    # NOTE: us-gaap_OtherDepreciationAndAmortization is NOT mapped here -- it
+    # represents only the D portion when a filer splits D and A. Listed in
+    # _CF_SUM_MAP instead so it gets summed with AdjustmentForAmortization.
+}
+
+# Canonical "true total" concept names for CF aggregation lines. Used to
+# disambiguate when multiple XBRL rows share the same standard_concept (e.g.
+# AMD FY2025 has FOUR rows tagged NetCashFromOperatingActivities: continuing
+# ops, discontinued ops, the actual TOTAL, and a non-cash supplemental
+# Right-of-Use disclosure that follows the total in the filing). The simple
+# "last wins" rule picks the supplemental ROU row ($285M) instead of the real
+# $7.7B total.
+#
+# The fix: for these metrics, if any candidate row's `concept` exactly matches
+# one of the canonical concepts below, that row WINS and is never overwritten.
+# Falls back to "last wins" only if no canonical row is present (handles
+# company-specific concepts like orcl_*).
+_CANONICAL_TOTAL_CONCEPTS: dict[str, set[str]] = {
+    "operating_cf": {
+        "us-gaap_NetCashProvidedByUsedInOperatingActivities",
+        # Legacy spelling some older filings still use:
+        "us-gaap_NetCashProvidedByOperatingActivities",
+    },
+    "investing_cf": {
+        "us-gaap_NetCashProvidedByUsedInInvestingActivities",
+        "us-gaap_NetCashProvidedByInvestingActivities",
+    },
+    "financing_cf": {
+        "us-gaap_NetCashProvidedByUsedInFinancingActivities",
+        "us-gaap_NetCashProvidedByFinancingActivities",
+    },
 }
 
 # Capex label fallback — some filers (e.g. NVDA FY2022-Q4..FY2024-Q2) report
@@ -183,6 +214,49 @@ _CASHFLOW_MAP: dict[str, str] = {
 _CF_LABEL_FALLBACK: dict[str, str] = {
     "capex": "purchases",  # any label starting with "purchases" AND containing
                            # "property" will match (see _process_statement)
+}
+
+# Cash-flow concept fallback. Used when standard_concept is missing or wrong
+# but the raw concept is one of these (single, full-value rows that should NOT
+# be summed). Matched after standard_concept and label-fallback rules.
+_CF_CONCEPT_FALLBACK: dict[str, str] = {
+    "us-gaap_DepreciationAndAmortization":           "depreciation",
+    "us-gaap_Depreciation":                          "depreciation",
+    "us-gaap_DepreciationNonproduction":             "depreciation",
+}
+
+# Cash-flow SUM map: filers who SPLIT depreciation across multiple XBRL rows
+# (or use a company-specific combined concept). Each value listed is summed
+# into the named metric, per period.
+#
+# Why this exists: AMD's FY2024+ 10-Ks split "Depreciation and amortization"
+# into TWO separate rows (`OtherDepreciationAndAmortization` $671M and
+# `AdjustmentForAmortization` $2,393M). The standard_concept on each row is
+# wrongly normalized by edgartools (NonoperatingIncomeExpense, GoodwillWriteoffs)
+# so neither matches the standard map. Without this sum, the build picks up
+# only ONE of the two rows, producing an Annual that's 1/4 of the truth, which
+# then cascades into a Q4 derivation with the opposite sign.
+#
+# MSFT and CSCO use company-specific combined concepts (msft_*, csco_*) with
+# standard_concept=NaN -- listing them here gets them extracted via the same
+# uniform sum mechanism. Single-row companies sum to a single value, so this
+# is safe and uniform.
+#
+# Priority: standard_concept and label/concept fallbacks try first. A row
+# only reaches the sum path if no earlier rule matched, so filers who report
+# combined D&A under `us-gaap_DepreciationAndAmortization` (std-matched) bypass
+# this entirely -- no double-count risk.
+_CF_SUM_MAP: dict[str, list[str]] = {
+    "depreciation": [
+        # AMD-style split (separate D and A rows in 10-K, mis-tagged std_concept)
+        "us-gaap_OtherDepreciationAndAmortization",
+        "us-gaap_AdjustmentForAmortization",
+        "us-gaap_AmortizationOfIntangibleAssets",
+        "us-gaap_DepreciationDepletionAndAmortization",  # DELL combined
+        # Company-specific combined concepts (std_concept=NaN)
+        "msft_DepreciationAmortizationAndOther",
+        "csco_DepreciationAmortizationAndOther",
+    ],
 }
 
 # Metrics that must NOT be scaled by 1e6 (already per-share or counts)
@@ -225,6 +299,187 @@ class ToplineBuilder:
         report  = builder.build(['NVDA'])      # specific tickers
         df      = builder.read('NVDA', 'income_statement')
     """
+
+    # ------------------------------------------------------------------
+    # Build pipeline phases
+    #
+    # Each phase is a pure-ish function of its inputs. Phase 1 hits the
+    # network for the filings list; phases 2-4 read from the silver cache
+    # (xbrl_cache.py) and never touch the network. Calling any phase
+    # individually with the same inputs always produces the same output,
+    # so they're directly testable in isolation.
+    # ------------------------------------------------------------------
+
+    def _phase_fetch_filings(self, ticker: str):
+        """Phase 1: get the filings list for `ticker` from EDGAR.
+
+        Network call. Excludes amendments (10-K/A, 10-Q/A) because they
+        often carry only the changed sections, which causes XBRLS.from_filings
+        to log noisy warnings and stitch in stale placeholder rows. The
+        original 10-K/10-Q already carry the restated values; amendments
+        still drive refresh detection via _get_filing_info.
+        """
+        from edgar import Company, set_identity
+        set_identity("AlphaGraph Research alphagraph@research.com")
+        company = Company(ticker)
+        filings = (
+            company.get_filings(form=["10-K", "10-Q"])
+                   .filter(amendments=False)
+                   .head(30)
+        )
+        log.info("  %s: %d filings fetched", ticker, len(filings))
+        return filings
+
+    def _phase_build_period_map(self, ticker: str, filings) -> dict[str, dict]:
+        """Phase 2: build the period_map (canonical_fp, canonical_fy,
+        is_ytd, period_start, days) per period_end.
+
+        Reads from the silver cache for both the stitched periods list and
+        per-filing periods (the augmentation pass that fills periods XBRLS
+        dropped during consolidation). No network calls if cache is warm.
+        """
+        from .xbrl_cache import get_default_cache
+
+        class _PeriodsOnly:
+            """Adapter — _build_period_map only calls .get_periods()."""
+            def __init__(self, p):
+                self._p = p
+            def get_periods(self):
+                return self._p
+
+        cache = get_default_cache()
+        stitched_periods = cache.get_stitched_periods(ticker, filings)
+        period_map = self._build_period_map(_PeriodsOnly(stitched_periods))
+        period_map = self._augment_period_map_from_filings(period_map, filings)
+        return period_map
+
+    def _phase_extract_income_statement(
+        self, ticker: str, filings, period_map: dict
+    ) -> tuple[pd.DataFrame, list[dict]]:
+        """Phase 3a: build the wide income statement DataFrame.
+
+        Pipeline: stitched IS dataframe (cached) -> gap_fill -> process ->
+        derive_q4 -> resolve_ytd_with_raw_facts -> ytd_to_standalone ->
+        fill_derived_gross_profit -> reanchor.
+
+        Returns (wide_df, reanchor_mismatches).
+        """
+        from .xbrl_cache import get_default_cache
+        cache = get_default_cache()
+
+        is_raw  = cache.get_stitched_statement(ticker, filings, "income_statement", max_periods=40)
+        is_raw  = self._gap_fill_raw_dataframe(is_raw, filings, "income_statement")
+        is_wide = self._process_statement(
+            is_raw, period_map, _INCOME_MAP, ticker,
+            scale=True,
+            eps_label_map=_EPS_LABEL_MAP,
+            sum_concept_map=_INCOME_SUM_MAP,
+            concept_fallback_map=_INCOME_CONCEPT_FALLBACK,
+        )
+        # Q4 MUST be derived BEFORE YTD conversion: Q4 = Annual - Nine Months YTD
+        # (original). If YTD is converted to standalone first, the subtraction gives
+        # wrong Q4 values.
+        is_wide = self._derive_q4(is_wide, "income_statement")
+        # Raw-facts fallback: resolve standalone vs YTD ambiguity AFTER
+        # _derive_q4 (so 9M YTD is still available for Q4 derivation) but
+        # BEFORE _ytd_to_standalone (so wrong subtractions don't happen).
+        is_wide = self._resolve_ytd_with_raw_facts(is_wide, filings, _INCOME_MAP)
+        is_wide = self._ytd_to_standalone(is_wide, "income_statement")
+        # Derive gross_profit from revenue - cost_of_revenue for filers who
+        # don't report a GrossProfit subtotal (e.g. ORCL).
+        is_wide = self._fill_derived_gross_profit(is_wide)
+        # Anchor-and-step-back on period labels to correct edgartools
+        # fiscal_year / fiscal_quarter mis-assignments.
+        is_wide, mismatches = self._reanchor_period_labels(is_wide)
+        return is_wide, mismatches
+
+    def _phase_extract_balance_sheet(
+        self, ticker: str, filings, period_map: dict
+    ) -> pd.DataFrame:
+        """Phase 3b: build the wide balance sheet DataFrame.
+
+        Balance sheet is point-in-time, so no Q4 derivation, no YTD
+        conversion, no reanchor (yet). Just stitched -> gap_fill -> process.
+        """
+        from .xbrl_cache import get_default_cache
+        cache = get_default_cache()
+
+        bs_raw  = cache.get_stitched_statement(ticker, filings, "balance_sheet", max_periods=40)
+        bs_raw  = self._gap_fill_raw_dataframe(bs_raw, filings, "balance_sheet")
+        bs_wide = self._process_statement(
+            bs_raw, period_map, _BALANCE_MAP, ticker,
+            scale=True, is_instant=True,
+        )
+        return bs_wide
+
+    def _phase_extract_cash_flow(
+        self, ticker: str, filings, period_map: dict
+    ) -> tuple[pd.DataFrame, list[dict]]:
+        """Phase 3c: build the wide cash flow DataFrame.
+
+        Pipeline: stitched CF dataframe (cached) -> gap_fill -> process ->
+        derive_q4 -> ytd_to_standalone -> reanchor.
+
+        Note: cash flow does NOT call _resolve_ytd_with_raw_facts. That
+        function was added for SWKS Q2 FY2020 income-statement YTD ambiguity
+        and would risk corrupting CF aggregation lines.
+
+        Returns (wide_df, reanchor_mismatches).
+        """
+        from .xbrl_cache import get_default_cache
+        cache = get_default_cache()
+
+        cf_raw  = cache.get_stitched_statement(ticker, filings, "cash_flow_statement", max_periods=40)
+        cf_raw  = self._gap_fill_raw_dataframe(cf_raw, filings, "cash_flow")
+        cf_wide = self._process_statement(
+            cf_raw, period_map, _CASHFLOW_MAP, ticker,
+            scale=True,
+            cf_label_fallback=_CF_LABEL_FALLBACK,
+            concept_fallback_map=_CF_CONCEPT_FALLBACK,
+            sum_concept_map=_CF_SUM_MAP,
+        )
+        cf_wide = self._derive_q4(cf_wide, "cash_flow")
+        cf_wide = self._ytd_to_standalone(cf_wide, "cash_flow")
+        cf_wide, mismatches = self._reanchor_period_labels(cf_wide)
+        return cf_wide, mismatches
+
+    def _phase_finalize(
+        self,
+        *,
+        ticker: str,
+        is_wide,
+        is_mismatches,
+        bs_wide,
+        cf_wide,
+        cf_mismatches,
+        incremental: bool,
+        ticker_report: dict[str, Any],
+    ) -> None:
+        """Phase 4: validate + write parquets + log summary.
+
+        In incremental mode, only the cash flow parquet is rewritten.
+        Otherwise all three statements are validated and written.
+        """
+        ticker_report["rows_cashflow"] = len(cf_wide)
+        ticker_report["cf_reanchor_mismatches"] = cf_mismatches
+
+        if not incremental:
+            validation = self._validate(is_wide, ticker)
+            ticker_report["rows_income"]  = len(is_wide)
+            ticker_report["rows_balance"] = len(bs_wide)
+            ticker_report["validation"] = validation
+            ticker_report["is_reanchor_mismatches"] = is_mismatches
+
+            self._write(is_wide, ticker, "income_statement")
+            self._write(bs_wide, ticker, "balance_sheet")
+            self._write(cf_wide, ticker, "cash_flow")
+
+            warn_count = len(validation.get("warnings", []))
+            log.info("  %s: done -- IS=%d rows, %d warnings",
+                     ticker, len(is_wide), warn_count)
+        else:
+            self._write(cf_wide, ticker, "cash_flow")
+            log.info("  %s: done -- CF=%d rows", ticker, len(cf_wide))
 
     # ------------------------------------------------------------------
     # Build
@@ -282,88 +537,43 @@ class ToplineBuilder:
             "tickers": {},
         }
 
+        # Per-ticker pipeline runs four phases:
+        #   1) fetch filings list (network)
+        #   2) build period_map (reads silver cache)
+        #   3) extract each statement (income/balance/cashflow) (reads silver cache)
+        #   4) validate + write parquets (gold layer)
+        # Each phase is an independent method that can be called in isolation
+        # for testing or debugging.
         for ticker in tickers:
             log.info("Building topline for %s ...%s", ticker, " (CF only)" if incremental else "")
             ticker_report: dict[str, Any] = {}
             try:
-                company = Company(ticker)
-                filings = company.get_filings(form=["10-K", "10-Q"]).head(30)
-                log.info("  %s: %d filings fetched", ticker, len(filings))
+                # Phase 1: fetch
+                filings = self._phase_fetch_filings(ticker)
 
-                xbrls = XBRLS.from_filings(filings)
-                period_map = self._build_period_map(xbrls)
-                # Augment with per-filing period_map entries for any period
-                # XBRLS dropped during consolidation.
-                period_map = self._augment_period_map_from_filings(period_map, filings)
+                # Phase 2: period_map
+                period_map = self._phase_build_period_map(ticker, filings)
 
+                # Phase 3: extract
+                is_wide = bs_wide = None
+                is_mismatches: list[dict] = []
                 if not incremental:
-                    # --- Income statement ---
-                    is_raw  = xbrls.statements.income_statement(max_periods=40).to_dataframe()
-                    is_raw  = self._gap_fill_raw_dataframe(is_raw, filings, "income_statement")
-                    is_wide = self._process_statement(is_raw, period_map, _INCOME_MAP, ticker,
-                                                       scale=True,
-                                                       eps_label_map=_EPS_LABEL_MAP,
-                                                       sum_concept_map=_INCOME_SUM_MAP,
-                                                       concept_fallback_map=_INCOME_CONCEPT_FALLBACK)
-                    # Q4 MUST be derived before YTD conversion: Q4 = Annual - Nine Months YTD (original)
-                    # If YTD is converted to standalone first, the subtraction gives wrong Q4 values.
-                    is_wide = self._derive_q4(is_wide, "income_statement")
-                    # Raw-facts fallback: resolve standalone vs YTD AFTER _derive_q4
-                    # (so 9M YTD is still available for Q4 derivation) but BEFORE
-                    # _ytd_to_standalone (so wrong subtractions don't happen).
-                    # Fixes SWKS Q2 FY2020 where to_dataframe() picked standalone
-                    # (766) but is_ytd=True caused subtraction → revenue=-130.
-                    is_wide = self._resolve_ytd_with_raw_facts(is_wide, filings, _INCOME_MAP)
-                    is_wide = self._ytd_to_standalone(is_wide, "income_statement")
-                    # Derive gross_profit from revenue - cost_of_revenue for filers
-                    # who don't report a GrossProfit subtotal (e.g. ORCL). Only
-                    # fill rows where gross_profit is missing AND both inputs exist.
-                    is_wide = self._fill_derived_gross_profit(is_wide)
-                    # Anchor-and-step-back on period labels to correct edgartools
-                    # fiscal_year / fiscal_quarter mis-assignments. See
-                    # .claude/skills/edgar-period-analysis/SKILL.md
-                    is_wide, is_mismatches = self._reanchor_period_labels(is_wide)
+                    is_wide, is_mismatches = self._phase_extract_income_statement(
+                        ticker, filings, period_map)
+                    bs_wide = self._phase_extract_balance_sheet(
+                        ticker, filings, period_map)
+                cf_wide, cf_mismatches = self._phase_extract_cash_flow(
+                    ticker, filings, period_map)
 
-                    # --- Balance sheet ---
-                    bs_raw  = xbrls.statements.balance_sheet(max_periods=40).to_dataframe()
-                    bs_raw  = self._gap_fill_raw_dataframe(bs_raw, filings, "balance_sheet")
-                    bs_wide = self._process_statement(bs_raw, period_map, _BALANCE_MAP, ticker,
-                                                       scale=True, is_instant=True)
-
-                # --- Cash flow ---
-                cf_raw  = xbrls.statements.cash_flow_statement(max_periods=40).to_dataframe()
-                cf_raw  = self._gap_fill_raw_dataframe(cf_raw, filings, "cash_flow")
-                cf_wide = self._process_statement(cf_raw, period_map, _CASHFLOW_MAP, ticker,
-                                                   scale=True,
-                                                   cf_label_fallback=_CF_LABEL_FALLBACK)
-                # Same order: derive Q4 from original YTD values, then convert YTDs to standalone
-                cf_wide = self._derive_q4(cf_wide, "cash_flow")
-                cf_wide = self._ytd_to_standalone(cf_wide, "cash_flow")
-                cf_wide, cf_mismatches = self._reanchor_period_labels(cf_wide)
-
-                ticker_report["rows_cashflow"] = len(cf_wide)
-                ticker_report["cf_reanchor_mismatches"] = cf_mismatches
-
-                if not incremental:
-                    # --- Validate (uses income statement only) ---
-                    validation = self._validate(is_wide, ticker)
-                    ticker_report["rows_income"]  = len(is_wide)
-                    ticker_report["rows_balance"] = len(bs_wide)
-                    ticker_report["validation"] = validation
-                    ticker_report["is_reanchor_mismatches"] = is_mismatches
-
-                    # --- Write all three ---
-                    self._write(is_wide,  ticker, "income_statement")
-                    self._write(bs_wide,  ticker, "balance_sheet")
-                    self._write(cf_wide,  ticker, "cash_flow")
-
-                    warn_count = len(validation.get("warnings", []))
-                    log.info("  %s: done — IS=%d rows, %d warnings",
-                             ticker, len(is_wide), warn_count)
-                else:
-                    # --- Write cash_flow only ---
-                    self._write(cf_wide, ticker, "cash_flow")
-                    log.info("  %s: done — CF=%d rows", ticker, len(cf_wide))
+                # Phase 4: validate + write
+                self._phase_finalize(
+                    ticker=ticker,
+                    is_wide=is_wide, is_mismatches=is_mismatches,
+                    bs_wide=bs_wide,
+                    cf_wide=cf_wide, cf_mismatches=cf_mismatches,
+                    incremental=incremental,
+                    ticker_report=ticker_report,
+                )
 
             except Exception as exc:
                 ticker_report["error"] = str(exc)
@@ -391,6 +601,43 @@ class ToplineBuilder:
     # revenue=-130. The raw facts have context "FD2020Q2QTD" (90d)=766
     # and "FD2020Q2YTD" (181d)=1662. This method picks the 90d value.
     # ------------------------------------------------------------------
+
+    # Whitelist of raw XBRL concept names to use during the QTD fact
+    # fallback. We CANNOT do substring matching here -- "Revenue" appears
+    # in `us-gaap:CostOfRevenue` and `us-gaap:ContractWithCustomerLiability
+    # RevenueRecognized` ($63M deferred-revenue disclosure), which would
+    # silently overwrite real revenue with sub-line items. Same for "Sales"
+    # (matches "SalesAndMarketingExpense"). Exact concept names only.
+    #
+    # Format: "<namespace>:<ConceptName>" — no us-gaap_ prefix because
+    # facts.to_dataframe() emits the concept column with `:` separator.
+    _RAW_CONCEPT_TO_METRIC: dict[str, str] = {
+        # Revenue
+        "us-gaap:Revenues":                                                     "revenue",
+        "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax":          "revenue",
+        "us-gaap:RevenueFromContractWithCustomerIncludingAssessedTax":          "revenue",
+        "us-gaap:SalesRevenueNet":                                              "revenue",
+        # Cost of revenue / sales
+        "us-gaap:CostOfRevenue":                                                "cost_of_revenue",
+        "us-gaap:CostOfGoodsAndServicesSold":                                   "cost_of_revenue",
+        "us-gaap:CostOfGoodsSold":                                              "cost_of_revenue",
+        # Gross profit
+        "us-gaap:GrossProfit":                                                  "gross_profit",
+        # Operating expense lines
+        "us-gaap:ResearchAndDevelopmentExpense":                                "rd_expense",
+        "us-gaap:ResearchAndDevelopementExpenses":                              "rd_expense",  # edgartools typo
+        "us-gaap:SellingGeneralAndAdministrativeExpense":                       "sga_expense",
+        "us-gaap:OperatingExpenses":                                            "total_opex",
+        # Operating + non-operating income
+        "us-gaap:OperatingIncomeLoss":                                          "operating_income",
+        "us-gaap:NonoperatingIncomeExpense":                                    "other_income_net",
+        "us-gaap:InterestExpense":                                              "interest_expense",
+        "us-gaap:InvestmentIncomeInterest":                                     "interest_income",
+        # Taxes / net income
+        "us-gaap:IncomeTaxExpenseBenefit":                                      "income_tax",
+        "us-gaap:NetIncomeLoss":                                                "net_income",
+        "us-gaap:ProfitLoss":                                                   "net_income",
+    }
 
     def _resolve_ytd_with_raw_facts(
         self,
@@ -434,6 +681,47 @@ class ToplineBuilder:
         ytd_indices = df[ytd_mask].index.tolist()
         resolved_count = 0
 
+        # In-memory cache for parsed-and-filtered facts per filing. Each
+        # facts parquet is ~5MB and pd.read_parquet + pd.to_datetime
+        # together cost ~0.3-0.8s; without this we'd re-read for every ytd
+        # row. With it, each filing's facts are read once and a pre-filtered
+        # candidate-only DataFrame is cached.
+        from .xbrl_cache import get_default_cache
+        _xc = get_default_cache()
+        _facts_cache: dict[str, "pd.DataFrame | None"] = {}
+
+        def _get_filing_facts(filing) -> "pd.DataFrame | None":
+            key = str(getattr(filing, "accession_no", "") or id(filing))
+            if key in _facts_cache:
+                return _facts_cache[key]
+            try:
+                facts_df = _xc.get_facts(filing)
+                if facts_df is None or len(facts_df) == 0:
+                    _facts_cache[key] = None
+                    return None
+            except Exception:
+                _facts_cache[key] = None
+                return None
+            # Pre-compute once: dates, durations, and pre-filter to whitelisted concepts.
+            try:
+                pe = pd.to_datetime(facts_df["period_end"], errors="coerce")
+                ps = pd.to_datetime(facts_df["period_start"], errors="coerce")
+            except Exception:
+                _facts_cache[key] = None
+                return None
+            facts_df = facts_df.copy()
+            facts_df["_pe"] = pe
+            facts_df["_dur"] = (pe - ps).dt.days
+            mask = (
+                facts_df["concept"].astype(str).isin(self._RAW_CONCEPT_TO_METRIC.keys())
+                & (facts_df["_dur"] >= 80) & (facts_df["_dur"] <= 100)
+            )
+            if "is_dimensioned" in facts_df.columns:
+                mask &= ~facts_df["is_dimensioned"].astype(bool).fillna(False)
+            facts_df = facts_df[mask].reset_index(drop=True)
+            _facts_cache[key] = facts_df
+            return facts_df
+
         for idx in ytd_indices:
             row = df.loc[idx]
             end_date = row["period_end"]
@@ -454,79 +742,51 @@ class ToplineBuilder:
             if filing is None:
                 continue
 
-            # Parse the filing's raw facts
-            try:
-                xbrl = XBRL.from_filing(filing)
-                facts_df = xbrl.facts.to_dataframe()
-            except Exception:
+            facts_df = _get_filing_facts(filing)
+            if facts_df is None or len(facts_df) == 0:
                 continue
 
             # For each metric, find the QTD (standalone, 80-100 day) fact
-            # at this end_date
+            # at this end_date.
+            #
+            # NEVER use substring matching to resolve a concept to a metric.
+            # SMCI's 10-Q has us-gaap:ContractWithCustomerLiabilityRevenue
+            # Recognized = $63M (deferred-revenue disclosure) at the same
+            # end_date with 91-day duration. Substring "revenue" matches it,
+            # so substring matching incorrectly assigned $63M to revenue,
+            # overwriting the real $12.7B. Use the explicit whitelist below.
+            #
+            # facts_df is already pre-filtered (whitelisted concepts +
+            # 80-100 day duration + non-dimensioned). Just narrow by end_date.
+            target_pe = pd.Timestamp(end_str)
+            candidates = facts_df[facts_df["_pe"].dt.normalize() == target_pe.normalize()]
+            if candidates.empty:
+                continue
+
             any_resolved = False
-            for _, fact_row in facts_df.iterrows():
+            metrics_set: set[str] = set()  # only first match wins per metric
+            for _, fact_row in candidates.iterrows():
                 concept = str(fact_row.get("concept", ""))
-                # Strip the namespace prefix to match standard_concept
-                # e.g. "us-gaap:RevenueFromContract..." → check if any
-                # standard_concept key maps from it
-                fact_end = str(fact_row.get("period_end", ""))[:10]
-                fact_start = str(fact_row.get("period_start", ""))[:10]
-
-                if fact_end != end_str:
+                metric = self._RAW_CONCEPT_TO_METRIC.get(concept)
+                if metric is None or metric not in df.columns:
                     continue
-
-                # Check if this fact is dimensioned (we only want consolidated)
-                is_dim = fact_row.get("is_dimensioned", False)
-                if is_dim:
+                if metric in metrics_set:
                     continue
-
-                # Compute duration
-                try:
-                    duration = (pd.Timestamp(fact_end) - pd.Timestamp(fact_start)).days
-                except Exception:
-                    continue
-
-                # We want the QTD (standalone, ~80-100 days)
-                if duration < 80 or duration > 100:
-                    continue
-
-                val = fact_row.get("numeric_value") or fact_row.get("value")
+                val = fact_row.get("numeric_value")
                 if val is None:
-                    continue
+                    val = fact_row.get("value")
                 try:
                     val = float(val)
                 except (TypeError, ValueError):
                     continue
                 if pd.isna(val):
                     continue
-
-                # Find which metric this concept maps to
-                # Try matching by standard_concept from the concept_map
-                std_concept = str(fact_row.get("standard_concept", "") or "")
-                # Also check the fiscal_period in the fact
-                metric = None
-                if std_concept and std_concept in concept_map:
-                    metric = concept_map[std_concept]
-                else:
-                    # Try matching by raw concept against known patterns
-                    for std_key, metric_name in concept_map.items():
-                        if std_key.lower() in concept.lower():
-                            metric = metric_name
-                            break
-
-                if metric is None:
-                    continue
-                if metric not in df.columns:
-                    continue
-
-                # Scale to millions (same as _process_statement)
                 if metric not in _NO_SCALE:
                     val = round(val / 1_000_000, 4)
                 else:
                     val = round(val, 6)
-
-                # Replace the value
                 df.at[idx, metric] = val
+                metrics_set.add(metric)
                 any_resolved = True
 
             if any_resolved:
@@ -574,21 +834,25 @@ class ToplineBuilder:
         # period is typically the most recent one (highest confidence).
         per_filing_values: dict[str, dict[str, float]] = {}   # period_end -> concept -> value
 
+        # Translate our internal statement names to the cache's names
+        # (statement_name uses 'cash_flow', cache uses 'cash_flow_statement').
+        _name_xlate = {
+            "income_statement":   "income_statement",
+            "balance_sheet":      "balance_sheet",
+            "cash_flow":          "cash_flow_statement",
+        }
+        cache_stmt_name = _name_xlate.get(statement_name)
+        if cache_stmt_name is None:
+            return consolidated_df
+
+        from .xbrl_cache import get_default_cache
+        cache = get_default_cache()
+
         for f in filings:
             try:
-                xbrl = XBRL.from_filing(f)
-            except Exception:
-                continue
-            try:
-                if statement_name == "income_statement":
-                    stmt = xbrl.statements.income_statement()
-                elif statement_name == "cash_flow":
-                    stmt = xbrl.statements.cash_flow_statement()
-                elif statement_name == "balance_sheet":
-                    stmt = xbrl.statements.balance_sheet()
-                else:
+                raw = cache.get_statement(f, cache_stmt_name)
+                if raw is None or len(raw) == 0:
                     continue
-                raw = stmt.to_dataframe()
             except Exception:
                 continue
 
@@ -656,13 +920,27 @@ class ToplineBuilder:
 
         We reprocess each filing's get_periods() call and union the entries
         into period_map, only filling gaps — existing entries are preserved.
-        """
-        from edgar.xbrl import XBRL
 
+        Cached: each filing's get_periods() output is persisted under
+        backend/data/filing_data/_xbrl_cache/<accession>/periods.json so
+        subsequent rebuilds of the same ticker skip the network/parse work.
+        """
+        from .xbrl_cache import get_default_cache
+
+        class _PeriodsOnly:
+            """Tiny adapter — _build_period_map only calls .get_periods()."""
+            def __init__(self, periods_list):
+                self._periods = periods_list
+            def get_periods(self):
+                return self._periods
+
+        cache = get_default_cache()
         for f in filings:
             try:
-                xbrl = XBRL.from_filing(f)
-                sub_map = self._build_period_map(xbrl)
+                periods = cache.get_periods_list(f)
+                if not periods:
+                    continue
+                sub_map = self._build_period_map(_PeriodsOnly(periods))
             except Exception:
                 continue
             for end, meta in sub_map.items():
@@ -1262,6 +1540,12 @@ class ToplineBuilder:
 
             row_idx = len(rows)
             sum_accumulated[row_idx] = set()
+            # Per-row set of metrics that were already filled by a "canonical
+            # total concept" match. Once a canonical concept lands a value
+            # for a CF total in this period, no subsequent row can overwrite
+            # it — protects us from supplemental ROU / discontinued-ops rows
+            # that share the same standard_concept as the real total.
+            canonical_locked: set[str] = set()
 
             for _, line in df.iterrows():
                 std         = line.get("standard_concept")
@@ -1328,7 +1612,21 @@ class ToplineBuilder:
                 # LAST match, because the true total appears after its
                 # sub-component rows in the filing.
                 elif metric in _OVERWRITE_ON_MATCH:
-                    row[metric] = val
+                    canonical_set = _CANONICAL_TOTAL_CONCEPTS.get(metric, set())
+                    is_canonical = raw_concept in canonical_set
+                    if is_canonical:
+                        # Canonical total row: always wins, lock against
+                        # later overwrites in this period.
+                        row[metric] = val
+                        canonical_locked.add(metric)
+                    elif metric in canonical_locked:
+                        # A canonical row already won; suppress later
+                        # non-canonical matches (e.g. AMD's RightOfUseAsset
+                        # supplemental disclosure).
+                        pass
+                    else:
+                        # No canonical seen yet: keep last-wins fallback.
+                        row[metric] = val
                 elif metric not in row:
                     row[metric] = val
 
@@ -1638,9 +1936,13 @@ class ToplineBuilder:
                     f"likely YTD conversion error"
                 )
 
-        # Gross margin sanity
+        # Gross margin sanity. Mask zero/NaN revenue so rows where Q4 was
+        # derived from a 9M-YTD baseline that happened to equal Annual (i.e.
+        # revenue=0 standalone) don't blow up the division. COHR/KLAC/QCOM
+        # have hit this in 10-K/A noise rows.
         if "revenue" in df.columns and "gross_profit" in df.columns:
-            gm = df["gross_profit"] / df["revenue"] * 100
+            rev = df["revenue"].where(df["revenue"].notna() & (df["revenue"] != 0))
+            gm = (df["gross_profit"] / rev) * 100
             extreme = gm[(gm.abs() > 100) & gm.notna()]
             if not extreme.empty:
                 warnings_.append(

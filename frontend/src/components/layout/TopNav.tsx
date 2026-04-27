@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Network, Terminal, Library, PenTool, Activity, NotebookPen, BarChart2, MessageSquare,
+  Network, Terminal, Library, PenTool, Activity, NotebookPen, BarChart2, MessageSquare, CalendarDays,
 } from "lucide-react";
 
 const TABS = [
@@ -14,6 +14,7 @@ const TABS = [
   { name: "DataExplorer",  href: "/data-explorer",   icon: BarChart2 },
   { name: "Social Media",  href: "/social-media",    icon: MessageSquare },
   { name: "Synthesis",     href: "/synthesis",       icon: PenTool },
+  { name: "Calendar",      href: "/calendar",        icon: CalendarDays },
   { name: "Monitors",      href: "/monitors",        icon: Activity },
 ];
 

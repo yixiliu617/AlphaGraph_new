@@ -35,3 +35,10 @@ lxml>=5.1.0
 pyarrow>=15.0.0
 pandas>=2.1.0
 xlrd>=2.0.1  # legacy .xls reader for TWSE C04003 monthly revenue archives
+# Phase 2 — storage refactor (Postgres + Alembic)
+alembic>=1.13.0
+psycopg2-binary>=2.9.9
+# Pricing extractor data-quality
+pandas_market_calendars>=4.4.0
+# Optional: standalone OHLC charting tools (not used by the dashboard)
+mplfinance>=0.12.10b0

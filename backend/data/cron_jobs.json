@@ -1,0 +1,233 @@
+{
+  "_comment": "Declarative cron job registry — Hermes-pattern (W2 warmup, 2026-04-27). Runner is still APScheduler for now (see backend/app/services/taiwan/scheduler.py and social/scheduler.py); this file is the source of truth for what jobs exist. Phase 3a/E will swap the runner to read directly from this JSON. For each job: `runner` is `module:function`; `cron` is APScheduler CronTrigger kwargs; `timezone` defaults to UTC unless specified; `owner` flags who debugs failures; `severity` is the user-facing impact if this job fails.",
+  "_schema_version": "0.1",
+
+  "jobs": [
+    {
+      "id": "taiwan.monthly_revenue_daily",
+      "description": "Daily 10:00 TPE — pull monthly-revenue from MOPS t146sb05_detail for all 51 watchlist tickers",
+      "runner": "backend.app.services.taiwan.scheduler:job_monthly_revenue_daily",
+      "cron": {"hour": "10", "minute": "0"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "high",
+      "tags": ["taiwan", "live", "primary"],
+      "skill": "taiwan-monthly-data-extraction"
+    },
+    {
+      "id": "taiwan.monthly_revenue_window",
+      "description": "Days 1-15 of month, every 30 min — bursty window for revenue filings (peak 17:00-23:00 TPE)",
+      "runner": "backend.app.services.taiwan.scheduler:job_monthly_revenue_window",
+      "cron": {"day": "1-15", "minute": "0,30"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "high",
+      "tags": ["taiwan", "live", "primary", "windowed"],
+      "skill": "taiwan-monthly-data-extraction"
+    },
+    {
+      "id": "taiwan.material_info_window",
+      "description": "Days 1-15, every 15 min — voluntary material-info disclosure early-warning channel",
+      "runner": "backend.app.services.taiwan.scheduler:job_material_info_window",
+      "cron": {"day": "1-15", "minute": "7,22,37,52"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "medium",
+      "tags": ["taiwan", "live", "supplemental"]
+    },
+    {
+      "id": "taiwan.tpex_openapi_sync",
+      "description": "Daily 11:00 TPE — TPEx OpenAPI cross-check + redundancy fallback if MOPS path failed",
+      "runner": "backend.app.services.taiwan.scheduler:job_tpex_openapi_sync",
+      "cron": {"hour": "11", "minute": "0"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "medium",
+      "tags": ["taiwan", "live", "redundancy"]
+    },
+    {
+      "id": "taiwan.twse_weekly_patch",
+      "description": "Weekly Sun 03:00 TPE — TWSE C04003 ZIP backfill catches amendments missed by per-ticker endpoint",
+      "runner": "backend.app.services.taiwan.scheduler:job_twse_weekly_patch",
+      "cron": {"day_of_week": "sun", "hour": "3", "minute": "0"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "medium",
+      "tags": ["taiwan", "weekly", "patch"]
+    },
+    {
+      "id": "taiwan.tpex_weekly_patch",
+      "description": "Weekly Sun 03:30 TPE — TPEx O_YYYYMM.xls bulk patch",
+      "runner": "backend.app.services.taiwan.scheduler:job_tpex_weekly_patch",
+      "cron": {"day_of_week": "sun", "hour": "3", "minute": "30"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "medium",
+      "tags": ["taiwan", "weekly", "patch"]
+    },
+    {
+      "id": "taiwan.company_master_refresh",
+      "description": "Monthly 1st @ 03:00 TPE — re-resolve watchlist via KeywordsQuery to catch market/sector drift",
+      "runner": "backend.app.services.taiwan.scheduler:job_company_master",
+      "cron": {"day": "1", "hour": "3", "minute": "0"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "low",
+      "tags": ["taiwan", "monthly", "infra"]
+    },
+    {
+      "id": "taiwan.health_check",
+      "description": "Hourly @ :17 — read taiwan_scraper_heartbeat, log WARN on stale rows beyond 2× cadence",
+      "runner": "backend.app.services.taiwan.scheduler:job_health_check",
+      "cron": {"minute": "17"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "high",
+      "tags": ["taiwan", "observability"]
+    },
+
+    {
+      "id": "social.news_scrape",
+      "description": "Every 2h @ :00 — Google News RSS scrape across 28 feeds",
+      "runner": "backend.app.services.social.scheduler:job_news_scrape",
+      "cron": {"hour": "*/2", "minute": "0"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "medium",
+      "tags": ["social", "news"]
+    },
+    {
+      "id": "social.reddit_scrape",
+      "description": "Every 2h @ :15 — Reddit subreddit posts (10 subreddits)",
+      "runner": "backend.app.services.social.scheduler:job_reddit_scrape",
+      "cron": {"hour": "*/2", "minute": "15"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "medium",
+      "tags": ["social", "reddit"]
+    },
+    {
+      "id": "social.reddit_keyword_search",
+      "description": "Every 4h @ :30 — Reddit keyword sweeps (16 keywords; heavier than subreddit poll)",
+      "runner": "backend.app.services.social.scheduler:job_reddit_keyword_search",
+      "cron": {"hour": "*/4", "minute": "30"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "low",
+      "tags": ["social", "reddit", "keyword"]
+    },
+    {
+      "id": "social.gpu_price_snapshot",
+      "description": "Daily 04:45 TPE — Vast.ai + RunPod + Tensordock GPU price snapshot",
+      "runner": "backend.app.services.social.scheduler:job_gpu_price_snapshot",
+      "cron": {"hour": "4", "minute": "45"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "low",
+      "tags": ["pricing", "gpu"]
+    },
+    {
+      "id": "social.x_ingest",
+      "description": "Every 4h @ :50 — X (Twitter) ingestion via twitterapi.io for 7 starter accounts",
+      "runner": "backend.app.services.social.scheduler:job_x_ingest",
+      "cron": {"hour": "*/4", "minute": "50"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "low",
+      "tags": ["social", "x"],
+      "skill": "x-twitter-ingestion"
+    },
+    {
+      "id": "social.pcpartpicker_daily",
+      "description": "Daily 04:00 TPE — PCPartPicker component price trends",
+      "runner": "backend.app.services.social.scheduler:job_pcpartpicker_daily",
+      "cron": {"hour": "4", "minute": "0"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "low",
+      "tags": ["pricing", "pc-components"],
+      "skill": "pcpartpicker-scraper"
+    },
+    {
+      "id": "social.camel_daily",
+      "description": "Daily 04:30 TPE — CamelCamelCamel Amazon product price history",
+      "runner": "backend.app.services.social.scheduler:job_camel_daily",
+      "cron": {"hour": "4", "minute": "30"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "low",
+      "tags": ["pricing", "amazon"]
+    },
+    {
+      "id": "social.health_check",
+      "description": "Hourly @ :23 — read social_scraper heartbeat, log WARN on stale rows",
+      "runner": "backend.app.services.social.scheduler:job_social_health_check",
+      "cron": {"minute": "23"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "high",
+      "tags": ["social", "observability"]
+    },
+
+    {
+      "id": "prices.us_daily",
+      "description": "US daily OHLCV for all US tickers in platform universe. Runs 07:00 TPE = 18:00 ET prior session, after Yahoo finalises adj_close.",
+      "runner": "backend.app.services.prices.scheduler:job_us_daily",
+      "cron": {"hour": "7", "minute": "0"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "medium",
+      "tags": ["prices", "daily", "us"]
+    },
+    {
+      "id": "prices.taiwan_daily",
+      "description": "Taiwan daily OHLCV (.TW tickers). Runs 14:30 TPE — 1h after the 13:30 TWSE close.",
+      "runner": "backend.app.services.prices.scheduler:job_taiwan_daily",
+      "cron": {"hour": "14", "minute": "30"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "medium",
+      "tags": ["prices", "daily", "taiwan"]
+    },
+    {
+      "id": "prices.us_intraday_15m",
+      "description": "US intraday 15m OHLCV during the regular session: 21:30 TPE (= 09:30 ET) to 04:00 TPE next day (= 16:00 ET). Every 15 min.",
+      "runner": "backend.app.services.prices.scheduler:job_us_intraday_15m",
+      "cron": {"hour": "21-23,0-4", "minute": "0,15,30,45"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "low",
+      "tags": ["prices", "intraday", "us"]
+    },
+    {
+      "id": "prices.taiwan_intraday_15m",
+      "description": "Taiwan intraday 15m OHLCV during the regular session: 09:00-13:30 TPE. Every 15 min.",
+      "runner": "backend.app.services.prices.scheduler:job_taiwan_intraday_15m",
+      "cron": {"hour": "9-13", "minute": "0,15,30,45"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "low",
+      "tags": ["prices", "intraday", "taiwan"]
+    },
+    {
+      "id": "prices.taiwan_twse_patch",
+      "description": "Daily 15:00 TPE — TWSE-direct overwrite of prior 30 days for every .TW ticker. Heals Yahoo's pre-2020 historical gaps and provides authoritative same-day close after the 13:30 TPE close. Refuses to write if Yahoo and TWSE disagree by >0.5% across the overlap (split / corp-action signal).",
+      "runner": "backend.app.services.prices.scheduler:job_taiwan_twse_patch",
+      "cron": {"hour": "15", "minute": "0"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "medium",
+      "tags": ["prices", "daily", "taiwan", "twse-direct", "patch"]
+    },
+    {
+      "id": "prices.health_check",
+      "description": "Hourly @ :43 — log WARN on stale prices parquet (last_modified > 24h US, > 24h Taiwan).",
+      "runner": "backend.app.services.prices.scheduler:job_prices_health_check",
+      "cron": {"minute": "43"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "medium",
+      "tags": ["prices", "observability"]
+    }
+  ]
+}

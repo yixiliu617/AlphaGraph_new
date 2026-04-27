@@ -1,6 +1,11 @@
 ---
 name: time-axis-sort-convention
 description: Project-wide rule for how time periods are sorted in tables, charts, and lists across the AlphaGraph dashboard. Use when building any UI that displays metrics across time (financials, segments, capacity, guidance, KPI tables) or when modifying a backend endpoint that returns a time-indexed `periods` array. Codifies "newest-first for tables, oldest-first for charts" — the analyst-friendly default.
+version: 1.0
+last_validated_at: 2026-04-27
+conditions: []
+prerequisites: []
+tags: [convention, ui, time-series, table, chart]
 ---
 
 # Time-Axis Sort Convention

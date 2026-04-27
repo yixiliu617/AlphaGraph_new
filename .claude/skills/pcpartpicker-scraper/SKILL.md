@@ -1,6 +1,11 @@
 ---
 name: pcpartpicker-scraper
 description: Scraping PC component price trends from pcpartpicker.com — Cloudflare bypass, chart image download, LLM vision extraction
+version: 1.0
+last_validated_at: 2026-04-28
+conditions: []
+prerequisites: [web-scraping]
+tags: [scraping, pricing, hardware, llm-vision, cloudflare]
 ---
 
 # PCPartPicker Trends Scraper

@@ -1,6 +1,11 @@
 ---
 name: readable-data-table
 description: Build a dense, filings-style data table (financial statements, metric grids, time-series tabulars) that a domain expert — PM, analyst, researcher — can scan effortlessly. Use when the user asks for a "clean table", "financial data table", "readable data display", or shares a reference screenshot of a filings-style table and wants the UI to match. Covers row structure, column ordering, alignment, color, sticky columns, hover states, and derived rows.
+version: 1.0
+last_validated_at: 2026-04-28
+conditions: []
+prerequisites: [time-axis-sort-convention]
+tags: [ui, table, design, dense-data, frontend]
 ---
 
 # Readable Data Table — Build & Refinement Skill

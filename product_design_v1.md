@@ -691,3 +691,61 @@ The next visible milestone for **multi-user** is **auth + per-tenant isolation**
 |---|---|
 | 2026-04-09 | v1 initial — 6-layer vision, competitive landscape, dashboard tabs, cold-start design, phased build plan, design principles. |
 | 2026-04-26 | Added §15 (multi-region coverage strategy with per-company idiosyncrasy budget), §16 (multi-user agentic workflow design with cost model), §17 (status snapshot). Refreshed §13 to point at §14-16 for current implementation status. |
+| 2026-04-27 | Added §18 (multi-channel + per-user-evolution vision — locked decisions on Telegram + Slack + Email + self-hosted Honcho). Cross-references the architecture roadmap in `architecture_and_design_v2.md` § 14. |
+
+---
+
+## 18. Multi-Channel + Per-User-Evolution Vision
+
+*Added 2026-04-27 after CTO review of the `hermes-agent` codebase, with locked-in product decisions.*
+
+### 18.1 What we're building
+
+Beyond the dashboard, AlphaGraph will reach institutional users **on the channels they already work in** — Telegram, Slack, Email — through a single agent that knows them. The same agent that drives the dashboard runs in each channel; only the IO surface differs.
+
+### 18.2 The user-experience promise
+
+A PM who covers semis can:
+
+1. Ask in Slack: *"Has TSMC ever missed its own guidance? show me the worst-miss quarter"* → bot threads back the answer with a chart and direct provenance.
+2. Get a daily 7am Asia-summary Email: revenue surprises, guidance changes, transcript callouts that match their watchlist (computed by their agent overnight).
+3. Nudge the agent on Telegram: *"draft a 2-page memo on UMC vs TSMC margin trajectory"* → result generates as a streaming response with charts inline.
+4. **The agent learns them over time.** After 50 interactions it knows: this user wants concise hedged answers, prefers tables to prose, always cares about Asia foundry, never wants Smartphone segment data, prefers numbers in NT$ billions.
+
+### 18.3 Locked product decisions (2026-04-27)
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| First channel | Telegram | Analyst-friendly, rich formatting, no OAuth dance, supports inline buttons for clarify-confirm flow |
+| Channels in scope | Telegram, Slack, Email | 95% of institutional use |
+| Channels out of scope | Discord, WhatsApp, Signal | Wrong product target |
+| User-modeling backend | Self-hosted Honcho | Institutional privacy posture, no vendor lock-in |
+| Per-user budget | Tiered: free=20 calls/day, pro=300, institutional=2000 | Prevents runaway cost; tier-based monetization aligns |
+| First user-facing surface | Web (existing dashboard) | Lowest-risk rollout; channels follow once agent service is stable |
+
+### 18.4 What "the agent learns them" means concretely
+
+Two distinct memory layers (per `architecture_and_design_v2.md` § 14.7):
+
+- **Builtin facts** (markdown, today's pattern formalized): hard rules, watchlist, account settings.
+- **Honcho dialectic model** (self-hosted): everything else — communication style, recurring topics, confidence calibration, time patterns.
+
+When a user asks a question, both layers feed the agent's context. After each turn, Honcho asynchronously updates with what was learned ("user prefers inline percentage YoY" / "user always asks for sequential plus YoY").
+
+### 18.5 What this is NOT
+
+- **Not a chatbot.** The agent is task-driven (clarify → plan → confirm → execute), not chat-driven. Free-form chat is supported but the value is in structured analytical workflows.
+- **Not personality cloning.** Honcho captures preferences, not personality. The agent's "voice" is consistent across users; only what it surfaces and how it frames are tuned.
+- **Not multi-tenant identity-blending.** A user's data is their data. No cross-user "users like you also asked" — that's a different product.
+
+### 18.6 How this is sequenced in the engineering roadmap
+
+| Engineering phase (per arch v2 §14) | Product surface | Calendar week range from now |
+|---|---|---|
+| Phase 2 | Storage + auth foundation | Weeks 1-6 |
+| Phase 3a + 3b + 3c | Web agent service | Weeks 7-15 |
+| Phase 4a | + Telegram | Weeks 16-18 |
+| Phase 4b | + Per-user model (Honcho) | Weeks 19-20 |
+| Phase 4c | + Slack + Email + cross-channel | Weeks 21-26 |
+
+Total: 4-6 months for full vision; first user-facing agent (web only) at week 15.

@@ -1,6 +1,11 @@
 ---
 name: github-prep
 description: Prepare the AlphaGraph repo for git commit and GitHub push. Use whenever the user says "push to github", "commit", "clean up for git", or reports a failed push due to large files. Covers .gitignore maintenance, large-file detection, history rewriting when large files leak into commits, and the post-clone setup instructions that must stay accurate in the README. Captures every large-file trap we hit (node_modules, .next, .wav recordings, parquet data, __pycache__) so they don't recur.
+version: 1.0
+last_validated_at: 2026-04-28
+conditions: []
+prerequisites: []
+tags: [git, github, hygiene, repo-maintenance]
 ---
 
 # GitHub Preparation — Skill

@@ -11,9 +11,11 @@ from __future__ import annotations
 import os
 import sys
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from backend.app.services.data_cache import cache_info, cache_clear
+from backend.app.services.data_quality import run_all, run_for_dataset
+from backend.app.services.data_quality.registry import DATASETS
 
 
 router = APIRouter()
@@ -36,6 +38,29 @@ def cache_clear_endpoint() -> dict:
     prod (mtime-based invalidation handles fresh-write cases)."""
     cache_clear()
     return {"cleared": True, "info": cache_info()}
+
+
+@router.get("/data-quality")
+def data_quality(dataset: str | None = Query(None, description="Optional registry key, e.g. 'umc.facts'. Omit to run all.")):
+    """Run every registered data-quality check (or just one dataset's set)
+    and return structured results. Designed for both human consumption
+    (curl + jq) and dashboard surfacing.
+
+    Status meaning:
+      - pass  : check ran, no issues
+      - warn  : check ran, found something worth noting but not breaking
+      - fail  : check ran, found a violation that should be fixed
+      - error : check itself crashed (bug in the check, not the data)
+    """
+    results = run_for_dataset(dataset) if dataset else run_all()
+    summary = {"pass": 0, "warn": 0, "fail": 0, "error": 0}
+    for r in results:
+        summary[r["status"]] = summary.get(r["status"], 0) + 1
+    return {
+        "datasets_examined": list(DATASETS.keys()) if not dataset else [dataset],
+        "summary": summary,
+        "results": results,
+    }
 
 
 @router.get("/runtime")

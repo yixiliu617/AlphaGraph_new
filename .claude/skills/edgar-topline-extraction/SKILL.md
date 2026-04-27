@@ -1,6 +1,12 @@
 ---
 name: edgar-topline-extraction
 description: HIGH PRIORITY. Build and maintain the AlphaGraph topline + calculated layers for SEC EDGAR-sourced quarterly financial data. Use whenever the user asks to (re)build, refresh, or fix any ticker's quarterly income statement / cash flow / balance sheet data; whenever they report missing values, wrong fiscal labels, missing YoY%, missing QoQ%, NaN cells in the quarterly data table, or any data quality issue with a sector heatmap or financial chart. Captures every fiscal-period quirk and concept-mapping fallback we discovered for DELL, AAPL, LITE, AVGO, AMZN, ORCL, MU, NVDA. Includes the mandatory post-build coverage checks that surface missing data instead of letting it ship silently.
+version: 1.0
+last_validated_at: 2026-04-28
+conditions:
+  - requires_dir: [backend/data/filing_data]
+prerequisites: [edgar-period-analysis, data-quality-invariants]
+tags: [edgar, extraction, financials, topline, high-priority]
 ---
 
 # EDGAR Topline Extraction — The Complete Skill
@@ -10,6 +16,10 @@ description: HIGH PRIORITY. Build and maintain the AlphaGraph topline + calculat
 **Never guess fiscal periods. Never trust per-row fiscal_year from edgartools for historical rows.** Always anchor on the latest row's edgartools label and step backward by one fiscal quarter per position. When historical rows disagree with the stepped-back label, keep the stepped-back label and record the mismatch.
 
 This is enforced by `_reanchor_period_labels()` in `topline_builder.py`. The companion read-side skill is at `.claude/skills/edgar-period-analysis/SKILL.md`.
+
+## 0a. Cache-first rule (project-wide)
+
+Every external data source must be persisted on first fetch; downstream pipelines read from cache. The EDGAR fetch layer lives in `backend/app/services/data_agent/xbrl_cache.py` (per-filing parquets + per-ticker stitched outputs, accession-keyed). The build pipeline reads from this cache and never calls `XBRL.from_filing()` or `XBRLS.from_filings()` directly. Full rule: `CLAUDE.md` § "External-Data Cache-First Rule".
 
 ## 1. What this Skill does
 
@@ -230,19 +240,78 @@ ORCL doesn't report a single Cost of Revenue line — they split into business-s
 ### `_CASHFLOW_MAP` — standard_concept → metric (cash flow)
 
 ```python
-"NetCashFromOperatingActivities":  "operating_cf",
-"NetCashFromInvestingActivities":  "investing_cf",
-"NetCashFromFinancingActivities":  "financing_cf",
-"CapitalExpenses":                 "capex",
-"CapitalExpenditures":             "capex",
-"Depreciation":                    "depreciation",
-"DepreciationExpense":             "depreciation",
-"DepreciationAndAmortization":     "depreciation",
+"NetCashFromOperatingActivities":      "operating_cf",
+"NetCashFromInvestingActivities":      "investing_cf",
+"NetCashFromFinancingActivities":      "financing_cf",
+"CapitalExpenses":                     "capex",
+"CapitalExpenditures":                 "capex",
+"Depreciation":                        "depreciation",
+"DepreciationExpense":                 "depreciation",
+"DepreciationAndAmortization":         "depreciation",
+"OtherDepreciationAndAmortization":    "depreciation",  # AMD
+"DepreciationDepletionAndAmortization":"depreciation",
 ```
 
 ### `_CF_LABEL_FALLBACK` — capex label fallback
 
 NVDA reports capex via a custom concept `nvda_PurchasesRelatedToPropertyAndEquipmentAndIntangibleAssets` with `standard_concept=NaN` for FY2022-Q4 through FY2024-Q2. We catch it via label: must start with `"purchases"` AND contain `"property"`. The "purchases" prefix is critical — it excludes `"principal payments on property and equipment"` which is a financing-activity (debt repayment) line, not capex.
+
+### `_CF_CONCEPT_FALLBACK` — raw concept → metric (single-row, full-value)
+
+Used when `standard_concept` and label fallbacks miss but the row IS a complete value (not a split component). Single match per period.
+
+```python
+"us-gaap_DepreciationAndAmortization":  "depreciation",
+"us-gaap_Depreciation":                 "depreciation",
+"us-gaap_DepreciationNonproduction":    "depreciation",
+```
+
+### `_CF_SUM_MAP` — concepts that are split or use company-specific tags
+
+For filers who report Depreciation and Amortization as **two separate XBRL rows** in their 10-K (or use a company-specific concept that needs to be discovered). The sum logic accumulates all matching rows per period into a single metric value.
+
+```python
+_CF_SUM_MAP: dict[str, list[str]] = {
+    "depreciation": [
+        # AMD-style split: separate D and A lines, mis-tagged std_concepts
+        "us-gaap_OtherDepreciationAndAmortization",   # AMD: $671M (D only) FY2024
+        "us-gaap_AdjustmentForAmortization",          # AMD: $2,393M (A only) FY2024
+        "us-gaap_AmortizationOfIntangibleAssets",
+        "us-gaap_DepreciationDepletionAndAmortization",  # DELL combined
+        # Company-specific combined concepts (std_concept=NaN)
+        "msft_DepreciationAmortizationAndOther",
+        "csco_DepreciationAmortizationAndOther",
+    ],
+}
+```
+
+**The AMD FY2024 depreciation case (the canonical example):**
+
+In AMD's FY2025 10-K (filed Feb 2026), the FY2024 column reports D+A as two separate rows:
+
+| concept | std_concept (mis-tagged) | label | FY2024 |
+|---|---|---|---:|
+| `us-gaap_OtherDepreciationAndAmortization` | `NonoperatingIncomeExpense` | "Depreciation and amortization" | $671M |
+| `us-gaap_AdjustmentForAmortization` | `GoodwillWriteoffs` | "Amortization" | $2,393M |
+
+Without the sum map, only the first row matches and the build records FY2024 Annual depreciation = $671M. The 10-Q quarterlies (Q1+Q2+Q3 = 2,309M) far exceed this, so the derived Q4 = 671 − 2,309 = **−$1,638M** — a fictitious negative depreciation that's clearly wrong.
+
+With the sum map, both rows accumulate: $671 + $2,393 = $3,064M ≈ Q1+Q2+Q3+Q4 sum. Q4 = 755M (positive, correct).
+
+**Why the sum is safe even for non-split filers**:
+
+The matching priority in `_process_statement` is:
+1. `standard_concept` → `_CASHFLOW_MAP`
+2. `eps_label_map` (income only)
+3. `cf_label_fallback`
+4. `_CF_CONCEPT_FALLBACK` (raw concept, single-value)
+5. `_CF_SUM_MAP` (raw concept, sum)
+
+A row only reaches the sum path if **no earlier rule matched**. So filers who report a single combined `us-gaap_DepreciationAndAmortization` line with a normal `standard_concept = "DepreciationAndAmortization"` are matched at step 1 — their row[depreciation] is set once via the standard map and the sum path is never entered. No double-counting.
+
+For MSFT and CSCO, their `msft_*` and `csco_*` rows have `standard_concept = NaN` and concept names that are not in `_CF_CONCEPT_FALLBACK`, so they fall through to step 5 — the sum sets row[depreciation] to their single value. This unifies the extraction path: every depreciation source (combined-std, combined-fallback, split-D+A, company-specific) lands the right metric value.
+
+**Detection rule** in `audit_topline.py`: `annual_vs_quarters` on `depreciation` (CRITICAL at >25% discrepancy). This was added specifically to catch AMD's FY2024 cascade and any future filer that hits the same trap.
 
 ### `_OVERWRITE_ON_MATCH` — last-match-wins metrics
 
@@ -250,7 +319,47 @@ NVDA reports capex via a custom concept `nvda_PurchasesRelatedToPropertyAndEquip
 {"operating_cf", "investing_cf", "financing_cf"}
 ```
 
-These CF totals can appear multiple times in a filing because edgartools surfaces every row tagged with the standard_concept, including upstream sub-components. The TRUE total is the LAST row in the filing. For all other metrics, default first-match-wins behavior protects against silent overwrites.
+These CF totals can appear multiple times in a filing because edgartools surfaces every row tagged with the standard_concept, including upstream sub-components. **But "last wins" alone is insufficient** — see `_CANONICAL_TOTAL_CONCEPTS` below for the AMD-class fix.
+
+### `_CANONICAL_TOTAL_CONCEPTS` — concept-name preference for CF totals
+
+When multiple rows share `standard_concept = "NetCashFromOperatingActivities"` (or the equivalent investing/financing standard_concept), the simple "last wins" rule fails for filers that have **supplemental disclosures appearing AFTER the headline total**. The fix:
+
+```python
+_CANONICAL_TOTAL_CONCEPTS: dict[str, set[str]] = {
+    "operating_cf": {
+        "us-gaap_NetCashProvidedByUsedInOperatingActivities",
+        "us-gaap_NetCashProvidedByOperatingActivities",  # legacy spelling
+    },
+    "investing_cf": {
+        "us-gaap_NetCashProvidedByUsedInInvestingActivities",
+        "us-gaap_NetCashProvidedByInvestingActivities",
+    },
+    "financing_cf": {
+        "us-gaap_NetCashProvidedByUsedInFinancingActivities",
+        "us-gaap_NetCashProvidedByFinancingActivities",
+    },
+}
+```
+
+**Selection rule** (in `_process_statement`): for `_OVERWRITE_ON_MATCH` metrics, when a row's raw `concept` is in the canonical set, that value WINS and is locked — no later row in the same period can overwrite it. Only when no canonical row has been seen does the legacy "last wins" fallback apply (this preserves behavior for company-specific concepts like `orcl_*`).
+
+**Why "last wins" alone failed (the AMD bug)**: AMD's FY2025 10-K cash flow has FOUR rows that edgartools tags with `standard_concept = NetCashFromOperatingActivities`:
+
+| concept | label | FY2025 |
+|---|---|---:|
+| `us-gaap_NetCashProvidedByUsedInOperatingActivitiesContinuingOperations` | continuing ops | $6,493M |
+| `us-gaap_CashProvidedByUsedInOperatingActivitiesDiscontinuedOperations` | discontinued ops | $1,216M |
+| **`us-gaap_NetCashProvidedByUsedInOperatingActivities`** | **TOTAL ✓** | **$7,709M** |
+| `us-gaap_RightOfUseAssetObtainedInExchangeForOperatingLeaseLiability` | ROU lease (supplemental, non-cash) | $285M |
+
+Last-wins picked the supplemental ROU disclosure ($285M) — that's the wrong row. The `_derive_q4 = Annual − 9M_YTD` step then produced a Q4 of −$4,824M (since 285 − 5,109 = −4,824) — a fictitious Q4 cash outflow that never happened.
+
+Same pattern appears whenever a filer has discontinued operations, ROU lease disclosures, or any other "non-cash investing/financing" supplemental row that shares the parent total's standard_concept. Affects AMD, AAPL FY2020, ADI FY2019-2024, ORCL FY2020, NVDA FY2024 (one quarter), and likely most large-cap filers in some year.
+
+### Why we can't use `parent_abstract_concept`
+
+The XBRLS stitched API (`xbrls.statements.cash_flow_statement(max_periods=40).to_dataframe()`) returns columns `[label, concept, standard_concept, *dates, preferred_sign]` — it drops the `parent_abstract_concept` column that single-XBRL parsing exposes. So we can't filter rows by their position in the abstract hierarchy (e.g. "skip rows under `NoncashInvestingAndFinancingItemsAbstract`"). The canonical-concept-name preference is the workable substitute.
 
 ## 5. Per-ticker edge case catalog
 
@@ -320,6 +429,62 @@ This is the most-affected ticker in the universe. Three independent issues:
 - Fiscal calendar: late August year-end (FY2026 = Sept 2025 → Aug 2026).
 - Has legitimate ~-50% YoY swings during memory downturns and +200% during recoveries — these are real, not bugs.
 - Capex via standard path, no special handling needed.
+
+### SMCI (raw-facts fallback substring trap + per-row first-wins missing)
+
+SMCI's 10-Q has a `us-gaap:ContractWithCustomerLiabilityRevenueRecognized` row at $63M (deferred-revenue disclosure) at the same end_date with 91-day duration. Pre-fix, `_resolve_ytd_with_raw_facts` did fuzzy substring matching:
+
+```python
+for std_key, metric_name in concept_map.items():
+    if std_key.lower() in concept.lower():    # "revenue" IN "...revenuerecognized"
+        metric = metric_name
+        break
+```
+
+The substring `"revenue"` matches both:
+- `us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax` ($12.7B, real revenue)
+- `us-gaap:CostOfRevenue` ($11.9B, cost — should be cost_of_revenue, not revenue)
+- `us-gaap:ContractWithCustomerLiabilityRevenueRecognized` ($63M, deferred-revenue sub-line)
+
+The function iterated all matching facts and overwrote the same metric repeatedly — last match won. Result: SMCI's Q2 FY26 standalone revenue was set to $63M, then `is_ytd=False` was flagged so `_ytd_to_standalone` skipped the row. Same trap on cost_of_revenue.
+
+The same trap also broke AAPL FY2019-2025 (revenue showing $1,900-$3,400 in Q2/Q3 standalone rows — mid-year quarters where AAPL's 10-Q has a sub-disclosure line whose concept name contains "revenue").
+
+**Fix**: replace fuzzy substring match with an explicit raw-concept whitelist `_RAW_CONCEPT_TO_METRIC` (defined inside `ToplineBuilder`), and stop overwriting once a metric is set per (row, metric):
+
+```python
+metrics_set: set[str] = set()  # only first match wins per metric
+...
+metric = self._RAW_CONCEPT_TO_METRIC.get(concept)
+if metric is None or metric in metrics_set:
+    continue
+df.at[idx, metric] = val
+metrics_set.add(metric)
+```
+
+The whitelist is intentionally narrow — exact us-gaap concept names only. Adding a new ticker means evaluating whether to add its concepts (rare), NOT loosening the matching rule.
+
+**Detection rule** in `audit_topline.py`: `gross_profit_identity` (revenue − COGS ≠ GP by >1% of revenue) catches this kind of mis-mapping reliably. SMCI's pre-fix audit had 12 such WARNs across FY2019-2026 because revenue and cost were swapped.
+
+### AMD (CF supplemental-disclosure trap + mis-tagged depreciation + same-day 10-K/A)
+
+This is the canonical example of the canonical-total-concept disambiguation failure.
+
+1. **CF totals were silently wrong before the canonical-concept fix.** `operating_cf` Annual landed on the supplemental Right-of-Use lease row ($285M) instead of the real total ($7,709M). Same shape on `investing_cf`. Cascaded into a derived Q4 of −$4,824M.
+
+   **Fix**: `_CANONICAL_TOTAL_CONCEPTS` (see Section 4). Locks the bare `us-gaap_NetCashProvidedByUsedIn*Activities` concept against later overwrites in the same period.
+
+2. **Depreciation reported as separate D and A rows in the 10-K**. AMD's FY2024+ 10-Ks split "Depreciation and amortization" into TWO XBRL rows:
+   - `us-gaap_OtherDepreciationAndAmortization` ($671M, std_concept mis-tagged as `NonoperatingIncomeExpense`)
+   - `us-gaap_AdjustmentForAmortization` ($2,393M, std_concept mis-tagged as `GoodwillWriteoffs`)
+
+   The 10-Q reports them combined under `us-gaap_DepreciationAndAmortization` (~$750M per quarter). Picking up only the D row gave Annual = $671M but quarterly sum = $3,064M — derived Q4 = $-1,638M. **Fix**: `_CF_SUM_MAP` accumulates both D and A rows into the `depreciation` metric. See section 4 for the full priority logic. Same fix simultaneously catches MSFT and CSCO who use company-specific concepts (`msft_DepreciationAmortizationAndOther`, `csco_*`).
+
+3. **AMD files 10-K/A on the same day as the original 10-K**. Both `0000002488-26-000018` (10-K) and `0000002488-26-000021` (10-K/A) are dated 2026-02-04 and cover period 2025-12-27. The amendment's XBRL is a stub — it has no income/balance/cashflow statements — and edgartools logs `"Failed to resolve … No statements available"` warnings. The build still completed but the warnings hint at a flaky stitch. **Fix**: filter `amendments=False` when building the filings list passed to `XBRLS.from_filings(...)`. Amendment filings remain visible to `_get_filing_info` (the refresh-detection path) so a real restatement still triggers a rebuild.
+
+4. **Discontinued operations introduced in FY2025**. AMD divested ZT Systems (or similar) in FY2025, so the FY2025 10-K splits OCF, investing, and financing into three rows each (continuing / discontinued / total) for the first time. Prior-year columns in the same filing show only the total. The canonical-concept lock handles this transparently — picks the one row whose concept is the bare us-gaap total.
+
+5. **Gross-profit identity warnings** (FY2022-Q1, Q2, Q4; FY2023-Q1, Q4; FY2024-Q1, Q4; FY2025-Q1, Q4): `revenue − cost_of_revenue ≠ gross_profit` by 1-7% of revenue. Real, not a parser bug — AMD nets amortization of acquired intangibles into COGS in some quarters, so the COGS line and the GP line don't satisfy strict accounting identity. Treat as informational; do not modify.
 
 ### ORCL (no GrossProfit subtotal, three-way COGS split)
 
@@ -391,6 +556,40 @@ After `_reanchor_period_labels` runs, no two standalone quarterly rows should sh
 ### Check 4 — Reanchor mismatches recorded
 
 Every reanchor mismatch is recorded in the build report under `ticker_report["is_reanchor_mismatches"]` and `ticker_report["cf_reanchor_mismatches"]`. Review these after every build. A growing list per ticker is normal (these are honest disagreements with edgartools' historical labels). A SUDDEN spike is a regression signal.
+
+### Check 5 — Cross-statement audit (the AMD regression test)
+
+Run `python -m backend.scripts.audit_topline` after every full build. The script loads each ticker's `income_statement`, `balance_sheet`, and `cash_flow` parquets and applies the rules below; outputs go to `backend/data/filing_data/audit_topline_report.{json,md}`.
+
+**Rules** (`backend/scripts/audit_topline.py`):
+
+| rule | severity threshold | catches |
+|---|---|---|
+| `annual_vs_quarters` | >5% WARN, >25% CRITICAL | AMD-class CF disambiguation, ORCL gross-profit split, AAPL revenue mis-mapping |
+| `q4_sign_anomaly` | sign opposite to Q1-Q3 mean AND \|Q4\| > 2× mean AND both > $100M | Q4 derivation cascade from a wrong Annual |
+| `nan_coverage` | >50% NaN WARN, >95% CRITICAL | missing concept aliases (e.g. depreciation pre-fix on AMD); MSFT/CSCO depreciation column missing |
+| `gross_profit_identity` | \|revenue − COGS − GP\| / revenue > 1% WARN | YTD-conversion bugs in COGS, intangibles netting |
+| `sign_violation` | capex must be negative | misclassified financing rows ending up in capex |
+| `ocf_to_revenue_outlier` | OCF/revenue outside [−30%, +150%] for ≥2 quarters | one-off cash flow values |
+| `non_positive_assets` | total_assets ≤ 0 | catastrophic balance sheet parse |
+| `missing_column` | column absent | new statement structure for a ticker |
+
+**Sparsity filter**: `annual_vs_quarters` skips fiscal years with zero quarterly rows present (history-edge data is sparse, not buggy). Years with 1-3 of 4 quarters present are downgraded to INFO to avoid drowning the real CRITICAL signal.
+
+**How to read the report**:
+
+1. Open `audit_topline_report.md` first — the per-ticker summary table sorts highest-CRIT to lowest. Anything with CRIT > 0 needs a look.
+2. CRIT `annual_vs_quarters` on a CF metric usually means a new filer hit the supplemental-disclosure trap (Section 4 fix). Add the company-specific concept(s) to `_CANONICAL_TOTAL_CONCEPTS` if they use a non-us-gaap canonical name.
+3. CRIT `q4_sign_anomaly` is almost always a downstream symptom of the Annual being wrong; fix the Annual and the Q4 derivation falls out automatically.
+4. WARN `gross_profit_identity` is usually informational (intangibles netting in COGS), but a CONSISTENT 30-50% gap suggests the COGS column is YTD when it should be standalone (Class C3, see Section 5: AAPL).
+
+**Run the audit on a single ticker** when investigating a fix:
+
+```bash
+python -m backend.scripts.audit_topline --tickers AMD NVDA MSFT
+```
+
+The audit is also the regression test before merging any change to `topline_builder.py`. A change that fixes one filer must not introduce a new CRITICAL on another.
 
 ## 7. Investigation playbook — when a check fails
 
@@ -646,4 +845,6 @@ Quarters affected by M&A events (DELL VMware spinoff, LITE NeoPhotonics, AVGO VM
 | `backend/app/services/data_agent/data_agent.py` | DataAgent.fetch() — the read path used by the quarterly financial data table |
 | `backend/app/api/routers/v1/data.py` | `/data/sector-heatmap` and `/data/fetch` endpoints |
 | `backend/data/filing_data/calculated/_build_report.json` | Build outcomes + warnings — read this after every build |
+| `backend/scripts/audit_topline.py` | Cross-statement audit (Check 5) — the AMD-class regression test |
+| `backend/data/filing_data/audit_topline_report.{json,md}` | Latest audit results; re-generated by `python -m backend.scripts.audit_topline` |
 | `.claude/skills/edgar-period-analysis/SKILL.md` | The complementary read-side skill (anchor + step back when consuming the parquets) |

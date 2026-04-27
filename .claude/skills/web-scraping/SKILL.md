@@ -1,9 +1,18 @@
 ---
 name: web-scraping
 description: Building web scrapers for AlphaGraph — Cloudflare bypass, chart extraction, RSS feeds, Reddit, translation. Patterns, pitfalls, and architecture.
+version: 1.0
+last_validated_at: 2026-04-28
+conditions: []
+prerequisites: []
+tags: [scraping, network, infra, cloudflare, playwright]
 ---
 
 # Web Scraping Skill
+
+## Cache-first rule (project-wide)
+
+Every scraper persists raw responses to disk on first fetch. Downstream parsing reads from local cache, never re-hits the network unless the cache is missing. Cache key = source-immutable ID (URL + capture timestamp, or accession-equivalent). Bronze (raw HTML/JSON) is OPTIONAL but recommended for sites with strict rate limits (Cloudflare-protected, paid endpoints) — silver (parsed parquet) is mandatory. Full rule: `CLAUDE.md` § "External-Data Cache-First Rule".
 
 ## Architecture Pattern
 

@@ -12,7 +12,8 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Search, ChevronDown, ChevronRight, ExternalLink, Mic, FileText, BarChart2, TrendingUp, Layers, Globe } from "lucide-react";
+import { Loader2, Search, ChevronDown, ChevronRight, ExternalLink, Mic, FileText, BarChart2, TrendingUp, Layers, Globe, LineChart as LineChartIcon } from "lucide-react";
+import PricesTab from "./PricesTab";
 import {
   CartesianGrid, Legend, Line, LineChart, ResponsiveContainer,
   Tooltip, XAxis, YAxis,
@@ -31,9 +32,10 @@ import {
   type TSMCPDFCatalog,
 } from "@/lib/api/tsmcClient";
 
-type SubTab = "financials" | "tech" | "platform_geo" | "guidance" | "transcripts" | "pdfs";
+type SubTab = "prices" | "financials" | "tech" | "platform_geo" | "guidance" | "transcripts" | "pdfs";
 
 const SUBTABS: { key: SubTab; label: string; icon: React.ReactNode }[] = [
+  { key: "prices",      label: "Prices",         icon: <LineChartIcon size={14} /> },
   { key: "financials",  label: "Financials",     icon: <BarChart2 size={14} /> },
   { key: "tech",        label: "Tech mix",       icon: <Layers size={14} /> },
   { key: "platform_geo",label: "Platform / Geo", icon: <Globe size={14} /> },
@@ -191,6 +193,9 @@ export default function TSMCPanel() {
       </div>
 
       {/* Active sub-tab content */}
+      <div hidden={tab !== "prices"}>
+        {tab === "prices" && <PricesTab ticker="2330.TW" currency="TWD" />}
+      </div>
       <div>
         {tab === "financials"  && <FinancialsTab />}
         {tab === "tech"        && <SegmentTab metric="revenue_share_by_technology" title="Wafer Revenue by Technology" colorByOrder unit="%" />}
