@@ -84,10 +84,21 @@ ALL_COLS = [
     "webcast_url", "transcript_url", "dial_in_phone", "dial_in_pin",
     "source", "source_id",
     "verification",
-    # NASDAQ-rich fields:
     "time_of_day_code",
     "eps_forecast", "eps_estimates_count", "market_cap",
     "last_year_eps", "last_year_report_date",
+    # Per-source soft-field provenance columns (Method A / B / C):
+    "webcast_url_a",        "webcast_url_b",        "webcast_url_c",
+    "dial_in_phone_a",      "dial_in_phone_b",      "dial_in_phone_c",
+    "dial_in_pin_a",        "dial_in_pin_b",        "dial_in_pin_c",
+    "press_release_url_a",  "press_release_url_b",  "press_release_url_c",
+    "transcript_url_b",
+    # Per-source enrichment metadata:
+    "enrichment_a_attempted_at",
+    "enrichment_b_attempted_at",
+    "enrichment_c_attempted_at",
+    "enrichment_b_cost_usd",
+    "enrichment_c_vendor",
     "first_seen_at", "last_updated_at",
 ]
 
@@ -115,6 +126,36 @@ def _is_empty(v) -> bool:
         return bool(pd.isna(v))
     except (TypeError, ValueError):
         return False
+
+
+# The 4 soft fields and their per-source column names, in run-order priority
+# (A first, then B, then C as last resort). C runs only on rows where A+B
+# left at least one field empty, so the resolver's first-non-null logic
+# matches the runtime contract.
+_SOFT_FIELD_SOURCES: dict[str, tuple[str, str, str]] = {
+    "webcast_url":       ("webcast_url_a",       "webcast_url_b",       "webcast_url_c"),
+    "dial_in_phone":     ("dial_in_phone_a",     "dial_in_phone_b",     "dial_in_phone_c"),
+    "dial_in_pin":       ("dial_in_pin_a",       "dial_in_pin_b",       "dial_in_pin_c"),
+    "press_release_url": ("press_release_url_a", "press_release_url_b", "press_release_url_c"),
+}
+
+
+def _resolve_soft_fields(row: pd.Series) -> dict[str, str | None]:
+    """Return a dict mapping the public soft-field name to the first
+    non-null value across (a, b, c) sources in run-order priority."""
+    out: dict[str, str | None] = {}
+    for public, (a, b, c) in _SOFT_FIELD_SOURCES.items():
+        for col in (a, b, c):
+            v = row.get(col)
+            if not _is_empty(v):
+                out[public] = v
+                break
+        else:
+            out[public] = None
+    # transcript_url has only one source (B)
+    tv = row.get("transcript_url_b")
+    out["transcript_url"] = None if _is_empty(tv) else tv
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -167,7 +208,21 @@ def read_events(
         df = df[df["release_datetime_utc"] >= _to_utc_timestamp(from_date)]
     if to_date is not None:
         df = df[df["release_datetime_utc"] <= _to_utc_timestamp(to_date)]
-    return df.reset_index(drop=True)
+    df = df.reset_index(drop=True)
+
+    if df.empty:
+        return df
+
+    # Materialize the public soft-field columns from per-source columns.
+    # Frontend continues to read webcast_url / dial_in_phone / etc. without
+    # caring about provenance.
+    for idx, row in df.iterrows():
+        resolved = _resolve_soft_fields(row)
+        for public_col, value in resolved.items():
+            if value is not None:
+                df.at[idx, public_col] = value
+
+    return df
 
 
 def _to_utc_timestamp(value: datetime | str | pd.Timestamp) -> pd.Timestamp:
