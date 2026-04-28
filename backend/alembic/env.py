@@ -25,27 +25,33 @@ sys.path.insert(0, str(_PROJECT_ROOT))
 
 from backend.app.core.config import settings  # noqa: E402
 
-# Import every model module so SQLAlchemy's Base.metadata is fully populated
-# before autogenerate compares against the live schema. Add new model imports
-# here whenever a new ORM table is introduced.
-from backend.app.models.orm.fragment_orm import Base  # noqa: E402
-import backend.app.models.orm.universe_orm  # noqa: F401, E402
-import backend.app.models.orm.insight_orm   # noqa: F401, E402
-import backend.app.models.orm.note_orm      # noqa: F401, E402
-# New Phase 2 models will be imported here as they're added:
-# import backend.app.models.orm.user_orm    # noqa: F401, E402
-# import backend.app.models.orm.alert_orm   # noqa: F401, E402
+# Phase 2 ORM models live under a SEPARATE Base/engine (Phase2Base) so
+# the legacy Fragment/etc. tables on POSTGRES_URI (sqlite by default)
+# don't interfere with auth tables on AUTH_DATABASE_URI (postgres).
+from backend.app.db.phase2_session import Phase2Base  # noqa: E402
+import backend.app.models.orm.user_orm        # noqa: F401, E402
+import backend.app.models.orm.alert_orm       # noqa: F401, E402
+import backend.app.models.orm.credential_orm  # noqa: F401, E402
+
+# Legacy ORMs — kept here so a future migration can pick them up if/when
+# we consolidate everything onto Postgres. They are NOT in target_metadata
+# below, so autogenerate ignores them right now.
+import backend.app.models.orm.fragment_orm   # noqa: F401, E402
+import backend.app.models.orm.universe_orm   # noqa: F401, E402
+import backend.app.models.orm.insight_orm    # noqa: F401, E402
+import backend.app.models.orm.note_orm       # noqa: F401, E402
 
 config = context.config
 
-# Inject the URL from project settings.
-config.set_main_option("sqlalchemy.url", settings.POSTGRES_URI)
+# Inject the URL from project settings — auth_db_uri (= AUTH_DATABASE_URI
+# or POSTGRES_URI fallback) is what hosts the Phase 2 schema.
+config.set_main_option("sqlalchemy.url", settings.auth_db_uri)
 
 # Logging from alembic.ini.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = Base.metadata
+target_metadata = Phase2Base.metadata
 
 
 def run_migrations_offline() -> None:

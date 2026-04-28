@@ -43,4 +43,50 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "SUPER_SECRET_KEY_REPLACE_IN_PROD"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
 
+    # ---- Phase 2 — Auth (OAuth + sessions) ---------------------------
+    # Phase 2 tables (app_user, oauth_session, user_alert) live in a
+    # separate database from the legacy Fragment/Insight/etc. tables so
+    # the existing app can stay on SQLite while auth uses Postgres.
+    # Defaults to POSTGRES_URI; override only if the auth DB is separate
+    # (e.g. legacy on SQLite, auth on Postgres during Phase 2 migration).
+    AUTH_DATABASE_URI: Optional[str] = None  # falls back to POSTGRES_URI
+
+    # OAuth — Google
+    GOOGLE_OAUTH_CLIENT_ID:     Optional[str] = None
+    GOOGLE_OAUTH_CLIENT_SECRET: Optional[str] = None
+
+    # OAuth — Microsoft (Entra / Azure AD; "common" tenant supports both
+    # personal MSA and work/school accounts).
+    MICROSOFT_OAUTH_CLIENT_ID:     Optional[str] = None
+    MICROSOFT_OAUTH_CLIENT_SECRET: Optional[str] = None
+    MICROSOFT_OAUTH_TENANT:        str           = "common"
+
+    # OAuth redirect base — what the IdP redirects back to after consent.
+    # Dev: localhost:8000. Prod: your AWS / fly host.
+    OAUTH_REDIRECT_BASE: str = "http://localhost:8000"
+
+    # Frontend URL the auth callback redirects to after a successful sign-in.
+    FRONTEND_URL: str = "http://localhost:3000"
+
+    # Session cookie — HttpOnly + SameSite=Lax. Dev defaults to non-Secure
+    # so http://localhost works; prod sets SESSION_COOKIE_SECURE=true.
+    SESSION_COOKIE_NAME:     str  = "ag_session"
+    SESSION_COOKIE_SECURE:   bool = False
+    SESSION_COOKIE_SAMESITE: str  = "lax"
+    SESSION_COOKIE_DOMAIN:   Optional[str] = None  # None => host-only cookie
+
+    JWT_ALGORITHM: str = "HS256"
+
+    # Fernet key for service-credential token encryption. Falls through
+    # to TOKEN_ENCRYPTION_KEY env var (also TOKEN_ENCRYPTION_KEYS for
+    # rotation). pydantic-settings reads it via env, but we don't expose
+    # it as a typed Settings attribute because we want the encryption
+    # module to read it directly from env (so tests can monkeypatch).
+    # See `backend/app/services/auth/encryption.py`.
+
+    @property
+    def auth_db_uri(self) -> str:
+        """Resolves AUTH_DATABASE_URI with POSTGRES_URI as the fallback."""
+        return self.AUTH_DATABASE_URI or self.POSTGRES_URI
+
 settings = Settings()

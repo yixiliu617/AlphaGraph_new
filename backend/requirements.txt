@@ -38,6 +38,9 @@ xlrd>=2.0.1  # legacy .xls reader for TWSE C04003 monthly revenue archives
 # Phase 2 — storage refactor (Postgres + Alembic)
 alembic>=1.13.0
 psycopg2-binary>=2.9.9
+# Phase 2 — OAuth (Google + Microsoft direct, decision D10)
+authlib>=1.3.0
+itsdangerous>=2.2.0
 # Pricing extractor data-quality
 pandas_market_calendars>=4.4.0
 # Optional: standalone OHLC charting tools (not used by the dashboard)
