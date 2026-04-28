@@ -33,7 +33,7 @@ def test_handles_release_with_no_dial_in():
 def test_handles_international_phone_format():
     text = _read("pr_intl_phone.txt")
     out = parse_press_release(text)
-    assert out["webcast_url"].startswith("https://www.tsmc.com")
+    assert out["webcast_url"] == "https://www.tsmc.com/english/aboutTSMC/ir"
     assert "886" in out["dial_in_phone"]
     assert out["dial_in_pin"] == "1234567"
 
@@ -51,3 +51,11 @@ def test_strips_trailing_punctuation_from_url():
             "https://investor.example.com/q1, including replay.")
     out = parse_press_release(text)
     assert out["webcast_url"] == "https://investor.example.com/q1"
+
+
+def test_extracts_from_live_audio_stream_keyword():
+    text = _read("pr_audio_stream.txt")
+    out = parse_press_release(text)
+    assert out["webcast_url"] == "https://investor.sample.com/q1-2026/audio"
+    assert "877" in out["dial_in_phone"] and "555-2200" in out["dial_in_phone"]
+    assert out["dial_in_pin"] == "9988776"
