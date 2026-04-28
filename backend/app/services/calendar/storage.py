@@ -214,19 +214,27 @@ def read_events(
         return df
 
     # Materialize the public soft-field columns from per-source columns.
-    # Vectorized: each public column = first non-null among (_a, _b, _c).
-    # combine_first treats NaN as null. Fillers (Methods A/B/C) MUST write
-    # NaN/None for missing values, never empty string -- combine_first
-    # wouldn't recognize "" as null. Defensive: pre-replace empty string
-    # with pd.NA on the per-source columns before resolving.
+    # Vectorized: each public column is filled by the first non-null among
+    # (existing public value, _a, _b, _c). Using fillna instead of direct
+    # assignment preserves any pre-existing public-column values written by
+    # earlier ingestion paths -- combine_first feeds the gap-filling, never
+    # clobbers a value already on disk.
+    #
+    # Defensive: replace empty strings with pd.NA on every column we touch,
+    # since combine_first/fillna treat "" as a real value but our resolver
+    # semantics treat it as null. Future fillers (Methods A/B/C) MUST write
+    # None/NaN for missing values, never "".
+    all_per_source = {c for cols in _SOFT_FIELD_SOURCES.values() for c in cols}
+    all_per_source.add("transcript_url_b")
+    for col in all_per_source:
+        df[col] = df[col].replace("", pd.NA)
+
     for public, (a, b, c) in _SOFT_FIELD_SOURCES.items():
-        for col in (a, b, c):
-            if col in df.columns:
-                df[col] = df[col].replace("", pd.NA)
-        df[public] = df[a].combine_first(df[b]).combine_first(df[c])
-    if "transcript_url_b" in df.columns:
-        df["transcript_url_b"] = df["transcript_url_b"].replace("", pd.NA)
-        df["transcript_url"] = df["transcript_url"].fillna(df["transcript_url_b"])
+        df[public] = df[public].replace("", pd.NA).fillna(
+            df[a].combine_first(df[b]).combine_first(df[c])
+        )
+
+    df["transcript_url"] = df["transcript_url"].replace("", pd.NA).fillna(df["transcript_url_b"])
 
     return df
 
