@@ -1,5 +1,4 @@
 import pandas as pd
-import pytest
 
 from backend.app.services.calendar.storage import _resolve_soft_fields
 
@@ -39,3 +38,13 @@ def test_resolver_handles_nan():
     })
     resolved = _resolve_soft_fields(row)
     assert resolved["webcast_url"] == "https://b.com"
+
+
+def test_resolver_transcript_url_uses_only_b():
+    row = pd.Series({"transcript_url_b": "https://seekingalpha.com/x"})
+    assert _resolve_soft_fields(row)["transcript_url"] == "https://seekingalpha.com/x"
+
+
+def test_resolver_transcript_url_null_when_b_empty():
+    row = pd.Series({"transcript_url_b": None})
+    assert _resolve_soft_fields(row)["transcript_url"] is None

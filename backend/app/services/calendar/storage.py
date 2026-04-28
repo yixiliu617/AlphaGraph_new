@@ -214,13 +214,19 @@ def read_events(
         return df
 
     # Materialize the public soft-field columns from per-source columns.
-    # Frontend continues to read webcast_url / dial_in_phone / etc. without
-    # caring about provenance.
-    for idx, row in df.iterrows():
-        resolved = _resolve_soft_fields(row)
-        for public_col, value in resolved.items():
-            if value is not None:
-                df.at[idx, public_col] = value
+    # Vectorized: each public column = first non-null among (_a, _b, _c).
+    # combine_first treats NaN as null. Fillers (Methods A/B/C) MUST write
+    # NaN/None for missing values, never empty string -- combine_first
+    # wouldn't recognize "" as null. Defensive: pre-replace empty string
+    # with pd.NA on the per-source columns before resolving.
+    for public, (a, b, c) in _SOFT_FIELD_SOURCES.items():
+        for col in (a, b, c):
+            if col in df.columns:
+                df[col] = df[col].replace("", pd.NA)
+        df[public] = df[a].combine_first(df[b]).combine_first(df[c])
+    if "transcript_url_b" in df.columns:
+        df["transcript_url_b"] = df["transcript_url_b"].replace("", pd.NA)
+        df["transcript_url"] = df["transcript_url"].fillna(df["transcript_url_b"])
 
     return df
 
