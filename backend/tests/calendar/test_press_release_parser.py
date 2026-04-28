@@ -59,3 +59,14 @@ def test_extracts_from_live_audio_stream_keyword():
     assert out["webcast_url"] == "https://investor.sample.com/q1-2026/audio"
     assert "877" in out["dial_in_phone"] and "555-2200" in out["dial_in_phone"]
     assert out["dial_in_pin"] == "9988776"
+
+
+def test_extracts_webcast_url_beyond_80_chars():
+    """Real NVDA-style: webcast keyword far from the URL via investor-relations phrasing."""
+    text = (
+        "A live webcast (listen-only mode) of the conference call will be "
+        "accessible at NVIDIA's investor relations website, "
+        "http://investor.nvidia.com/events/q4-2026."
+    )
+    out = parse_press_release(text)
+    assert out["webcast_url"] == "http://investor.nvidia.com/events/q4-2026"
