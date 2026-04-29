@@ -7,6 +7,7 @@ endpoint emits as the `scan_complete` event.
 from __future__ import annotations
 
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List
@@ -15,6 +16,12 @@ from backend.app.services.notes.audio_probe import (
     probe_duration_seconds,
     estimate_transcribe_seconds,
 )
+
+
+# Parallelism cap for ffprobe during scan. ffprobe is I/O-light but spends
+# most of its wall time waiting on disk seeks for the container metadata,
+# so a small thread pool gives a big speedup for large MP4 folders.
+_PROBE_WORKERS = 8
 
 
 # Same set as backend.app.api.routers.v1.notes._ALLOWED_AUDIO_EXT, kept
@@ -88,25 +95,39 @@ def scan_folder(folder_path: str) -> ScanResult:
     queued:  List[ScanFile] = []
     skipped: List[ScanSkip] = []
 
+    # First pass: classify each candidate as skipped vs to-be-probed. We
+    # don't probe inside this loop -- probing is parallelized below.
+    to_probe: list[Path] = []
     for p in candidates:
         ext = p.suffix.lower()
         transcript_name = _transcript_name(p.stem, ext, stem_collisions)
         if (transcripts_dir / transcript_name).exists():
             skipped.append(ScanSkip(name=p.name, reason="already_transcribed"))
-            continue
+        else:
+            to_probe.append(p)
+
+    # Probe in parallel. ffprobe is mostly I/O so threads work well.
+    def _safe_probe(path: Path) -> float:
         try:
-            dur = probe_duration_seconds(str(p))
+            return probe_duration_seconds(str(path))
         except (RuntimeError, ValueError):
-            # Probe failure -> still queue it; the runner records the error
-            # at start time. This way scan never fails on a single bad file.
-            dur = 0.0
+            return 0.0
+
+    if to_probe:
+        with ThreadPoolExecutor(max_workers=min(_PROBE_WORKERS, len(to_probe))) as ex:
+            durations = list(ex.map(_safe_probe, to_probe))
+    else:
+        durations = []
+
+    for p, dur in zip(to_probe, durations):
+        ext = p.suffix.lower()
         queued.append(ScanFile(
             name            = p.name,
             path            = str(p),
             size_bytes      = p.stat().st_size,
             duration_sec    = dur,
             eta_sec         = estimate_transcribe_seconds(dur),
-            transcript_name = transcript_name,
+            transcript_name = _transcript_name(p.stem, ext, stem_collisions),
         ))
 
     return ScanResult(folder=str(folder), queued=queued, skipped=skipped)

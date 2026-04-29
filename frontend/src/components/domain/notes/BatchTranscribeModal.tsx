@@ -76,6 +76,9 @@ export default function BatchTranscribeModal({ onClose, onComplete }: Props) {
   // RUNNING state -- per-file row state keyed by index
   const [rows, setRows] = useState<Record<number, RowState>>({});
   const abortRef = useRef<AbortController | null>(null);
+  // SCAN state holds its own AbortController so the user can bail out
+  // of a slow scan (e.g. ffprobe walking many large videos).
+  const scanAbortRef = useRef<AbortController | null>(null);
 
   // DONE summary
   const [summary, setSummary] = useState<{ succeeded: number; failed: number; skipped: number; total_elapsed_sec: number } | null>(null);
@@ -126,9 +129,11 @@ export default function BatchTranscribeModal({ onClose, onComplete }: Props) {
     if (!folderPath.trim()) { setError("Please paste a folder path."); return; }
     setState("SCAN");
     setError(null);
+    scanAbortRef.current = new AbortController();
+    const ac = scanAbortRef.current;
+    let scanReceived = false;
+    let userCancelled = false;
     try {
-      const ac = new AbortController();
-      let scanReceived = false;
       await runBatchTier1({
         folder_path:          folderPath.trim(),
         translation_language: translation,
@@ -142,16 +147,30 @@ export default function BatchTranscribeModal({ onClose, onComplete }: Props) {
             setScanQueued(ev.data.queued);
             setScanSkipped(ev.data.skipped);
             setScanFolder(ev.data.folder);
-            ac.abort();
+            ac.abort();   // we only wanted the scan; cancel the rest
           }
         },
-      }).catch(() => { /* expected: aborted */ });
+      }).catch((err) => {
+        // AbortError is expected (we aborted after scan_complete or user
+        // cancelled). Anything else gets re-thrown.
+        if ((err as Error)?.name !== "AbortError") throw err;
+        if (!scanReceived) userCancelled = true;
+      });
+      if (userCancelled) {
+        setState("PICK");
+        return;
+      }
       if (!scanReceived) throw new Error("Scan did not return any files. Check the folder path.");
       setState("CONFIRM");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setState("PICK");
     }
+  }
+
+  function handleCancelScan() {
+    scanAbortRef.current?.abort();
+    setState("PICK");
   }
 
   async function runScanTier23(files: File[], folderLabel: string) {
@@ -325,9 +344,21 @@ export default function BatchTranscribeModal({ onClose, onComplete }: Props) {
           )}
 
           {state === "SCAN" && (
-            <div className="flex items-center gap-2 text-sm text-indigo-600">
-              <Loader2 size={14} className="animate-spin" />
-              Scanning folder...
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm text-indigo-600">
+                <Loader2 size={14} className="animate-spin" />
+                Scanning folder...
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Reading file durations via ffprobe. Large videos may take a few seconds each;
+                this scan probes up to 8 files in parallel.
+              </p>
+              <div className="flex justify-end">
+                <button onClick={handleCancelScan}
+                        className="h-8 px-3 text-xs font-medium text-slate-600 hover:text-red-600 border border-slate-200 rounded-md">
+                  Cancel scan
+                </button>
+              </div>
             </div>
           )}
 
