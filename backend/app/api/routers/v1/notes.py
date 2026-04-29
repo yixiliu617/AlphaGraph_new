@@ -497,6 +497,133 @@ async def probe_audio_endpoint(
 
 
 # ---------------------------------------------------------------------------
+# /batch-transcribe-folder -- Tier 1 batch path. Streams progress as SSE.
+# Each audio/video file in the folder gets a polished transcript saved as
+# <folder>/transcripts/<stem>_transcript.docx + a Note in the DB.
+# ---------------------------------------------------------------------------
+
+class BatchTranscribeRequest(BaseModel):
+    folder_path:          str
+    translation_language: str = "en"
+    note_type:            str = "meeting_transcript"
+    language:             Optional[str] = None
+    concurrency:          int = 2
+
+
+# Imported lazily inside gemini_batch_transcribe_smart to avoid import cycles.
+# We import at module load to expose it for unit tests that patch this name.
+from backend.app.services.live_transcription import gemini_batch_transcribe_smart
+
+
+@router.post("/batch-transcribe-folder")
+async def batch_transcribe_folder(
+    request: BatchTranscribeRequest,
+    db:      Session = Depends(get_db_session),
+):
+    """Tier-1 batch transcription. Streams progress via Server-Sent Events.
+
+    Folder is read on the *backend's* filesystem -- meaningful only when
+    backend and user are on the same machine. Output: one .docx per
+    audio/video file, written to <folder>/transcripts/<stem>_transcript.docx.
+    """
+    import json as _json
+    from datetime import datetime as _dt
+    from fastapi.responses import StreamingResponse
+
+    from backend.app.services.editor_doc_builder import build_editor_doc_from_polish_meta
+    from backend.app.services.notes.batch_scan import scan_folder
+    from backend.app.services.notes.batch_runner import run_batch, BatchOptions
+
+    # 1. Validate folder + scan
+    try:
+        scan = await asyncio.to_thread(scan_folder, request.folder_path)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except (NotADirectoryError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    options = BatchOptions(
+        translation_language = request.translation_language,
+        note_type            = request.note_type,
+        language             = request.language,
+        concurrency          = request.concurrency,
+    )
+
+    svc = NotesService(db)
+
+    def _save_note(sf, transcribe_result, opts):
+        derived_title = Path(sf.name).stem or sf.name
+        note = svc.create_note(
+            tenant_id      = TENANT_ID,
+            title          = derived_title,
+            note_type      = opts.note_type,
+            company_tickers=[],
+        )
+        translation_label = transcribe_result.get("translation_label") or "English"
+        editor_doc = build_editor_doc_from_polish_meta(
+            segments         = transcribe_result.get("segments") or [],
+            summary          = {},
+            is_bilingual     = transcribe_result.get("is_bilingual", False),
+            raw_lines        = None,
+            translation_label= translation_label,
+        )
+        svc.update_note(
+            note.note_id, TENANT_ID,
+            recording_path = sf.name,         # source filename only
+            editor_content = editor_doc,
+        )
+        svc.save_polished_transcript(
+            note_id    = note.note_id,
+            tenant_id  = TENANT_ID,
+            markdown   = transcribe_result.get("text", ""),
+            language   = transcribe_result.get("language") or opts.language or "en",
+            meta={
+                "input_tokens":        transcribe_result.get("input_tokens", 0),
+                "output_tokens":       transcribe_result.get("output_tokens", 0),
+                "model":               "gemini-2.5-flash",
+                "ran_at":              _dt.utcnow().isoformat(),
+                "is_bilingual":        transcribe_result.get("is_bilingual", False),
+                "key_topics":          transcribe_result.get("key_topics", []),
+                "segments":            transcribe_result.get("segments") or [],
+                "summary":             {},
+                "source":              "batch_folder",
+                "uploaded_filename":   sf.name,
+                "translation_language":opts.translation_language,
+                "translation_label":   translation_label,
+                "gemini_seconds":      transcribe_result.get("gemini_seconds"),
+                "total_seconds":       transcribe_result.get("total_seconds"),
+                "audio_duration_sec":  transcribe_result.get("audio_duration_sec"),
+                "chunk_count":         transcribe_result.get("chunk_count", 1),
+                "chunk_seconds":       transcribe_result.get("chunk_seconds", []),
+            },
+        )
+        # Return the freshly-loaded note so the runner can hand it to build_note_docx.
+        return svc.get_note(note.note_id, TENANT_ID)
+
+    async def event_stream():
+        try:
+            async for ev in run_batch(
+                scan, options,
+                transcribe_fn = gemini_batch_transcribe_smart,
+                save_note_fn  = _save_note,
+            ):
+                payload = _json.dumps(ev.data, default=str)
+                yield f"event: {ev.kind.value}\ndata: {payload}\n\n".encode("utf-8")
+        except Exception as exc:    # noqa: BLE001
+            err = _json.dumps({"error": f"{type(exc).__name__}: {exc}"})
+            yield f"event: batch_error\ndata: {err}\n\n".encode("utf-8")
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control":     "no-cache",
+            "X-Accel-Buffering": "no",   # disables nginx response buffering
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
 # Retranscribe a portion of an existing note's audio. Used to recover from
 # Gemini repetition loops or partial chunk failures without re-paying for
 # the already-good earlier segments.
