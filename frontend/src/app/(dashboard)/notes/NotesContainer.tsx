@@ -40,6 +40,9 @@ export default function NotesContainer() {
   // Audio-upload modal — drag-drop a recording to create a transcribed note.
   const [showUploadModal, setShowUploadModal] = useState(false);
 
+  // Batch-folder modal -- process every audio/video file in a folder.
+  const [showBatchModal, setShowBatchModal] = useState(false);
+
   // Fetch on mount
   useEffect(() => {
     setLoading(true);
@@ -189,6 +192,16 @@ export default function NotesContainer() {
           if (res.success && res.data) setNotes(res.data);
         });
         router.push(`/notes/${noteId}`);
+      }}
+      showBatchModal={showBatchModal}
+      onOpenBatch={() => setShowBatchModal(true)}
+      onCloseBatch={() => setShowBatchModal(false)}
+      onBatchComplete={() => {
+        setShowBatchModal(false);
+        // Refresh the list so the new batch-created notes show up.
+        notesClient.list({ limit: 100 }).then((res) => {
+          if (res.success && res.data) setNotes(res.data);
+        });
       }}
     />
   );

@@ -15,7 +15,7 @@
 
 import { useState } from "react";
 import {
-  NotebookPen, Search, Plus, Mic, Trash2, Upload,
+  NotebookPen, Search, Plus, Mic, Trash2, Upload, FolderOpen,
   ChevronDown, ChevronRight, SlidersHorizontal,
   FileText, ExternalLink, X, Loader2, Sparkles, Quote as QuoteIcon,
 } from "lucide-react";
@@ -30,6 +30,7 @@ import type {
 } from "@/lib/api/researchClient";
 import NoteCreationModal from "@/components/domain/notes/NoteCreationModal";
 import AudioUploadModal from "@/components/domain/notes/AudioUploadModal";
+import BatchTranscribeModal from "@/components/domain/notes/BatchTranscribeModal";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -124,6 +125,11 @@ interface Props {
   onOpenUpload:      () => void;
   onCloseUpload:     () => void;
   onUploadComplete:  (noteId: string) => void;
+  // Batch-folder modal
+  showBatchModal:    boolean;
+  onOpenBatch:       () => void;
+  onCloseBatch:      () => void;
+  onBatchComplete:   () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -678,6 +684,7 @@ export default function NotesView({
   researchResult, researchLoading, researchError,
   onResearchQuery, onClearResearch,
   showUploadModal, onOpenUpload, onCloseUpload, onUploadComplete,
+  showBatchModal, onOpenBatch, onCloseBatch, onBatchComplete,
 }: Props) {
   const [showFilters, setShowFilters] = useState(false);
 
@@ -748,11 +755,23 @@ export default function NotesView({
           {/* Upload Audio */}
           <button
             onClick={onOpenUpload}
-            className="flex items-center gap-2 h-9 px-3 border border-slate-200 text-slate-700 text-sm font-medium rounded-md hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+            disabled={showBatchModal}
+            className="flex items-center gap-2 h-9 px-3 border border-slate-200 text-slate-700 text-sm font-medium rounded-md hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Drop an audio file -- runs the same Gemini polish pipeline as live recording"
           >
             <Upload size={14} />
             Upload Audio
+          </button>
+
+          {/* Batch folder */}
+          <button
+            onClick={onOpenBatch}
+            disabled={showBatchModal}
+            className="flex items-center gap-2 h-9 px-3 border border-slate-200 text-slate-700 text-sm font-medium rounded-md hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Process every audio/video file in a folder; one transcript .docx per file"
+          >
+            <FolderOpen size={14} />
+            Batch folder
           </button>
 
           {/* New Note */}
@@ -884,6 +903,9 @@ export default function NotesView({
       )}
       {showUploadModal && (
         <AudioUploadModal onClose={onCloseUpload} onComplete={onUploadComplete} />
+      )}
+      {showBatchModal && (
+        <BatchTranscribeModal onClose={onCloseBatch} onComplete={onBatchComplete} />
       )}
 
       {/* Earnings release detail modal — opened when a row in the
