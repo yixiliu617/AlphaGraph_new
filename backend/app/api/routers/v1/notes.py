@@ -744,124 +744,32 @@ def convert_note_chinese_variant(
 @router.get("/{note_id}/export.docx")
 def export_note_as_docx(note_id: str, db: Session = Depends(get_db_session)):
     """Render the note's polished transcript to a Word document and stream
-    it back as `<title>.docx`.
-
-    Layout:
-      - H1: note title
-      - Metadata paragraph: meeting date, audio length, language, # segments
-      - For bilingual notes (zh/ja/ko sources): one 3-column table
-          Time | Original | English
-        with one row per segment.
-      - For monolingual notes: numbered paragraphs prefixed with [MM:SS]
-        speaker, then text.
-
-    Word handles Unicode (Chinese / Japanese / Korean) natively in the
-    .docx XML; no font registration needed. The user can open the
-    download in Word / Pages / LibreOffice and File -> Save as PDF if a
-    PDF is desired.
+    it back as `<title>.docx`. Layout (title, metadata, bilingual table or
+    monolingual paragraphs) is implemented in `notes.docx_builder` so the
+    batch-folder transcription path can reuse it.
     """
-    import io
+    import io as _io
     import re as _re
-    from docx import Document
-    from docx.shared import Pt, Inches
     from fastapi.responses import StreamingResponse
+
+    from backend.app.services.notes.docx_builder import build_note_docx
 
     svc = NotesService(db)
     note = svc.get_note(note_id, TENANT_ID)
     if not note:
         raise HTTPException(status_code=404, detail=f"Note {note_id} not found")
 
-    meta = note.polished_transcript_meta or {}
-    segments = list(meta.get("segments") or [])
-    if not segments:
-        raise HTTPException(
-            status_code=400,
-            detail="Note has no polished transcript segments to export.",
-        )
+    try:
+        docx_bytes = build_note_docx(note)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
-    is_bilingual = bool(meta.get("is_bilingual", False))
-    language     = meta.get("language") or "en"
-    audio_dur    = float(meta.get("audio_duration_sec") or 0.0)
-    audio_min    = round(audio_dur / 60.0, 1)
-
-    doc = Document()
-    # Slightly tighter margins than Word's default 1in so the bilingual
-    # table fits comfortably in landscape-ish portrait (we keep portrait;
-    # the table can scroll if Chinese gets wide).
-    for section in doc.sections:
-        section.left_margin = Inches(0.7)
-        section.right_margin = Inches(0.7)
-        section.top_margin = Inches(0.7)
-        section.bottom_margin = Inches(0.7)
-
-    # Title
-    title = doc.add_heading(note.title or f"Transcript {note_id[:8]}", level=1)
-
-    # Metadata line
-    meta_bits: list[str] = []
-    if note.meeting_date:
-        meta_bits.append(str(note.meeting_date))
-    if audio_dur > 0:
-        meta_bits.append(f"audio {audio_min} min")
-    meta_bits.append(f"language {language}{'/en' if is_bilingual else ''}")
-    meta_bits.append(f"{len(segments)} segments")
-    if note.company_tickers:
-        meta_bits.append(", ".join(note.company_tickers))
-    if meta_bits:
-        para = doc.add_paragraph(" · ".join(meta_bits))
-        for run in para.runs:
-            run.font.size = Pt(9)
-            run.italic = True
-
-    # Body — bilingual table or monolingual paragraphs
-    if is_bilingual:
-        # 3 columns: Time | Original | <translation_label>
-        translation_label = meta.get("translation_label") or "English"
-        table = doc.add_table(rows=1, cols=3)
-        try:
-            table.style = "Light Grid Accent 1"   # default Word style; falls back if not present
-        except KeyError:
-            pass
-        hdr = table.rows[0].cells
-        hdr[0].text = "Time"
-        hdr[1].text = "原文"
-        hdr[2].text = translation_label
-        for cell in hdr:
-            for run in cell.paragraphs[0].runs:
-                run.bold = True
-        for seg in segments:
-            row = table.add_row().cells
-            row[0].text = (seg.get("timestamp") or "").strip()
-            speaker = (seg.get("speaker") or "").strip()
-            orig    = (seg.get("text_original") or "").strip()
-            row[1].text = (f"[{speaker}] {orig}" if speaker else orig)
-            row[2].text = (seg.get("text_english") or "").strip()
-    else:
-        # Monolingual: paragraphs of "[MM:SS] speaker — text"
-        for seg in segments:
-            ts      = (seg.get("timestamp") or "").strip()
-            speaker = (seg.get("speaker") or "").strip()
-            text    = (seg.get("text_original") or "").strip()
-            p = doc.add_paragraph()
-            ts_run = p.add_run(f"[{ts}] " if ts else "")
-            ts_run.bold = True
-            if speaker:
-                sp_run = p.add_run(f"{speaker}: ")
-                sp_run.italic = True
-            p.add_run(text)
-
-    # Stream the docx as an attachment.
-    buf = io.BytesIO()
-    doc.save(buf)
-    buf.seek(0)
-
-    # Sanitize the title for a Windows-safe filename.
     safe_title = _re.sub(r"[^A-Za-z0-9 \-_.()]+", "", note.title or "transcript").strip() or "transcript"
     safe_title = safe_title[:80]
     filename = f"{safe_title}.docx"
 
     return StreamingResponse(
-        buf,
+        _io.BytesIO(docx_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
