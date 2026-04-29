@@ -17,7 +17,12 @@ import { useCallback, useRef, useState } from "react";
 import { Loader2, Mic, Upload, X } from "lucide-react";
 import { notesClient } from "@/lib/api/notesClient";
 
-const ACCEPTED_EXTENSIONS = [".wav", ".mp3", ".m4a", ".opus", ".ogg", ".flac", ".aac", ".webm"];
+const ACCEPTED_EXTENSIONS = [
+  // audio
+  ".wav", ".mp3", ".m4a", ".opus", ".ogg", ".flac", ".aac", ".webm",
+  // video -- ffmpeg pipeline extracts the audio track during normalization
+  ".mp4", ".mov", ".mkv", ".avi", ".m4v",
+];
 
 const LANGUAGE_OPTIONS: { key: "auto" | "zh" | "ja" | "ko" | "en"; label: string; hint: string }[] = [
   { key: "auto", label: "Auto-detect",                  hint: "SenseVoice on first 10 sec" },

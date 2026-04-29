@@ -212,7 +212,12 @@ AUDIO_UPLOADS_DIR = (
 )
 AUDIO_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
-_ALLOWED_AUDIO_EXT = {".wav", ".mp3", ".m4a", ".opus", ".ogg", ".flac", ".aac", ".webm"}
+_ALLOWED_AUDIO_EXT = {
+    # audio
+    ".wav", ".mp3", ".m4a", ".opus", ".ogg", ".flac", ".aac", ".webm",
+    # video -- ffmpeg pipeline extracts the audio track during normalization
+    ".mp4", ".mov", ".mkv", ".avi", ".m4v",
+}
 
 
 def _detect_language_from_audio_file(audio_path: Path) -> str:
