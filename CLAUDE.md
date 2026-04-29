@@ -1,18 +1,19 @@
 # AlphaGraph — Claude Code Instructions
 
-## ⚡ Current focus (2026-04-27)
+## ⚡ Current focus (2026-04-29)
 
-**We are between Phase 1 (DONE — perf baseline) and Phase 2 (storage refactor + auth foundation).** Two pre-Phase-2 warmups are starting this week:
+**Stream 1 — Universe + prices foundation** is largely complete (schema, seed, T3 backfill, per-market cron). **Stream 2 — Pillar A (the trustworthy AI semi analyst)** is the next major build, 4–6 weeks.
 
-- **W1**: migrate 17 existing skills to add `version`, `last_validated_at`, `conditions`, `prerequisites`, `tags` frontmatter (Hermes-inspired skill metadata).
-- **W2**: lift Taiwan + social schedulers to a declarative `backend/data/cron_jobs.json` (Hermes-inspired cron pattern; APScheduler stays as runner).
+**For active focus + next 3 actions + status snapshot + decisions log → `roadmap_v1.md`** (this is the file to read first).
+**For product positioning + ICP + 3 pillars → `product_design_v2.md`.**
+**For Phase 2+ architecture (universe schema, cron topology, Pillar A design) → `architecture_and_design_v3.md`.**
+**For Phase 1 architecture (extraction pipeline, audio, Taiwan revenue, still load-bearing) → `architecture_and_design_v2.md`.**
 
-**For full status + locked decisions + open decisions + phase plan → `architecture_and_design_v2.md` § 14** (Hermes-Inspired Migration Roadmap, comprehensive).
-**For active focus + next 3 actions → memory file `project_alphagraph_q3_roadmap.md`** (auto-loaded).
+The memory file `memory/project_alphagraph_q3_roadmap.md` is auto-loaded but `roadmap_v1.md` is the canonical source — refresh memory pointer when major changes land.
 
 ## Project Overview
 
-AlphaGraph is an institutional AI-driven financial research platform. See `architecture_and_design_v2.md` for the full design reference (§14 = Q3-Q4 roadmap) and `memory/project_alphagraph_q3_roadmap.md` for current focus.
+AlphaGraph is **the AI-bottleneck research platform for buyside analysts and PMs**. Source-traced fundamentals, multilingual transcripts, zero-hallucination chat. See `product_design_v2.md` for positioning, `architecture_and_design_v3.md` § 2 for the universe schema, and `roadmap_v1.md` for what's currently being built.
 
 ---
 

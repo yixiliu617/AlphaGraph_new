@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { calendarClient, type CalendarEvent } from "@/lib/api/calendarClient";
 import CalendarView, { type Filters } from "./CalendarView";
+import MyCalendarView from "./MyCalendarView";
+
+type Tab = "earnings" | "personal";
 
 const DEFAULT_FILTERS: Filters = {
   market:   "ALL",
@@ -12,6 +15,46 @@ const DEFAULT_FILTERS: Filters = {
 };
 
 export default function CalendarContainer() {
+  const [tab, setTab] = useState<Tab>("earnings");
+  return (
+    <div>
+      <div className="flex items-center gap-1 px-8 pt-6">
+        <TabButton active={tab === "earnings"} onClick={() => setTab("earnings")}>
+          Earnings Calendar
+        </TabButton>
+        <TabButton active={tab === "personal"} onClick={() => setTab("personal")}>
+          My Calendar
+        </TabButton>
+      </div>
+      {tab === "earnings"
+        ? <EarningsCalendarSection />
+        : <MyCalendarView />}
+    </div>
+  );
+}
+
+
+function TabButton({ active, onClick, children }: {
+  active: boolean; onClick: () => void; children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors " +
+        (active
+          ? "border-indigo-600 text-indigo-700"
+          : "border-transparent text-slate-500 hover:text-slate-800")
+      }
+    >
+      {children}
+    </button>
+  );
+}
+
+
+function EarningsCalendarSection() {
   // Browser-detected timezone. User can override via the View's selector.
   const browserTz = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",

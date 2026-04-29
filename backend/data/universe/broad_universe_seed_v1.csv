@@ -1,0 +1,443 @@
+ticker,group_id,is_primary,weight,company_name,exchange,currency,status,notes
+NVDA,ai_compute_design,true,1.0,NVIDIA,NASDAQ,USD,active,
+NVDA,ai_software_models,false,0.7,NVIDIA,NASDAQ,USD,active,CUDA + NIM monetization
+AMD,ai_compute_design,true,1.0,Advanced Micro Devices,NASDAQ,USD,active,
+AVGO,ai_compute_design,true,1.0,Broadcom,NASDAQ,USD,active,
+AVGO,ai_infra_networking,false,0.7,Broadcom,NASDAQ,USD,active,Tomahawk Jericho silicon
+MRVL,ai_compute_design,true,0.9,Marvell Technology,NASDAQ,USD,active,
+MRVL,ai_infra_networking,false,0.6,Marvell Technology,NASDAQ,USD,active,
+ALAB,ai_compute_design,false,0.7,Astera Labs,NASDAQ,USD,recent_ipo,IPO Mar 2024
+ALAB,ai_infra_networking,true,1.0,Astera Labs,NASDAQ,USD,recent_ipo,Smart cable / retimers
+CRDO,ai_infra_networking,true,1.0,Credo Technology,NASDAQ,USD,active,
+MTSI,ai_compute_design,false,0.6,MACOM Technology,NASDAQ,USD,active,Photonic + RF
+INTC,ai_compute_design,false,0.6,Intel,NASDAQ,USD,active,Gaudi + Xeon
+INTC,ai_compute_foundry,false,0.5,Intel,NASDAQ,USD,active,IFS / 18A
+QCOM,ai_compute_design,false,0.5,Qualcomm,NASDAQ,USD,active,Edge AI mobile
+MTK,ai_compute_design,false,0.4,MediaTek ADR,NYSE,USD,active,Use 2454.TW as primary
+2454.TW,ai_compute_design,true,0.7,MediaTek,TWSE,TWD,active,
+3034.TW,ai_compute_design,false,0.4,Novatek Microelectronics,TWSE,TWD,active,Display driver IC
+2379.TW,ai_compute_design,false,0.4,Realtek Semiconductor,TWSE,TWD,active,
+3035.TW,ai_compute_design,false,0.5,Faraday Technology,TWSE,TWD,active,ASIC / IP
+3257.TW,ai_compute_design,false,0.4,Himax Technologies,TWSE,TWD,active,DDIC; also HIMX on NASDAQ
+HIMX,ai_compute_design,false,0.4,Himax Technologies,NASDAQ,USD,active,ADR
+6723.T,ai_compute_design,false,0.7,Renesas Electronics,JPX,JPY,active,IDM auto/MCU
+6723.T,ai_materials_semi,false,0.4,Renesas Electronics,JPX,JPY,active,
+688256.SS,ai_compute_design,true,1.0,Cambricon Technologies,SSE,CNY,active,China AI chip pure-play
+688041.SS,ai_compute_design,true,0.9,Hygon Information Tech,SSE,CNY,active,Server CPU/GPU
+688047.SS,ai_compute_design,false,0.6,Loongson Technology,SSE,CNY,active,MIPS-based CPUs
+688008.SS,ai_compute_design,false,0.7,Montage Technology,SSE,CNY,active,Memory interface chips
+688521.SS,ai_compute_design,false,0.7,VeriSilicon,SSE,CNY,active,Semi IP / ASIC services
+603501.SS,ai_compute_design,false,0.5,Will Semiconductor,SSE,CNY,active,CMOS image sensors
+300458.SZ,ai_compute_design,false,0.4,Allwinner Technology,SZSE,CNY,active,Mobile / edge SoC
+603893.SS,ai_compute_design,false,0.5,Rockchip,SSE,CNY,active,Edge AI SoC
+
+TSM,ai_compute_foundry,false,1.0,TSMC ADR,NYSE,USD,active,
+2330.TW,ai_compute_foundry,true,1.0,Taiwan Semiconductor,TWSE,TWD,active,
+UMC,ai_compute_foundry,false,0.9,UMC ADR,NYSE,USD,active,
+2303.TW,ai_compute_foundry,true,0.9,United Microelectronics,TWSE,TWD,active,
+GFS,ai_compute_foundry,true,0.9,GlobalFoundries,NASDAQ,USD,active,
+0981.HK,ai_compute_foundry,true,1.0,SMIC,HKEX,HKD,active,
+688981.SS,ai_compute_foundry,false,1.0,SMIC A-share,SSE,CNY,active,
+1347.HK,ai_compute_foundry,true,0.9,Hua Hong Semiconductor,HKEX,HKD,active,
+688347.SS,ai_compute_foundry,false,0.9,Hua Hong A-share,SSE,CNY,active,
+688249.SS,ai_compute_foundry,false,0.7,Nexchip,SSE,CNY,active,Mature node
+5347.TW,ai_compute_foundry,false,0.7,Vanguard International Semi,TWSE,TWD,active,Mature node specialty
+6770.TW,ai_compute_foundry,false,0.5,Powerchip Semiconductor,TPEx,TWD,active,VERIFY ticker - was 5347/6770 lineage shifts
+3105.TW,ai_compute_foundry,false,0.6,Win Semiconductors,TPEx,TWD,active,Compound semi / GaAs
+
+MU,ai_compute_hbm_memory,true,1.0,Micron Technology,NASDAQ,USD,active,
+005930.KS,ai_compute_hbm_memory,true,1.0,Samsung Electronics,KOSPI,KRW,active,
+005930.KS,ai_compute_foundry,false,0.7,Samsung Electronics,KOSPI,KRW,active,Foundry segment
+000660.KS,ai_compute_hbm_memory,true,1.0,SK Hynix,KOSPI,KRW,active,
+2337.TW,ai_compute_hbm_memory,false,0.4,Macronix,TWSE,TWD,active,NOR/NAND
+2344.TW,ai_compute_hbm_memory,false,0.4,Winbond Electronics,TWSE,TWD,active,Specialty DRAM
+2408.TW,ai_compute_hbm_memory,false,0.5,Nanya Technology,TWSE,TWD,active,Commodity DRAM
+WDC,ai_compute_hbm_memory,false,0.7,Western Digital,NASDAQ,USD,active,Flash + HDD
+STX,ai_compute_hbm_memory,false,0.5,Seagate Technology,NASDAQ,USD,active,HDD
+603986.SS,ai_compute_hbm_memory,false,0.6,GigaDevice Semi,SSE,CNY,active,NOR Flash + MCU
+300223.SZ,ai_compute_hbm_memory,false,0.4,Ingenic Semi,SZSE,CNY,active,
+6488.TW,ai_materials_semi,true,1.0,GlobalWafers,TPEx,TWD,active,Wafer manufacturer
+
+3711.TW,ai_compute_packaging,true,1.0,ASE Technology Holding,TWSE,TWD,active,
+ASX,ai_compute_packaging,false,1.0,ASE Technology ADR,NYSE,USD,active,
+AMKR,ai_compute_packaging,true,0.9,Amkor Technology,NASDAQ,USD,active,
+2449.TW,ai_compute_packaging,true,0.8,King Yuan Electronics,TWSE,TWD,active,KYEC test specialist
+2441.TW,ai_compute_packaging,false,0.5,Greatek Electronics,TWSE,TWD,active,Lead frame package
+3037.TW,ai_compute_packaging,false,0.7,Unimicron Technology,TWSE,TWD,active,ABF substrate
+3189.TW,ai_compute_packaging,false,0.7,Kinsus Interconnect,TWSE,TWD,active,ABF substrate
+3044.TW,ai_compute_packaging,false,0.5,Tripod Technology,TWSE,TWD,active,PCB
+600584.SS,ai_compute_packaging,true,0.9,JCET Group,SSE,CNY,active,Largest China OSAT
+002156.SZ,ai_compute_packaging,false,0.7,Tongfu Microelectronics,SZSE,CNY,active,
+002185.SZ,ai_compute_packaging,false,0.7,Tianshui Huatian Tech,SZSE,CNY,active,Hua Tian OSAT
+
+ASML,ai_compute_semi_cap_eq,true,1.0,ASML Holding,NASDAQ,USD,active,EUV monopoly
+ASML.AS,ai_compute_semi_cap_eq,false,1.0,ASML Holding (Amsterdam),Euronext,EUR,active,
+AMAT,ai_compute_semi_cap_eq,true,1.0,Applied Materials,NASDAQ,USD,active,
+LRCX,ai_compute_semi_cap_eq,true,1.0,Lam Research,NASDAQ,USD,active,
+KLAC,ai_compute_semi_cap_eq,true,1.0,KLA Corp,NASDAQ,USD,active,
+ENTG,ai_compute_semi_cap_eq,false,0.9,Entegris,NASDAQ,USD,active,Materials + filtration
+ENTG,ai_materials_semi,false,0.9,Entegris,NASDAQ,USD,active,
+ONTO,ai_compute_semi_cap_eq,false,0.7,Onto Innovation,NYSE,USD,active,Inspection metrology
+TER,ai_compute_semi_cap_eq,true,0.7,Teradyne,NASDAQ,USD,active,ATE / robotics
+COHU,ai_compute_semi_cap_eq,false,0.6,Cohu,NASDAQ,USD,active,Test handlers
+8035.T,ai_compute_semi_cap_eq,true,1.0,Tokyo Electron,JPX,JPY,active,
+6146.T,ai_compute_semi_cap_eq,true,1.0,Disco Corp,JPX,JPY,active,Dicing / grinding
+6920.T,ai_compute_semi_cap_eq,true,1.0,Lasertec,JPX,JPY,active,EUV mask inspection
+6857.T,ai_compute_semi_cap_eq,true,1.0,Advantest,JPX,JPY,active,ATE for AI chips
+7735.T,ai_compute_semi_cap_eq,true,0.9,SCREEN Holdings,JPX,JPY,active,Wet processing
+7741.T,ai_materials_semi,false,0.6,HOYA,JPX,JPY,active,EUV photomask blanks
+6315.T,ai_compute_semi_cap_eq,false,0.7,TOWA Corp,JPX,JPY,active,Mold + dicing
+002371.SZ,ai_compute_semi_cap_eq,true,1.0,Naura Technology,SZSE,CNY,active,Largest China cap-eq
+688012.SS,ai_compute_semi_cap_eq,true,1.0,AMEC,SSE,CNY,active,Etch leader
+ACMR,ai_compute_semi_cap_eq,true,0.9,ACM Research,NASDAQ,USD,active,Wet clean
+688082.SS,ai_compute_semi_cap_eq,false,0.9,ACM Research Shanghai,SSE,CNY,active,Subsidiary listing
+688072.SS,ai_compute_semi_cap_eq,false,0.8,Piotech,SSE,CNY,active,CVD / ALD
+688037.SS,ai_compute_semi_cap_eq,false,0.7,Kingsemi,SSE,CNY,active,Coater/developer
+688120.SS,ai_compute_semi_cap_eq,false,0.6,Hwatsing Technology,SSE,CNY,active,CMP
+600641.SS,ai_compute_semi_cap_eq,false,0.5,Wanye Enterprises,SSE,CNY,active,Ion implant via subsidiary
+
+SNPS,ai_compute_eda_ip,true,1.0,Synopsys,NASDAQ,USD,active,
+CDNS,ai_compute_eda_ip,true,1.0,Cadence Design Systems,NASDAQ,USD,active,
+ARM,ai_compute_eda_ip,true,1.0,ARM Holdings,NASDAQ,USD,active,
+RMBS,ai_compute_eda_ip,false,0.7,Rambus,NASDAQ,USD,active,Memory IP
+301269.SZ,ai_compute_eda_ip,true,1.0,Empyrean Technology,SZSE,CNY,active,China EDA leader
+688206.SS,ai_compute_eda_ip,false,0.8,Primarius Technologies,SSE,CNY,active,
+
+ANET,ai_infra_networking,true,1.0,Arista Networks,NYSE,USD,active,
+CSCO,ai_infra_networking,false,0.5,Cisco Systems,NASDAQ,USD,active,
+JNPR,ai_infra_networking,false,0.4,Juniper Networks,NYSE,USD,active,Pending HPE acquisition
+HPE,ai_infra_networking,false,0.5,Hewlett Packard Enterprise,NYSE,USD,active,Aruba + servers
+HPE,ai_infra_servers_oem,true,0.7,Hewlett Packard Enterprise,NYSE,USD,active,
+EXTR,ai_infra_networking,false,0.4,Extreme Networks,NASDAQ,USD,active,
+0763.HK,ai_infra_networking,true,0.7,ZTE Corp H,HKEX,HKD,active,
+000063.SZ,ai_infra_networking,false,0.7,ZTE Corp A,SZSE,CNY,active,
+600498.SS,ai_infra_networking,false,0.7,FiberHome Telecom,SSE,CNY,active,
+300124.SZ,ai_infra_networking,false,0.5,Shenzhen Inovance,SZSE,CNY,active,Industrial drives
+
+COHR,ai_infra_optical,true,1.0,Coherent Corp,NYSE,USD,active,
+LITE,ai_infra_optical,true,1.0,Lumentum Holdings,NASDAQ,USD,active,
+IPGP,ai_infra_optical,false,0.5,IPG Photonics,NASDAQ,USD,active,Industrial lasers
+FN,ai_infra_optical,true,0.9,Fabrinet,NYSE,USD,active,Optical assembly
+AAOI,ai_infra_optical,true,0.8,Applied Optoelectronics,NASDAQ,USD,active,Transceivers
+300308.SZ,ai_infra_optical,true,1.0,Innolight Technology,SZSE,CNY,active,800G transceivers leader
+300502.SZ,ai_infra_optical,true,1.0,Eoptolink Technology,SZSE,CNY,active,
+002281.SZ,ai_infra_optical,false,0.9,Accelink Technologies,SZSE,CNY,active,
+300394.SZ,ai_infra_optical,false,0.8,Suzhou TFC Optical,SZSE,CNY,active,
+000988.SZ,ai_infra_optical,false,0.6,Huagong Tech,SZSE,CNY,active,Wuhan laser hub
+
+SMCI,ai_infra_servers_oem,true,1.0,Super Micro Computer,NASDAQ,USD,active,
+DELL,ai_infra_servers_oem,true,0.8,Dell Technologies,NYSE,USD,active,PowerEdge servers
+2317.TW,ai_infra_servers_oem,true,1.0,Hon Hai Precision (Foxconn),TWSE,TWD,active,
+2382.TW,ai_infra_servers_oem,true,1.0,Quanta Computer,TWSE,TWD,active,AI server ODM
+6669.TW,ai_infra_servers_oem,true,1.0,Wiwynn,TWSE,TWD,active,Hyperscale ODM
+2356.TW,ai_infra_servers_oem,false,0.9,Inventec,TWSE,TWD,active,
+2324.TW,ai_infra_servers_oem,false,0.8,Compal Electronics,TWSE,TWD,active,
+4938.TW,ai_infra_servers_oem,false,0.6,Pegatron,TWSE,TWD,active,
+3231.TW,ai_infra_servers_oem,false,0.9,Wistron,TWSE,TWD,active,AI server ODM
+2357.TW,ai_infra_servers_oem,false,0.6,ASUSTeK Computer,TWSE,TWD,active,Servers + PCs
+0992.HK,ai_infra_servers_oem,false,0.8,Lenovo Group,HKEX,HKD,active,Servers + PCs + Moto
+000977.SZ,ai_infra_servers_oem,true,1.0,Inspur Information,SZSE,CNY,active,Largest China server OEM
+603019.SS,ai_infra_servers_oem,true,1.0,Sugon (Dawning),SSE,CNY,active,HPC + AI servers
+000938.SZ,ai_infra_servers_oem,false,0.7,Unisplendour (UNIS),SZSE,CNY,active,
+
+MSFT,ai_hosting_hyperscalers,true,1.0,Microsoft,NASDAQ,USD,active,Azure + OpenAI partnership
+MSFT,ai_software_models,false,0.9,Microsoft,NASDAQ,USD,active,
+GOOGL,ai_hosting_hyperscalers,true,1.0,Alphabet (A),NASDAQ,USD,active,GCP + DeepMind
+GOOGL,ai_software_models,false,0.9,Alphabet (A),NASDAQ,USD,active,
+GOOG,ai_hosting_hyperscalers,false,1.0,Alphabet (C),NASDAQ,USD,active,Non-voting share
+AMZN,ai_hosting_hyperscalers,true,1.0,Amazon,NASDAQ,USD,active,AWS + Anthropic backer
+AMZN,ai_software_models,false,0.7,Amazon,NASDAQ,USD,active,
+META,ai_hosting_hyperscalers,true,1.0,Meta Platforms,NASDAQ,USD,active,Internal AI infra + Llama
+META,ai_software_models,false,0.9,Meta Platforms,NASDAQ,USD,active,
+ORCL,ai_hosting_hyperscalers,true,0.9,Oracle,NYSE,USD,active,OCI growth
+IBM,ai_software_apps,false,0.5,IBM,NYSE,USD,active,Watsonx + consulting
+
+CRWV,ai_hosting_neoclouds,true,1.0,CoreWeave,NASDAQ,USD,recent_ipo,IPO Mar 2025
+NBIS,ai_hosting_neoclouds,true,1.0,Nebius Group,NASDAQ,USD,active,Yandex spinoff
+APLD,ai_hosting_neoclouds,true,0.9,Applied Digital,NASDAQ,USD,active,HPC hosting
+IREN,ai_hosting_neoclouds,true,0.9,IREN Limited,NASDAQ,USD,active,Iris Energy renamed
+HUT,ai_hosting_neoclouds,false,0.6,Hut 8,NASDAQ,USD,active,Mining + HPC
+CIFR,ai_hosting_neoclouds,false,0.6,Cipher Mining,NASDAQ,USD,active,
+WULF,ai_hosting_neoclouds,false,0.7,TeraWulf,NASDAQ,USD,active,HPC pivot from BTC
+CLSK,ai_hosting_neoclouds,false,0.4,CleanSpark,NASDAQ,USD,active,Primarily mining
+BTDR,ai_hosting_neoclouds,false,0.5,Bitdeer Technologies,NASDAQ,USD,active,
+BITF,ai_hosting_neoclouds,false,0.4,Bitfarms,NASDAQ,USD,active,
+RIOT,ai_hosting_neoclouds,false,0.5,Riot Platforms,NASDAQ,USD,active,HPC pivot
+MARA,ai_hosting_neoclouds,false,0.5,MARA Holdings,NASDAQ,USD,active,Marathon HPC pivot
+
+EQIX,ai_hosting_dc_reits,true,1.0,Equinix,NASDAQ,USD,active,
+DLR,ai_hosting_dc_reits,true,1.0,Digital Realty Trust,NYSE,USD,active,
+AMT,ai_hosting_dc_reits,false,0.4,American Tower,NYSE,USD,active,Cell tower w/ edge
+IRM,ai_hosting_dc_reits,false,0.5,Iron Mountain,NYSE,USD,active,DC pivot
+9698.HK,ai_hosting_dc_reits,true,1.0,GDS Holdings H,HKEX,HKD,active,
+GDS,ai_hosting_dc_reits,false,1.0,GDS Holdings ADR,NASDAQ,USD,active,
+VNET,ai_hosting_dc_reits,true,0.9,VNET Group,NASDAQ,USD,active,21Vianet
+300383.SZ,ai_hosting_dc_reits,false,0.7,Beijing Sinnet Tech,SZSE,CNY,active,
+
+CEG,ai_energy_utilities,true,1.0,Constellation Energy,NYSE,USD,active,Largest US nuclear fleet
+VST,ai_energy_utilities,true,1.0,Vistra Corp,NYSE,USD,active,Comanche Peak nuclear
+NRG,ai_energy_utilities,false,0.8,NRG Energy,NYSE,USD,active,
+TLN,ai_energy_utilities,true,0.9,Talen Energy,NYSE,USD,active,Susquehanna AWS deal
+NEE,ai_energy_utilities,false,0.8,NextEra Energy,NYSE,USD,active,Renewables leader
+DUK,ai_energy_utilities,false,0.6,Duke Energy,NYSE,USD,active,
+EXC,ai_energy_utilities,false,0.6,Exelon,NASDAQ,USD,active,
+ETR,ai_energy_utilities,false,0.6,Entergy,NYSE,USD,active,Nuclear-heavy
+AEP,ai_energy_utilities,false,0.6,American Electric Power,NASDAQ,USD,active,
+D,ai_energy_utilities,false,0.6,Dominion Energy,NYSE,USD,active,
+SO,ai_energy_utilities,false,0.5,Southern Company,NYSE,USD,active,Vogtle nuclear
+PEG,ai_energy_utilities,false,0.5,Public Service Enterprise,NYSE,USD,active,
+600900.SS,ai_energy_utilities,false,0.7,China Yangtze Power,SSE,CNY,active,Hydro
+0902.HK,ai_energy_utilities,false,0.7,Huaneng Power H,HKEX,HKD,active,
+600011.SS,ai_energy_utilities,false,0.7,Huaneng Power A,SSE,CNY,active,
+0836.HK,ai_energy_utilities,false,0.6,China Resources Power,HKEX,HKD,active,
+0991.HK,ai_energy_utilities,false,0.6,Datang Power,HKEX,HKD,active,
+2380.HK,ai_energy_utilities,false,0.5,China Power International,HKEX,HKD,active,
+
+OKLO,ai_energy_nuclear_smr,true,1.0,Oklo,NYSE,USD,active,Microreactor
+SMR,ai_energy_nuclear_smr,true,1.0,NuScale Power,NYSE,USD,active,
+BWXT,ai_energy_nuclear_smr,true,0.9,BWX Technologies,NYSE,USD,active,Nuclear components + naval
+LEU,ai_energy_nuclear_smr,true,0.8,Centrus Energy,NYSE,USD,active,HALEU enrichment
+CCJ,ai_energy_nuclear_smr,true,0.9,Cameco,NYSE,USD,active,Largest pure-play uranium miner
+NXE,ai_energy_nuclear_smr,false,0.7,NexGen Energy,NYSE,USD,active,Uranium
+UEC,ai_energy_nuclear_smr,false,0.6,Uranium Energy,NYSE,USD,active,
+DNN,ai_energy_nuclear_smr,false,0.5,Denison Mines,NYSE,USD,active,
+UUUU,ai_energy_nuclear_smr,false,0.5,Energy Fuels,NYSE,USD,active,
+KAP.IL,ai_energy_nuclear_smr,false,0.7,Kazatomprom,LSE,USD,active,VERIFY ticker (London GDR)
+1816.HK,ai_energy_nuclear_smr,true,0.9,CGN Power H,HKEX,HKD,active,
+003816.SZ,ai_energy_nuclear_smr,false,0.9,CGN Power A,SZSE,CNY,active,
+601985.SS,ai_energy_nuclear_smr,true,0.9,China National Nuclear (CNNC),SSE,CNY,active,
+601611.SS,ai_energy_nuclear_smr,false,0.7,China Nuclear E&C,SSE,CNY,active,
+
+ETN,ai_energy_grid_electric,true,1.0,Eaton Corp,NYSE,USD,active,DC electrical
+VRT,ai_energy_grid_electric,true,1.0,Vertiv Holdings,NYSE,USD,active,DC power + cooling
+VRT,ai_energy_cooling_hvac,false,0.9,Vertiv Holdings,NYSE,USD,active,
+ROK,ai_energy_grid_electric,false,0.7,Rockwell Automation,NYSE,USD,active,
+EMR,ai_energy_grid_electric,false,0.7,Emerson Electric,NYSE,USD,active,
+ABB,ai_energy_grid_electric,true,1.0,ABB Ltd ADR,NYSE,USD,active,
+ABBN.SW,ai_energy_grid_electric,false,1.0,ABB Ltd,SIX,CHF,active,
+GEV,ai_energy_grid_electric,true,1.0,GE Vernova,NYSE,USD,active,
+JCI,ai_energy_grid_electric,false,0.7,Johnson Controls,NYSE,USD,active,
+JCI,ai_energy_cooling_hvac,true,1.0,Johnson Controls,NYSE,USD,active,
+HUBB,ai_energy_grid_electric,false,0.7,Hubbell,NYSE,USD,active,Electrical infra
+SU.PA,ai_energy_grid_electric,true,1.0,Schneider Electric,Euronext,EUR,active,
+POWL,ai_energy_grid_electric,false,0.6,Powell Industries,NASDAQ,USD,active,Electrical equipment
+AYI,ai_energy_grid_electric,false,0.4,Acuity Brands,NYSE,USD,active,Lighting
+IR,ai_energy_grid_electric,false,0.5,Ingersoll Rand,NYSE,USD,active,
+600406.SS,ai_energy_grid_electric,true,0.9,NARI Technology,SSE,CNY,active,China grid leader
+000400.SZ,ai_energy_grid_electric,false,0.7,XJ Electric,SZSE,CNY,active,
+600312.SS,ai_energy_grid_electric,false,0.6,Pinggao Electric,SSE,CNY,active,
+601727.SS,ai_energy_grid_electric,false,0.6,Shanghai Electric A,SSE,CNY,active,
+2727.HK,ai_energy_grid_electric,false,0.6,Shanghai Electric H,HKEX,HKD,active,
+002028.SZ,ai_energy_grid_electric,false,0.6,Sieyuan Electric,SZSE,CNY,active,
+
+CARR,ai_energy_cooling_hvac,true,0.6,Carrier Global,NYSE,USD,active,
+TT,ai_energy_cooling_hvac,true,0.6,Trane Technologies,NYSE,USD,active,
+NDSN,ai_energy_cooling_hvac,false,0.4,Nordson Corp,NASDAQ,USD,active,
+FTV,ai_energy_cooling_hvac,false,0.5,Fortive,NYSE,USD,active,
+6367.T,ai_energy_cooling_hvac,true,0.8,Daikin Industries,JPX,JPY,active,
+6504.T,ai_energy_cooling_hvac,false,0.5,Fuji Electric,JPX,JPY,active,
+000651.SZ,ai_energy_cooling_hvac,true,0.7,Gree Electric Appliances,SZSE,CNY,active,
+000333.SZ,ai_energy_cooling_hvac,false,0.6,Midea Group,SZSE,CNY,active,
+600690.SS,ai_energy_cooling_hvac,false,0.5,Haier Smart Home A,SSE,CNY,active,
+6690.HK,ai_energy_cooling_hvac,false,0.5,Haier Smart Home H,HKEX,HKD,active,
+600060.SS,ai_energy_cooling_hvac,false,0.4,Hisense Visual,SSE,CNY,active,
+
+ADBE,ai_software_apps,false,0.7,Adobe,NASDAQ,USD,active,Firefly + Acrobat AI
+CRM,ai_software_apps,false,0.7,Salesforce,NYSE,USD,active,Agentforce
+NOW,ai_software_apps,true,0.8,ServiceNow,NYSE,USD,active,
+SNOW,ai_software_apps,true,0.9,Snowflake,NYSE,USD,active,Data + AI
+PANW,ai_software_apps,false,0.5,Palo Alto Networks,NASDAQ,USD,active,
+MDB,ai_software_apps,false,0.7,MongoDB,NASDAQ,USD,active,Vector + Atlas
+OKTA,ai_software_apps,false,0.4,Okta,NASDAQ,USD,active,
+ZS,ai_software_apps,false,0.4,Zscaler,NASDAQ,USD,active,
+PLTR,ai_software_apps,true,0.9,Palantir Technologies,NYSE,USD,active,AIP + Foundry
+TEM,ai_software_apps,true,0.9,Tempus AI,NASDAQ,USD,recent_ipo,IPO Jun 2024
+AI,ai_software_apps,true,0.8,C3.ai,NYSE,USD,active,
+INTU,ai_software_apps,false,0.4,Intuit,NASDAQ,USD,active,
+DDOG,ai_software_apps,false,0.5,Datadog,NASDAQ,USD,active,
+NET,ai_software_apps,false,0.5,Cloudflare,NYSE,USD,active,Workers AI
+RDDT,ai_software_apps,true,0.4,Reddit,NYSE,USD,recent_ipo,Data licensing to AI labs
+KVYO,ai_software_apps,true,0.4,Klaviyo,NYSE,USD,recent_ipo,
+688111.SS,ai_software_apps,true,0.8,Kingsoft Office,SSE,CNY,active,WPS Office + AI
+002230.SZ,ai_software_apps,true,1.0,iFlytek,SZSE,CNY,active,China speech AI
+600588.SS,ai_software_apps,false,0.6,Yonyou Network,SSE,CNY,active,Enterprise SaaS
+300454.SZ,ai_software_apps,false,0.5,Sangfor Technologies,SZSE,CNY,active,
+9669.HK,ai_software_apps,false,0.5,Beisen Holding,HKEX,HKD,active,HR SaaS
+600570.SS,ai_software_apps,false,0.4,Hundsun Technologies,SSE,CNY,active,
+0268.HK,ai_software_apps,false,0.5,Kingdee International,HKEX,HKD,active,
+
+0700.HK,cn_ai_internet,true,1.0,Tencent Holdings,HKEX,HKD,active,Hunyuan + WeChat
+9988.HK,cn_ai_internet,true,1.0,Alibaba Group H,HKEX,HKD,active,Qwen + cloud
+BABA,cn_ai_internet,false,1.0,Alibaba Group ADR,NYSE,USD,active,
+3690.HK,cn_ai_internet,true,0.7,Meituan,HKEX,HKD,active,
+1024.HK,cn_ai_internet,true,0.7,Kuaishou Technology,HKEX,HKD,active,Kling video model
+9618.HK,cn_ai_internet,false,0.6,JD.com H,HKEX,HKD,active,
+JD,cn_ai_internet,false,0.6,JD.com ADR,NASDAQ,USD,active,
+9999.HK,cn_ai_internet,false,0.6,NetEase H,HKEX,HKD,active,
+NTES,cn_ai_internet,false,0.6,NetEase ADR,NASDAQ,USD,active,
+9888.HK,cn_ai_internet,true,0.9,Baidu H,HKEX,HKD,active,Ernie + Apollo
+BIDU,cn_ai_internet,false,0.9,Baidu ADR,NASDAQ,USD,active,
+1810.HK,cn_ai_internet,true,0.7,Xiaomi Group,HKEX,HKD,active,
+9626.HK,cn_ai_internet,false,0.5,Bilibili H,HKEX,HKD,active,
+BILI,cn_ai_internet,false,0.5,Bilibili ADR,NASDAQ,USD,active,
+9961.HK,cn_ai_internet,false,0.4,Trip.com H,HKEX,HKD,active,
+TCOM,cn_ai_internet,false,0.4,Trip.com ADR,NASDAQ,USD,active,
+1698.HK,cn_ai_internet,false,0.4,Tencent Music H,HKEX,HKD,active,
+TME,cn_ai_internet,false,0.4,Tencent Music ADR,NYSE,USD,active,
+PDD,cn_ai_internet,false,0.5,PDD Holdings,NASDAQ,USD,active,Pinduoduo / Temu
+
+1211.HK,cn_ai_consumer,true,0.9,BYD H,HKEX,HKD,active,Auto + battery
+002594.SZ,cn_ai_consumer,false,0.9,BYD A,SZSE,CNY,active,
+0285.HK,cn_ai_consumer,false,0.7,BYD Electronics,HKEX,HKD,active,
+2015.HK,cn_ai_consumer,true,0.7,Li Auto H,HKEX,HKD,active,
+LI,cn_ai_consumer,false,0.7,Li Auto ADR,NASDAQ,USD,active,
+9866.HK,cn_ai_consumer,false,0.6,NIO H,HKEX,HKD,active,
+NIO,cn_ai_consumer,false,0.6,NIO ADR,NYSE,USD,active,
+9868.HK,cn_ai_consumer,false,0.6,XPeng H,HKEX,HKD,active,
+XPEV,cn_ai_consumer,false,0.6,XPeng ADR,NYSE,USD,active,
+9987.HK,cn_ai_consumer,false,0.3,Yum China H,HKEX,HKD,active,
+YUMC,cn_ai_consumer,false,0.3,Yum China ADR,NYSE,USD,active,
+0175.HK,cn_ai_consumer,false,0.6,Geely Auto,HKEX,HKD,active,
+2333.HK,cn_ai_consumer,false,0.5,Great Wall Motor H,HKEX,HKD,active,
+6618.HK,cn_ai_consumer,false,0.4,JD Health,HKEX,HKD,active,
+0241.HK,cn_ai_consumer,false,0.4,Alibaba Health,HKEX,HKD,active,
+2382.HK,cn_ai_consumer,false,0.7,Sunny Optical Technology,HKEX,HKD,active,Auto + phone optics
+
+6954.T,jp_ai_robotics,true,1.0,Fanuc,JPX,JPY,active,
+6861.T,jp_ai_robotics,true,1.0,Keyence,JPX,JPY,active,
+6506.T,jp_ai_robotics,true,0.9,Yaskawa Electric,JPX,JPY,active,
+6273.T,jp_ai_robotics,true,0.8,SMC Corp,JPX,JPY,active,Pneumatics
+6594.T,jp_ai_robotics,true,0.9,Nidec Corp,JPX,JPY,active,Motors
+7012.T,jp_ai_robotics,false,0.5,Kawasaki Heavy Industries,JPX,JPY,active,Industrial robots arm
+6645.T,jp_ai_robotics,false,0.6,OMRON,JPX,JPY,active,Sensing + control
+
+6981.T,jp_ai_components,true,0.9,Murata Manufacturing,JPX,JPY,active,MLCC
+6762.T,jp_ai_components,true,0.8,TDK Corporation,JPX,JPY,active,
+6971.T,jp_ai_components,true,0.7,Kyocera,JPX,JPY,active,
+6963.T,jp_ai_components,true,0.7,Rohm,JPX,JPY,active,SiC power
+6770.T,jp_ai_components,false,0.6,Alps Alpine,JPX,JPY,active,
+6753.T,jp_ai_components,false,0.4,Sharp,JPX,JPY,active,Display panels
+
+6758.T,jp_consumer,true,0.7,Sony Group,JPX,JPY,active,CMOS sensors + games
+7974.T,jp_consumer,true,0.4,Nintendo,JPX,JPY,active,
+9983.T,jp_consumer,true,0.3,Fast Retailing (Uniqlo),JPX,JPY,active,
+6098.T,jp_consumer,true,0.7,Recruit Holdings,JPX,JPY,active,Indeed + AI hiring
+4689.T,jp_consumer,false,0.5,LY Corporation,JPX,JPY,active,Yahoo Japan + LINE
+9684.T,jp_consumer,false,0.3,Square Enix,JPX,JPY,active,
+9697.T,jp_consumer,false,0.3,Capcom,JPX,JPY,active,
+4324.T,jp_consumer,false,0.3,Dentsu Group,JPX,JPY,active,
+7203.T,jp_consumer,false,0.3,Toyota Motor,JPX,JPY,active,Mobility AI
+9434.T,jp_consumer,false,0.3,SoftBank Corp,JPX,JPY,active,
+9984.T,jp_consumer,true,0.7,SoftBank Group,JPX,JPY,active,Holding co (Arm + AI investments)
+
+PWR,industrial_dc_construction,true,1.0,Quanta Services,NYSE,USD,active,Grid + DC build
+MTZ,industrial_dc_construction,true,0.8,MasTec,NYSE,USD,active,
+DY,industrial_dc_construction,true,0.7,Dycom Industries,NYSE,USD,active,Fiber + telecom
+J,industrial_dc_construction,true,0.7,Jacobs Solutions,NYSE,USD,active,
+ACM,industrial_dc_construction,false,0.6,AECOM,NYSE,USD,active,
+EME,industrial_dc_construction,true,0.7,EMCOR Group,NYSE,USD,active,
+FIX,industrial_dc_construction,true,0.7,Comfort Systems USA,NYSE,USD,active,DC HVAC contractor
+AIT,industrial_dc_construction,false,0.5,Applied Industrial Technologies,NYSE,USD,active,
+MMS,industrial_dc_construction,false,0.3,Maximus,NYSE,USD,active,
+VMC,industrial_dc_construction,false,0.4,Vulcan Materials,NYSE,USD,active,Aggregates
+MLM,industrial_dc_construction,false,0.4,Martin Marietta,NYSE,USD,active,Aggregates
+PRIM,industrial_dc_construction,false,0.5,Primoris Services,NYSE,USD,active,
+
+BA,industrial_aerospace_def,true,0.4,Boeing,NYSE,USD,active,
+RTX,industrial_aerospace_def,true,0.5,RTX Corp,NYSE,USD,active,
+GE,industrial_aerospace_def,true,0.6,GE Aerospace,NYSE,USD,active,
+NOC,industrial_aerospace_def,true,0.5,Northrop Grumman,NYSE,USD,active,
+LMT,industrial_aerospace_def,true,0.5,Lockheed Martin,NYSE,USD,active,
+GD,industrial_aerospace_def,false,0.4,General Dynamics,NYSE,USD,active,
+HII,industrial_aerospace_def,false,0.4,Huntington Ingalls,NYSE,USD,active,
+LHX,industrial_aerospace_def,false,0.4,L3Harris Technologies,NYSE,USD,active,
+TDG,industrial_aerospace_def,false,0.3,TransDigm Group,NYSE,USD,active,
+
+CAT,industrial_capgoods,true,0.5,Caterpillar,NYSE,USD,active,DC backup gen
+DE,industrial_capgoods,false,0.4,Deere,NYSE,USD,active,
+PH,industrial_capgoods,false,0.4,Parker-Hannifin,NYSE,USD,active,
+ITW,industrial_capgoods,false,0.4,Illinois Tool Works,NYSE,USD,active,
+PCAR,industrial_capgoods,false,0.3,PACCAR,NASDAQ,USD,active,
+CMI,industrial_capgoods,false,0.4,Cummins,NYSE,USD,active,DC backup gen + power
+FAST,industrial_capgoods,false,0.3,Fastenal,NASDAQ,USD,active,
+WAB,industrial_capgoods,false,0.3,Westinghouse Air Brake,NYSE,USD,active,
+SWK,industrial_capgoods,false,0.3,Stanley Black & Decker,NYSE,USD,active,
+
+4063.T,ai_materials_semi,true,1.0,Shin-Etsu Chemical,JPX,JPY,active,Wafer + photoresist
+3436.T,ai_materials_semi,true,1.0,SUMCO,JPX,JPY,active,
+4186.T,ai_materials_semi,true,1.0,Tokyo Ohka Kogyo (TOK),JPX,JPY,active,EUV photoresist
+4004.T,ai_materials_semi,true,0.9,Resonac Holdings,JPX,JPY,active,Was Showa Denko
+4005.T,ai_materials_semi,false,0.7,Sumitomo Chemical,JPX,JPY,active,
+3407.T,ai_materials_semi,false,0.5,Asahi Kasei,JPX,JPY,active,
+4188.T,ai_materials_semi,false,0.5,Mitsubishi Chemical Group,JPX,JPY,active,
+WAF.DE,ai_materials_semi,true,0.9,Siltronic AG,Xetra,EUR,active,Wafer
+MTRN,ai_materials_semi,false,0.7,Materion,NYSE,USD,active,Sputtering targets
+LIN,ai_materials_semi,true,0.9,Linde,NYSE,USD,active,Industrial gas - fab
+APD,ai_materials_semi,true,0.9,Air Products & Chemicals,NYSE,USD,active,
+AI.PA,ai_materials_semi,true,0.9,Air Liquide,Euronext,EUR,active,
+4091.T,ai_materials_semi,false,0.8,Nippon Sanso Holdings,JPX,JPY,active,
+300666.SZ,ai_materials_semi,false,0.7,Jiangfeng Electronic,SZSE,CNY,active,Sputtering targets
+002273.SZ,ai_materials_semi,false,0.4,Crystal-Optech,SZSE,CNY,active,Optical filters
+
+FCX,ai_materials_critical_minerals,true,0.9,Freeport-McMoRan,NYSE,USD,active,Copper
+SCCO,ai_materials_critical_minerals,true,0.9,Southern Copper,NYSE,USD,active,
+TECK,ai_materials_critical_minerals,false,0.7,Teck Resources,NYSE,USD,active,
+ERO,ai_materials_critical_minerals,false,0.6,Ero Copper,NYSE,USD,active,
+HBM,ai_materials_critical_minerals,false,0.5,Hudbay Minerals,NYSE,USD,active,
+IVN.TO,ai_materials_critical_minerals,false,0.6,Ivanhoe Mines,TSX,CAD,active,
+ANTO.L,ai_materials_critical_minerals,false,0.7,Antofagasta,LSE,GBP,active,
+BHP,ai_materials_critical_minerals,false,0.7,BHP Group,NYSE,USD,active,Diversified
+RIO,ai_materials_critical_minerals,false,0.7,Rio Tinto,NYSE,USD,active,
+VALE,ai_materials_critical_minerals,false,0.6,Vale,NYSE,USD,active,Iron + nickel
+GLEN.L,ai_materials_critical_minerals,false,0.7,Glencore,LSE,GBP,active,Copper + cobalt
+AAL.L,ai_materials_critical_minerals,false,0.6,Anglo American,LSE,GBP,active,
+MP,ai_materials_critical_minerals,true,1.0,MP Materials,NYSE,USD,active,US rare earths
+LYC.AX,ai_materials_critical_minerals,true,1.0,Lynas Rare Earths,ASX,AUD,active,
+ILU.AX,ai_materials_critical_minerals,false,0.6,Iluka Resources,ASX,AUD,active,
+ALB,ai_materials_critical_minerals,true,0.9,Albemarle,NYSE,USD,active,Lithium
+SQM,ai_materials_critical_minerals,true,0.8,SQM,NYSE,USD,active,Lithium
+ALTM,ai_materials_critical_minerals,false,0.6,Arcadium Lithium,NYSE,USD,active,VERIFY - Rio acquisition closing 2025
+PLS.AX,ai_materials_critical_minerals,false,0.8,Pilbara Minerals,ASX,AUD,active,
+600362.SS,ai_materials_critical_minerals,false,0.8,Jiangxi Copper A,SSE,CNY,active,
+0358.HK,ai_materials_critical_minerals,false,0.8,Jiangxi Copper H,HKEX,HKD,active,
+601899.SS,ai_materials_critical_minerals,false,0.8,Zijin Mining A,SSE,CNY,active,
+2899.HK,ai_materials_critical_minerals,false,0.8,Zijin Mining H,HKEX,HKD,active,
+600111.SS,ai_materials_critical_minerals,true,0.9,China Northern Rare Earth,SSE,CNY,active,
+002460.SZ,ai_materials_critical_minerals,true,0.8,Ganfeng Lithium A,SZSE,CNY,active,
+1772.HK,ai_materials_critical_minerals,false,0.8,Ganfeng Lithium H,HKEX,HKD,active,
+002466.SZ,ai_materials_critical_minerals,true,0.8,Tianqi Lithium A,SZSE,CNY,active,
+9696.HK,ai_materials_critical_minerals,false,0.8,Tianqi Lithium H,HKEX,HKD,active,VERIFY ticker
+300750.SZ,ai_materials_critical_minerals,false,0.5,CATL,SZSE,CNY,active,Battery cells (grid storage)
+
+NUE,ai_materials_dc_build,true,0.6,Nucor,NYSE,USD,active,
+STLD,ai_materials_dc_build,false,0.5,Steel Dynamics,NASDAQ,USD,active,
+X,ai_materials_dc_build,false,0.4,United States Steel,NYSE,USD,active,
+MT,ai_materials_dc_build,false,0.5,ArcelorMittal,NYSE,USD,active,
+5401.T,ai_materials_dc_build,false,0.5,Nippon Steel,JPX,JPY,active,
+5411.T,ai_materials_dc_build,false,0.5,JFE Holdings,JPX,JPY,active,
+005490.KS,ai_materials_dc_build,true,0.6,POSCO Holdings,KOSPI,KRW,active,
+004020.KS,ai_materials_dc_build,false,0.4,Hyundai Steel,KOSPI,KRW,active,
+600019.SS,ai_materials_dc_build,false,0.4,Baoshan Iron & Steel,SSE,CNY,active,
+GLW,ai_materials_dc_build,true,1.0,Corning,NYSE,USD,active,Optical fiber + display glass
+5214.T,ai_materials_dc_build,true,0.6,Nippon Electric Glass,JPX,JPY,active,
+5201.T,ai_materials_dc_build,false,0.5,AGC Inc,JPX,JPY,active,
+EAF,ai_materials_dc_build,false,0.4,GrafTech International,NYSE,USD,active,Graphite electrodes
+CBT,ai_materials_dc_build,false,0.4,Cabot Corporation,NYSE,USD,active,Carbon black + fumed silica
+
+CRWV,ai_emerging_companies,false,1.0,CoreWeave,NASDAQ,USD,recent_ipo,IPO 2025-03
+ALAB,ai_emerging_companies,false,0.9,Astera Labs,NASDAQ,USD,recent_ipo,IPO 2024-03
+TEM,ai_emerging_companies,false,0.9,Tempus AI,NASDAQ,USD,recent_ipo,IPO 2024-06
+RDDT,ai_emerging_companies,false,0.5,Reddit,NYSE,USD,recent_ipo,IPO 2024-03
+KVYO,ai_emerging_companies,false,0.5,Klaviyo,NYSE,USD,recent_ipo,IPO 2023-09
+2533.HK,ai_emerging_companies,true,1.0,Black Sesame International,HKEX,HKD,recent_ipo,Auto AI chips - IPO 2024-08
+9660.HK,ai_emerging_companies,true,1.0,Horizon Robotics,HKEX,HKD,recent_ipo,Auto AI - IPO 2024-10
+3317.HK,ai_emerging_companies,true,1.0,VERIFY ticker identity,HKEX,HKD,recent_ipo,User-supplied - confirm at review
+WRD,ai_emerging_companies,true,0.9,WeRide,NASDAQ,USD,recent_ipo,Autonomous - IPO 2024-10
+PONY,ai_emerging_companies,true,0.9,Pony.ai,NASDAQ,USD,recent_ipo,Autonomous - IPO 2024-11
+
+# Index baselines below auto-populate weekly via fetcher; rows in this CSV are placeholders
+__INDEX__SPX__,index_spx,false,1.0,Auto-fetched from iShares IVV holdings,N/A,USD,active,
+__INDEX__SMH__,index_smh,false,1.0,Auto-fetched from iShares SMH holdings,N/A,USD,active,
+__INDEX__TWSE__,index_twse,false,1.0,Auto-fetched from TWSE OpenAPI,N/A,TWD,active,
+__INDEX__NIKKEI225__,index_nikkei225,false,1.0,Auto-fetched from Nikkei,N/A,JPY,active,
+__INDEX__KOSPI200__,index_kospi200,false,1.0,Auto-fetched from KRX,N/A,KRW,active,

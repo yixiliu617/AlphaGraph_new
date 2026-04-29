@@ -70,3 +70,42 @@ def test_extracts_webcast_url_beyond_80_chars():
     )
     out = parse_press_release(text)
     assert out["webcast_url"] == "http://investor.nvidia.com/events/q4-2026"
+
+
+def test_extracts_bare_host_url_and_prepends_https():
+    """Real Apple PRs use 'www.apple.com/investor/earnings-call/...' without
+    the http(s):// scheme. Parser should prepend https://."""
+    text = (
+        "Apple will host a webcast at "
+        "www.apple.com/investor/earnings-call/quarterly-earnings-q1-2026/ "
+        "today at 5:00 p.m. ET."
+    )
+    out = parse_press_release(text)
+    assert out["webcast_url"] == "https://www.apple.com/investor/earnings-call/quarterly-earnings-q1-2026/"
+
+
+def test_extracts_bare_investor_subdomain_url():
+    """Bare investor.* hostnames should also get the https:// prefix."""
+    text = (
+        "Listen to the call at investor.acme.com/events/q3-2026 starting "
+        "at 3:00 p.m. ET."
+    )
+    out = parse_press_release(text)
+    assert out["webcast_url"] == "https://investor.acme.com/events/q3-2026"
+
+
+def test_does_not_prepend_https_to_full_url():
+    """Existing https:// URLs should not be doubly-prefixed."""
+    text = "Webcast at https://investor.example.com/q4 today."
+    out = parse_press_release(text)
+    assert out["webcast_url"] == "https://investor.example.com/q4"
+
+
+def test_does_not_match_bare_host_without_path():
+    """A bare hostname mention without a path (e.g. 'visit www.apple.com')
+    should not be claimed as a webcast URL because it lacks specificity."""
+    text = "For more information, visit www.apple.com today."
+    out = parse_press_release(text)
+    # The new pattern requires a / in the bare-host alternative, so this
+    # should NOT match -- the URL is too generic.
+    assert out["webcast_url"] is None

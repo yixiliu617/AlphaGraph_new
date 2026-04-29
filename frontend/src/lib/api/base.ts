@@ -19,6 +19,10 @@ export async function apiRequest<T = unknown>(
     method,
     headers: { "Content-Type": "application/json" },
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    // Send the ag_session cookie cross-origin (frontend on :3001 / :3000,
+    // backend on :8000). Without this, auth-protected endpoints 401 from
+    // the dashboard while same-origin URL-bar visits work fine.
+    credentials: "include",
   });
 
   // Surface API version mismatches during development.

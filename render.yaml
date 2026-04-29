@@ -1,0 +1,156 @@
+# Render service definitions.
+#
+# Why a YAML manifest instead of clicking through the dashboard:
+#   - Reproducible deploys: a fresh Render account can `render blueprint apply`
+#     and recreate the entire stack.
+#   - Source-controlled config: changes to env vars / disk size / regions
+#     show up in git diffs.
+#   - Migration smoothness: the same shape (web service + worker + cron)
+#     translates 1:1 to AWS ECS task definitions when we migrate.
+#
+# Usage:
+#   1. Push this to GitHub.
+#   2. In Render dashboard: New + → Blueprint → connect this repo.
+#   3. Render creates the services + offers to set env vars.
+#
+# Pricing (2026, verify before commit):
+#   - alphagraph-backend (web, starter $7/mo)
+#   - alphagraph-scheduler (worker, starter $7/mo)
+#   - alphagraph-data-disk (10 GB, $1/mo)
+#   = ~$15/mo total when off the free tier.
+
+services:
+
+  # -------------------------------------------------------------------
+  # Web — FastAPI under uvicorn
+  # -------------------------------------------------------------------
+  - type: web
+    name: alphagraph-backend
+    runtime: docker
+    repo: https://github.com/yixiliu617/AlphaGraph_new
+    branch: main
+    region: singapore                                    # closest to Asian pilots; HK uses ~30ms
+    plan: starter                                        # $7/mo; bump to standard when CPU-constrained
+    dockerfilePath: backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    disk:
+      name: alphagraph-data
+      mountPath: /app/backend/data
+      sizeGB: 10                                         # parquets + IR PDFs; resize as it grows
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: WEB_CONCURRENCY
+        value: "2"                                        # uvicorn workers; ~2x vCPU on starter
+      - key: PYTHONIOENCODING
+        value: utf-8
+      # ---- secrets — set via Render dashboard, not committed ----
+      - key: POSTGRES_URI
+        sync: false                                       # Neon connection string
+      - key: AUTH_DATABASE_URI
+        sync: false                                       # usually same as POSTGRES_URI
+      - key: SECRET_KEY
+        generateValue: true                               # Render generates 32-byte random
+      - key: TOKEN_ENCRYPTION_KEY
+        sync: false                                       # paste output of: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+      # ---- OAuth — set via dashboard ----
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: MICROSOFT_OAUTH_CLIENT_ID
+        sync: false
+      - key: MICROSOFT_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: MICROSOFT_OAUTH_TENANT
+        value: common
+      # ---- LLM keys — set via dashboard ----
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      # ---- Public URLs — set after first deploy when Render assigns the URL ----
+      - key: OAUTH_REDIRECT_BASE
+        sync: false                                       # e.g. https://alphagraph-backend.onrender.com
+      - key: FRONTEND_URL
+        sync: false                                       # e.g. https://alphagraph.vercel.app
+      - key: CORS_ORIGINS
+        sync: false                                       # e.g. https://alphagraph.vercel.app
+      - key: CORS_ORIGIN_REGEX
+        value: ^https://alphagraph-.*\.vercel\.app$       # allow vercel preview deploys
+      # ---- Cookie flags — prod = strict cross-origin ----
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: SESSION_COOKIE_SAMESITE
+        value: "none"                                     # cross-origin (Render ↔ Vercel) needs SameSite=None
+      # ---- App-level config ----
+      - key: ENGINE_LLM
+        value: anthropic
+      - key: ACTIVE_LLM
+        value: gemini
+
+  # -------------------------------------------------------------------
+  # Worker — APScheduler runner for the prices schedulers
+  #
+  # Same image as web, different startCommand. One worker handles all
+  # prices.* jobs (US/TW/HK/JP/KR/CN daily + intraday + TWSE patch).
+  # Add additional workers for taiwan/social/news/x as needed.
+  # -------------------------------------------------------------------
+  - type: worker
+    name: alphagraph-prices-scheduler
+    runtime: docker
+    repo: https://github.com/yixiliu617/AlphaGraph_new
+    branch: main
+    region: singapore
+    plan: starter
+    dockerfilePath: backend/Dockerfile
+    dockerContext: .
+    autoDeploy: true
+    # Worker reads from the same Postgres + same Render Disk as web.
+    # Shared disk only works when both web + worker run in the same
+    # region; that's why both are pinned to `singapore`.
+    disk:
+      name: alphagraph-data                                # same disk reference; Render mounts read-write to one service
+      mountPath: /app/backend/data
+      sizeGB: 10
+    startCommand: "python -m backend.app.services.prices.scheduler"
+    envVars:
+      # Inherit the same secrets as the web service.
+      - fromService:
+          type: web
+          name: alphagraph-backend
+          envVarKey: POSTGRES_URI
+        key: POSTGRES_URI
+      - fromService:
+          type: web
+          name: alphagraph-backend
+          envVarKey: AUTH_DATABASE_URI
+        key: AUTH_DATABASE_URI
+      - fromService:
+          type: web
+          name: alphagraph-backend
+          envVarKey: TOKEN_ENCRYPTION_KEY
+        key: TOKEN_ENCRYPTION_KEY
+      - fromService:
+          type: web
+          name: alphagraph-backend
+          envVarKey: ANTHROPIC_API_KEY
+        key: ANTHROPIC_API_KEY
+      - key: PYTHONIOENCODING
+        value: utf-8
+
+# Render note: a single Render Disk can only mount read-write to ONE
+# service. To share parquets between web and worker, options are:
+#   1. Mount on worker only; web reads via internal HTTP from worker (slow).
+#   2. Move parquets to S3 (Backblaze B2) — see deployment_runbook.md
+#      "Phase 2 — S3 migration". This is the AWS-ready path.
+#   3. (Pilot shortcut) Mount on web only; rerun backfill on worker so
+#      worker writes its own copies. Ugly; do (2) instead.
+#
+# We default to (2) for the AWS-smooth path. Leaving the disk config
+# above as documentation; in practice the runbook switches to S3 by
+# deploy day. See `STORAGE_BACKEND` env var planned for code-side abstraction.

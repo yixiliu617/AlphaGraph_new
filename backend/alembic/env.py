@@ -29,9 +29,12 @@ from backend.app.core.config import settings  # noqa: E402
 # the legacy Fragment/etc. tables on POSTGRES_URI (sqlite by default)
 # don't interfere with auth tables on AUTH_DATABASE_URI (postgres).
 from backend.app.db.phase2_session import Phase2Base  # noqa: E402
-import backend.app.models.orm.user_orm        # noqa: F401, E402
-import backend.app.models.orm.alert_orm       # noqa: F401, E402
-import backend.app.models.orm.credential_orm  # noqa: F401, E402
+import backend.app.models.orm.user_orm             # noqa: F401, E402
+import backend.app.models.orm.alert_orm            # noqa: F401, E402
+import backend.app.models.orm.credential_orm       # noqa: F401, E402
+import backend.app.models.orm.calendar_event_orm   # noqa: F401, E402
+import backend.app.models.orm.note_synced_orm      # noqa: F401, E402
+import backend.app.models.orm.universe_v2_orm      # noqa: F401, E402
 
 # Legacy ORMs — kept here so a future migration can pick them up if/when
 # we consolidate everything onto Postgres. They are NOT in target_metadata

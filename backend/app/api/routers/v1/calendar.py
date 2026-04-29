@@ -38,22 +38,30 @@ router = APIRouter()
 
 def _event_to_dict(row: pd.Series) -> dict:
     """Serialize a single events.parquet row to a JSON-friendly dict.
-    Timestamps -> ISO strings; NaN/NaT -> None."""
+    Timestamps -> ISO strings; NaN / NaT / pd.NA -> None.
+
+    `pd.isna()` handles every missing-value sentinel pandas supports
+    (np.nan, pd.NaT, pd.NA from nullable Int / Bool dtypes, None).
+    Wrap each call in try/except because pd.isna raises on some object-
+    dtype values (e.g. lists). String / numeric / Timestamp dispatched
+    to JSON-friendly forms; everything else passes through.
+    """
     out: dict = {}
     for col in row.index:
         v = row[col]
+        # Cheap check first, then pd.isna() for the array-aware sentinels.
         if v is None:
             out[col] = None
             continue
-        # NaN / NaT detection without raising on strings
-        if isinstance(v, float) and pd.isna(v):
-            out[col] = None
-            continue
-        if isinstance(v, pd.Timestamp):
+        try:
             if pd.isna(v):
                 out[col] = None
-            else:
-                out[col] = v.isoformat()
+                continue
+        except (TypeError, ValueError):
+            pass  # v is something pd.isna doesn't accept — keep as-is
+
+        if isinstance(v, pd.Timestamp):
+            out[col] = v.isoformat()
             continue
         out[col] = v
     return out

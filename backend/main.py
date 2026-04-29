@@ -25,7 +25,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from starlette.middleware.sessions import SessionMiddleware
-from backend.app.api.routers.v1 import ingest, chat, ledger, topology, insights, notes, data, earnings, research, pricing, prices, social, taiwan, tsmc, umc, mediatek, admin, calendar, auth, connections
+from backend.app.api.routers.v1 import ingest, chat, ledger, topology, insights, notes, data, earnings, research, pricing, prices, social, taiwan, tsmc, umc, mediatek, admin, calendar, auth, connections, me_calendar, me_notes
 from backend.app.core.config import settings
 from backend.app.db.session import init_db
 
@@ -41,9 +41,11 @@ app = FastAPI(
 # ---------------------------------------------------------------------------
 # CORS
 # ---------------------------------------------------------------------------
+_cors_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],  # Next.js dev (3000 default; 3001 fallback)
+    allow_origins=_cors_origins,
+    allow_origin_regex=settings.CORS_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -98,6 +100,8 @@ app.include_router(mediatek.router,prefix=f"{settings.API_V1_STR}/mediatek",tags
 app.include_router(admin.router,   prefix=f"{settings.API_V1_STR}/admin",   tags=["admin"])
 app.include_router(auth.router,        prefix=f"{settings.API_V1_STR}/auth",        tags=["auth"])
 app.include_router(connections.router, prefix=f"{settings.API_V1_STR}/connections", tags=["connections"])
+app.include_router(me_calendar.router, prefix=f"{settings.API_V1_STR}/me/calendar", tags=["me-calendar"])
+app.include_router(me_notes.router,    prefix=f"{settings.API_V1_STR}/me/notes",    tags=["me-notes"])
 
 
 @app.on_event("startup")
@@ -108,3 +112,15 @@ async def startup_event():
 @app.get("/")
 async def root():
     return {"message": "Welcome to the AlphaGraph Institutional API", "version": API_VERSION}
+
+
+@app.get("/healthz")
+async def healthz():
+    """Liveness probe for Render / load balancers / uptime monitors.
+
+    Returns 200 with the API version. Intentionally NOT a deep health
+    check — no DB ping — because we want load-balancer health checks to
+    decouple from transient DB issues. A separate `/readyz` would be
+    where to add a DB ping if/when ready-check semantics are needed.
+    """
+    return {"status": "ok", "version": API_VERSION}

@@ -228,6 +228,17 @@
       "owner": "data-eng",
       "severity": "medium",
       "tags": ["prices", "observability"]
+    },
+
+    {
+      "id": "integrations.sync",
+      "description": "Every 15 min — check every active user_credential row whose service has a registered adapter (Google Calendar, Outlook Calendar, ...). Per-service cadence is enforced inside the runner via SERVICES[*].sync_minutes, so this tick is just a 'who's due' pass. Auto-refreshes expired access tokens before calling the upstream API.",
+      "runner": "backend.app.services.integrations.scheduler:job_integrations_sync",
+      "cron": {"minute": "*/15"},
+      "timezone": "Asia/Taipei",
+      "owner": "data-eng",
+      "severity": "medium",
+      "tags": ["integrations", "calendar", "phase-2", "user-data"]
     }
   ]
 }

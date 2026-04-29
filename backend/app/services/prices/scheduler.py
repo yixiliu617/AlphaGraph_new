@@ -68,17 +68,71 @@ logger = logging.getLogger("prices_scheduler")
 
 
 def _universe_tickers(market: str) -> list[str]:
-    """Return tickers from `platform_universe.csv` for the given market.
+    """Return tickers from the Phase 2 `listing` table for the given market,
+    with `platform_universe.csv` as a fallback for environments where the
+    Phase 2 schema isn't provisioned yet (e.g. fresh checkout, CI).
 
-    For Taiwan we suffix with `.TW` so yfinance accepts them (the registry
-    stores raw co_id like '2330'). We exclude obviously non-equity rows by
-    skipping blank tickers.
+    Markets:
+      - "US"  → tickers on NYSE/NASDAQ (any USD listing)
+      - "TW"  → .TW / .TWO tickers on TWSE/TPEx
+
+    Statuses included: 'active' and 'recent_ipo'. Pre-IPO and delisted
+    are excluded — pre-IPO has no price history; delisted shouldn't be
+    refreshed.
+
+    Why .TW suffix here vs the legacy CSV: the legacy registry stored raw
+    co_ids like '2330' and we suffixed manually. The Phase 2 `listing`
+    table stores the full yfinance-form ticker '2330.TW' directly, so no
+    suffix manipulation is needed.
     """
+    try:
+        from backend.app.db.phase2_session import Phase2SessionLocal
+        from backend.app.models.orm.universe_v2_orm import Listing
+        db = Phase2SessionLocal()
+        try:
+            q = db.query(Listing.ticker).filter(
+                Listing.status.in_(("active", "recent_ipo")),
+            )
+            if market == "TW":
+                # Match .TW (TWSE) and .TWO (TPEx) — both are Taiwan listings.
+                q = q.filter(
+                    (Listing.ticker.like("%.TW")) | (Listing.ticker.like("%.TWO"))
+                )
+            elif market == "US":
+                # USD-currency listings on US exchanges. Exclude .HK / .T /
+                # .KS / .SS etc. — anything with an exchange suffix.
+                q = q.filter(
+                    Listing.exchange.in_(("NYSE", "NASDAQ"))
+                )
+            elif market == "HK":
+                # Hong Kong main board.
+                q = q.filter(Listing.ticker.like("%.HK"))
+            elif market == "JP":
+                # Tokyo Stock Exchange — yfinance suffix '.T'.
+                q = q.filter(Listing.ticker.like("%.T"))
+            elif market == "KR":
+                # KOSPI (.KS) and KOSDAQ (.KQ).
+                q = q.filter(
+                    (Listing.ticker.like("%.KS")) | (Listing.ticker.like("%.KQ"))
+                )
+            elif market == "CN":
+                # Shanghai (.SS) and Shenzhen (.SZ) A-shares.
+                q = q.filter(
+                    (Listing.ticker.like("%.SS")) | (Listing.ticker.like("%.SZ"))
+                )
+            tickers = [t for (t,) in q.all()]
+        finally:
+            db.close()
+        if tickers:
+            return tickers
+    except Exception as e:
+        logger.warning("Phase 2 listing query failed (%s); falling back to CSV", e)
+
+    # Fallback: legacy CSV registry. Same shape as before.
     df = read_universe()
     if df.empty:
-        # Fallback to the 18 default tickers so the scheduler still runs
-        # against something on a fresh checkout. This also doubles as a
-        # smoke-test path.
+        # Last-resort fallback to the DEFAULT_TICKERS — keeps the scheduler
+        # running on a fresh checkout / smoke-test.
         if market == "US":
             return [t for t in ep.DEFAULT_TICKERS if not ep.is_taiwan(t)]
         return [t for t in ep.DEFAULT_TICKERS if ep.is_taiwan(t)]
@@ -202,6 +256,30 @@ def job_taiwan_intraday_15m() -> None:
     _run_intraday("prices.taiwan_intraday_15m", _universe_tickers("TW"))
 
 
+# Asia ex-Taiwan markets — added 2026-04-29 alongside the broader-universe
+# rollout. Daily-only for now: 60-day intraday for these would 2x the cron
+# load; defer to v2 unless pilots specifically need 15m bars for Asia names.
+
+def job_hk_daily() -> None:
+    """Hong Kong daily — fires 1h after the 16:00 HKT close (HKT == TPE)."""
+    _run_daily("prices.hk_daily", _universe_tickers("HK"))
+
+
+def job_japan_daily() -> None:
+    """Japan daily — fires 1h after the 15:00 JST close (= 14:00 TPE)."""
+    _run_daily("prices.japan_daily", _universe_tickers("JP"))
+
+
+def job_korea_daily() -> None:
+    """Korea daily — fires 1h after the 15:30 KST close (= 14:30 TPE)."""
+    _run_daily("prices.korea_daily", _universe_tickers("KR"))
+
+
+def job_china_daily() -> None:
+    """China A-share daily — fires 1h after the 15:00 CST close (CST == TPE)."""
+    _run_daily("prices.china_daily", _universe_tickers("CN"))
+
+
 def job_taiwan_twse_patch() -> None:
     """Nightly TWSE-direct overwrite of the prior 30 days for every .TW
     ticker. Heals Yahoo's historical gaps and provides authoritative
@@ -301,6 +379,31 @@ def main() -> None:
         CronTrigger(hour="15", minute="0"),
         id="prices.taiwan_twse_patch", replace_existing=True,
     )
+
+    # Asia ex-Taiwan markets, daily-only.
+    # Times are in TPE (Asia/Taipei, UTC+8) — the scheduler's timezone.
+    # Each fires ~1h after the corresponding market close.
+    sched.add_job(
+        job_japan_daily,
+        CronTrigger(hour="15", minute="30"),  # 1h after 14:00 TPE = 15:00 JST close
+        id="prices.japan_daily", replace_existing=True,
+    )
+    sched.add_job(
+        job_korea_daily,
+        CronTrigger(hour="16", minute="0"),   # 1h after 14:30 TPE = 15:30 KST close
+        id="prices.korea_daily", replace_existing=True,
+    )
+    sched.add_job(
+        job_china_daily,
+        CronTrigger(hour="16", minute="30"),  # 1h after 15:00 TPE = 15:00 CST close
+        id="prices.china_daily", replace_existing=True,
+    )
+    sched.add_job(
+        job_hk_daily,
+        CronTrigger(hour="17", minute="0"),   # 1h after 16:00 TPE = 16:00 HKT close
+        id="prices.hk_daily", replace_existing=True,
+    )
+
     sched.add_job(
         job_prices_health_check,
         CronTrigger(minute="43"),

@@ -61,6 +61,9 @@ def get_phase2_session():
 # that imports only one ORM (e.g. credential_orm) hits InvalidRequestError
 # when the AppUser ↔ UserCredential relationship tries to resolve.
 # Done at the bottom — Phase2Base + the engine are fully defined above.
-from backend.app.models.orm import user_orm        # noqa: F401, E402
-from backend.app.models.orm import alert_orm       # noqa: F401, E402
-from backend.app.models.orm import credential_orm  # noqa: F401, E402
+from backend.app.models.orm import user_orm             # noqa: F401, E402
+from backend.app.models.orm import alert_orm            # noqa: F401, E402
+from backend.app.models.orm import credential_orm       # noqa: F401, E402
+from backend.app.models.orm import calendar_event_orm   # noqa: F401, E402
+from backend.app.models.orm import note_synced_orm      # noqa: F401, E402
+from backend.app.models.orm import universe_v2_orm      # noqa: F401, E402

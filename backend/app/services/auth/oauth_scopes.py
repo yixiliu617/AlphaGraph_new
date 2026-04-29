@@ -110,11 +110,17 @@ SERVICES: dict[str, ServiceSpec] = {
     "microsoft.onenote": {
         "provider":     "microsoft",
         "display_name": "OneNote",
+        # Personal-account quirk: Notes.Read.All ("all notebooks the user
+        # can access") sometimes returns 401 from the OneNote API for
+        # outlook.com / live.com accounts even when the consent says
+        # granted. Notes.Read ("just your own notebooks") is more
+        # reliable across both org and personal accounts. Upgrade to
+        # Notes.Read.All only when shared-notebook access is essential.
         "scopes": [
             "offline_access", "User.Read",
-            "Notes.Read.All",
+            "Notes.Read",
         ],
-        "sync_minutes": 240,  # Notes change less frequently than mail
+        "sync_minutes": 240,
     },
     "microsoft.onedrive": {
         "provider":     "microsoft",

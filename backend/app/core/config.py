@@ -68,6 +68,15 @@ class Settings(BaseSettings):
     # Frontend URL the auth callback redirects to after a successful sign-in.
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # CORS origins — comma-separated. The middleware reads this and
+    # falls back to localhost:3000/3001 if unset, so dev keeps working
+    # without explicit config. In prod set to e.g.
+    #   CORS_ORIGINS=https://alphagraph.vercel.app,https://alphagraph.com
+    # Vercel preview deploys get unique URLs per PR, so use
+    # `CORS_ORIGIN_REGEX` for wildcard matching against preview domains.
+    CORS_ORIGINS:      str           = "http://localhost:3000,http://localhost:3001"
+    CORS_ORIGIN_REGEX: Optional[str] = None  # e.g. ^https://alphagraph-.*\.vercel\.app$
+
     # Session cookie — HttpOnly + SameSite=Lax. Dev defaults to non-Secure
     # so http://localhost works; prod sets SESSION_COOKIE_SECURE=true.
     SESSION_COOKIE_NAME:     str  = "ag_session"

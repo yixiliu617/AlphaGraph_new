@@ -43,10 +43,14 @@ _SECTION_WINDOW_CHARS = 800
 # Field patterns (applied within the disclosure window)
 # ---------------------------------------------------------------------------
 
-# URLs: any http(s) URL OR a bare www.host URL. Many press releases use bare
-# hostnames (e.g. www.apple.com/investor/earnings-call/) without a protocol.
+# URLs: a full http(s):// URL OR a bare hostname starting with www., investor.,
+# or ir. that the press-release author forgot to scheme. Real browsers prepend
+# https://; our validator (Python requests) raises MissingSchema without it.
+# The bare-host alternative requires at least one dot AND a slash to keep it
+# specific (rejects e.g. "see Q4." or "visit www.apple.com" with no path).
 _URL_ANY_RX = re.compile(
-    r"(?:https?://|(?<![\w.])www\.)[\w\-]+(?:\.[\w\-]+)+(?:/[^\s)}<\]\"'>,;]*)?",
+    r"(?:https?://[^\s)}<\]\"'>,;]+|"
+    r"(?<![\w.])(?:www\.|investor\.|ir\.)[A-Za-z0-9\-]+\.[A-Za-z]{2,}/[^\s)}<\]\"'>,;]*)",
     re.IGNORECASE,
 )
 # IR-shaped URL hint: prefer URLs whose path/host suggests investor relations
@@ -144,8 +148,23 @@ def _extract_url(text: str, section: str | None) -> str | None:
 
 
 def _clean_url(url: str) -> str | None:
+    """Strip trailing punctuation and prepend https:// when the parser
+    captured a bare host (e.g. "www.apple.com/investor/..."). Press
+    releases routinely omit the scheme; real browsers prepend it but
+    Python requests raises MissingSchema without it."""
     url = url.rstrip(_TRAILING_TRASH)
-    return url or None
+    if not url:
+        return None
+    if not url.lower().startswith(("http://", "https://")):
+        # Only prepend if the captured token actually has a host with a
+        # dot before the first slash. The regex enforces this already,
+        # but defense in depth is cheap.
+        first_slash = url.find("/")
+        host = url if first_slash == -1 else url[:first_slash]
+        if "." not in host:
+            return None
+        url = "https://" + url
+    return url
 
 
 def _extract_phone(text: str, section: str | None) -> str | None:

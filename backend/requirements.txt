@@ -9,6 +9,10 @@ pinecone-client==5.0.1
 google-generativeai==0.8.3
 python-multipart==0.0.19
 python-jose[cryptography]==3.3.0
+pyjwt>=2.10.0      # backend.app.services.auth.jwt_token uses `import jwt` (PyJWT API), not python-jose
+requests>=2.31.0   # used widely; explicit pin (transitively pulled by yfinance/anthropic, but pin avoids surprises)
+python-docx>=1.1.0 # backend.app.api.routers.v1.notes imports `docx`
+zhconv>=1.4.3      # backend.app.api.routers.v1.notes imports `zhconv` for Chinese variant conversion
 passlib[bcrypt]==1.7.4
 pytest==8.3.4
 httpx==0.28.1

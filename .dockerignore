@@ -2,16 +2,47 @@
 **/.pytest_cache
 **/.mypy_cache
 **/node_modules
-frontend/.next
+frontend/
 !frontend/.next/standalone
 .git
+.gitignore
 .venv
 venv
 *.pyc
 *.pyo
+*.pyd
+*.egg-info
+
+# Local data — too large to bake into image; seeded on first run.
+# Keep universe seed CSVs (small; needed by seed_universe.py).
+backend/data/financials/prices/
+backend/data/financials/raw/
+backend/data/market_data/
+backend/data/audio/
+backend/data/transcription_outputs/
+backend/data/parquet/
 backend/data/**/_raw
 backend/data/**/data.parquet
 backend/data/**/history.parquet
+!backend/data/universe/
+
 tools/audio_recorder/recordings
 tools/web_scraper/scrape_log.txt
 .claude/
+
+# Local DB / dev / IDE artifacts
+*.db
+*.sqlite*
+.env
+.env.local
+.env.*.local
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Docs not needed at runtime (keep docs/ip_websites_knowledge_base referenced by scrapers if needed; for now exclude).
+docs/
+*.md
+!CLAUDE.md

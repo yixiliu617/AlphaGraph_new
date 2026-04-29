@@ -1,0 +1,33 @@
+ticker,group_id,is_primary,weight,company_name,exchange,currency,status,notes
+# === MERGE INSTRUCTIONS ===
+# Append all rows below into broad_universe_seed_v1.csv
+# These are HK + SH AI IPO listings that completed between 2025-12 and 2026-04 (verified via live web check 2026-04-28).
+# All previously sat in pre_ipo_watchlist_v1.json — they're now public and tradeable.
+# Several rows for the same ticker (multi-group) — pick the right is_primary per CSV during review.
+#
+# === HK AI IPO wave (Jan-Apr 2026) ===
+02513.HK,ai_emerging_companies,false,1.0,Zhipu AI (Z.ai),HKEX,HKD,recent_ipo,LLM IPO 2026-01-08 first AGI pure-play public co
+02513.HK,cn_ai_internet,true,1.0,Zhipu AI (Z.ai),HKEX,HKD,recent_ipo,GLM model Tsinghua spinout
+02513.HK,ai_software_models,false,1.0,Zhipu AI (Z.ai),HKEX,HKD,recent_ipo,
+00100.HK,ai_emerging_companies,false,1.0,MiniMax Group,HKEX,HKD,recent_ipo,LLM + Hailuo video IPO 2026-01-09 doubled on debut
+00100.HK,cn_ai_internet,true,1.0,MiniMax Group,HKEX,HKD,recent_ipo,Multimodal LLM
+00100.HK,ai_software_models,false,1.0,MiniMax Group,HKEX,HKD,recent_ipo,
+06082.HK,ai_emerging_companies,false,1.0,Biren Technology,HKEX,HKD,recent_ipo,Domestic GPU IPO 2026-01-02 +76% on debut
+06082.HK,ai_compute_design,true,1.0,Biren Technology,HKEX,HKD,recent_ipo,China GPU rival to Nvidia
+06082.HK,cn_ai_semi,false,1.0,Biren Technology,HKEX,HKD,recent_ipo,
+9903.HK,ai_emerging_companies,false,1.0,Shanghai Iluvatar CoreX,HKEX,HKD,recent_ipo,GPU IPO 2026-01-08 ~$5.3B valuation
+9903.HK,ai_compute_design,true,1.0,Shanghai Iluvatar CoreX,HKEX,HKD,recent_ipo,Domestic GPU
+9903.HK,cn_ai_semi,false,1.0,Shanghai Iluvatar CoreX,HKEX,HKD,recent_ipo,
+1879.HK,ai_emerging_companies,false,1.0,Lightelligence (Xizhi Tech),HKEX,HKD,recent_ipo,World first AI optical computing IPO 2026-04-28 +384% on debut
+1879.HK,ai_infra_optical,true,1.0,Lightelligence (Xizhi Tech),HKEX,HKD,recent_ipo,Photonic computing for AI
+0600.HK,ai_emerging_companies,false,1.0,Axera Semiconductor,HKEX,HKD,recent_ipo,Edge AI inference IPO 2026-02-10
+0600.HK,ai_compute_design,true,1.0,Axera Semiconductor,HKEX,HKD,recent_ipo,Edge AI vision + ADAS chips
+0600.HK,cn_ai_semi,false,1.0,Axera Semiconductor,HKEX,HKD,recent_ipo,
+#
+# === SSE STAR Market AI GPU listings (Dec 2025) ===
+688795.SS,ai_emerging_companies,false,1.0,Moore Threads,SSE,CNY,recent_ipo,Domestic GPU STAR IPO 2025-12-05 +400% debut
+688795.SS,ai_compute_design,true,1.0,Moore Threads,SSE,CNY,recent_ipo,Founded by ex-Nvidia China GM
+688795.SS,cn_ai_semi,false,1.0,Moore Threads,SSE,CNY,recent_ipo,
+__METAX_VERIFY__,ai_emerging_companies,false,1.0,MetaX Integrated Circuits,SSE,CNY,recent_ipo,VERIFY ticker likely 688xxx.SS - STAR IPO 2025-12-17 +693% debut
+__METAX_VERIFY__,ai_compute_design,true,1.0,MetaX Integrated Circuits,SSE,CNY,recent_ipo,Founded by ex-AMD exec Chen Weiliang
+__METAX_VERIFY__,cn_ai_semi,false,1.0,MetaX Integrated Circuits,SSE,CNY,recent_ipo,
