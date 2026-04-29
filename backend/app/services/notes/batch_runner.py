@@ -51,6 +51,36 @@ TranscribeFn = Callable[[str, Optional[str], str, str], dict]
 
 _BIG_FILE_SECONDS = 90 * 60       # 90 minutes -- drop concurrency to 1
 
+# How often to emit a tick (FILE_PROGRESS event) while a long-running
+# subprocess / Gemini call is in flight. Small enough that the user sees
+# the bar move; large enough that we don't flood the SSE stream.
+_TICK_INTERVAL_SEC = 3.0
+
+
+def _fmt_elapsed(sec: float) -> str:
+    s = int(sec)
+    if s < 60:
+        return f"{s}s"
+    if s < 3600:
+        return f"{s // 60}m {s % 60}s"
+    return f"{s // 3600}h {(s % 3600) // 60}m"
+
+
+async def _ticking_progress(task: asyncio.Task, interval: float = _TICK_INTERVAL_SEC):
+    """Yield monotonic elapsed-second floats every `interval` seconds while
+    `task` is still running. Returns (cleanly) the moment the task finishes.
+
+    Uses asyncio.shield so the outer wait_for timeout doesn't cancel the
+    real worker -- we just want to peek at "is it done yet?" without
+    interrupting it.
+    """
+    started = time.monotonic()
+    while not task.done():
+        try:
+            await asyncio.wait_for(asyncio.shield(task), timeout=interval)
+        except asyncio.TimeoutError:
+            yield time.monotonic() - started
+
 
 async def run_batch(
     scan:          ScanResult,
@@ -206,32 +236,54 @@ async def _process_one(
         # Stage 1: pre-extract audio track to <folder>/audio/<stem>.opus.
         # We persist the opus file (rather than letting Gemini's pipeline
         # discard a temp copy) so the user can verify the extraction and
-        # re-use it for future runs without re-encoding.
-        audio_dir  = Path(sf.path).parent / "audio"
-        opus_path  = audio_dir / f"{Path(sf.name).stem}.opus"
+        # re-use it for future runs without re-encoding. ticks emit every
+        # ~3s so the user sees the bar move during ffmpeg.
+        audio_dir = Path(sf.path).parent / "audio"
+        opus_path = audio_dir / f"{Path(sf.name).stem}.opus"
         if not opus_path.exists():
             yield Event(EventKind.FILE_PROGRESS, {
-                "index": index, "name": sf.name, "percent": 5, "stage": "extracting_audio",
+                "index": index, "name": sf.name, "percent": 3,
+                "stage": "extracting audio (starting ffmpeg)",
             })
-            await asyncio.to_thread(
+            extract_eta = max(10.0, sf.duration_sec * 0.03)   # ~30x realtime
+            extract_task = asyncio.create_task(asyncio.to_thread(
                 extract_audio_to_opus, sf.path, opus_path, sf.duration_sec,
-            )
+            ))
+            async for elapsed in _ticking_progress(extract_task):
+                ratio = min(0.95, elapsed / extract_eta)
+                yield Event(EventKind.FILE_PROGRESS, {
+                    "index": index, "name": sf.name,
+                    "percent": int(3 + ratio * 17),    # 3% -> 20%
+                    "stage":   f"extracting audio ({_fmt_elapsed(elapsed)} elapsed, ~{_fmt_elapsed(extract_eta)} expected)",
+                })
+            extract_task.result()    # surface ffmpeg errors
 
-        # Stage 2: Gemini transcription on the opus file. The existing
-        # pipeline still does its own normalization pass (cheap on opus
-        # input -- ~ a few seconds of CPU). asyncio.to_thread keeps the
-        # event loop responsive.
+        # Stage 2: Gemini transcription. Tick every ~3s with elapsed time
+        # so the user knows it's still working during the multi-minute
+        # call. The existing pipeline does its own normalization pass on
+        # the opus input (cheap, a few seconds of CPU).
         yield Event(EventKind.FILE_PROGRESS, {
-            "index": index, "name": sf.name, "percent": 25, "stage": "transcribing",
+            "index": index, "name": sf.name, "percent": 22,
+            "stage": "transcribing (calling Gemini)",
         })
-        transcribe_result = await asyncio.to_thread(
+        gemini_eta = max(30.0, sf.duration_sec * 0.025 + 30)
+        gemini_task = asyncio.create_task(asyncio.to_thread(
             transcribe_fn, str(opus_path), options.language, "", options.translation_language,
-        )
+        ))
+        async for elapsed in _ticking_progress(gemini_task):
+            ratio = min(0.95, elapsed / gemini_eta)
+            yield Event(EventKind.FILE_PROGRESS, {
+                "index": index, "name": sf.name,
+                "percent": int(22 + ratio * 65),   # 22% -> 87%
+                "stage":   f"transcribing ({_fmt_elapsed(elapsed)} elapsed, ~{_fmt_elapsed(gemini_eta)} expected)",
+            })
+        transcribe_result = gemini_task.result()
         if transcribe_result.get("error"):
             raise RuntimeError(f"transcription error: {transcribe_result['error']}")
 
         yield Event(EventKind.FILE_PROGRESS, {
-            "index": index, "name": sf.name, "percent": 70, "stage": "writing_doc",
+            "index": index, "name": sf.name, "percent": 90,
+            "stage": "saving note + building transcript .docx",
         })
 
         # Persist the note (caller-provided to keep the runner DB-agnostic

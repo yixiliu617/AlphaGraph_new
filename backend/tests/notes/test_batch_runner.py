@@ -173,6 +173,38 @@ def test_failure_in_one_file_does_not_abort_batch(tmp_path):
     assert final["failed"]    == 1
 
 
+def test_emits_periodic_ticks_during_long_transcribe(tmp_path):
+    """When transcription takes longer than the tick interval, the runner
+    should emit multiple FILE_PROGRESS events with monotonically growing
+    percent / elapsed labels -- so the user sees the bar move."""
+    scan = _make_scan(tmp_path, "a.mp3")
+    options = BatchOptions(translation_language="en", note_type="meeting", language=None, concurrency=1)
+    save_fn, _ = _make_save_fn()
+
+    def slow_transcribe(path, lang, _g, t):
+        # Sleep long enough for at least 2 ticks at the 3s interval.
+        # This is a thread, not the asyncio loop, so it doesn't block ticks.
+        time.sleep(7)
+        return _fake_transcribe_ok(path, lang, _g, t)
+
+    events = asyncio.run(_drain(run_batch(
+        scan, options, transcribe_fn=slow_transcribe, save_note_fn=save_fn,
+    )))
+    # Filter to the transcribing-stage progress events.
+    transcribing_progress = [
+        e for e in events
+        if e.kind == EventKind.FILE_PROGRESS and "transcribing" in (e.data.get("stage") or "")
+    ]
+    # Initial "calling Gemini" plus at least 1-2 elapsed ticks (7s / 3s).
+    assert len(transcribing_progress) >= 2, (
+        f"expected periodic ticks during long transcribe, got "
+        f"{len(transcribing_progress)} progress events"
+    )
+    # Percent should monotonically grow across ticks.
+    percents = [e.data["percent"] for e in transcribing_progress]
+    assert percents == sorted(percents), f"percents not monotonic: {percents}"
+
+
 def test_batch_done_includes_skipped_count(tmp_path):
     scan = _make_scan(tmp_path, "a.mp3")
     scan.skipped.append(ScanSkip(name="b.mp3", reason="already_transcribed"))
