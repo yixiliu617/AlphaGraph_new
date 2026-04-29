@@ -47,17 +47,17 @@ def test_probe_nonzero_exit_raises():
 
 
 def test_eta_formula_short_audio():
-    # 60s audio -> 60*0.4 + 30 = 54s
-    assert estimate_transcribe_seconds(60.0) == pytest.approx(54.0)
+    # 60s audio -> 60*0.025 + 60 = 61.5s
+    assert estimate_transcribe_seconds(60.0) == pytest.approx(61.5)
 
 
 def test_eta_formula_long_audio():
-    # 1h audio = 3600s -> 3600*0.4 + 30 = 1470s
-    assert estimate_transcribe_seconds(3600.0) == pytest.approx(1470.0)
+    # 1h audio = 3600s -> 3600*0.025 + 60 = 150s
+    assert estimate_transcribe_seconds(3600.0) == pytest.approx(150.0)
 
 
 def test_eta_formula_zero_audio_returns_baseline():
-    assert estimate_transcribe_seconds(0.0) == pytest.approx(30.0)
+    assert estimate_transcribe_seconds(0.0) == pytest.approx(60.0)
 
 
 def test_eta_formula_negative_input_clamped():

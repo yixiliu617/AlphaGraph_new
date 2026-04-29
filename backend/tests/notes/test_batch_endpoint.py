@@ -63,6 +63,12 @@ def test_batch_endpoint_returns_sse_stream(tmp_path):
     fake_svc.create_note.return_value = fake_note
     fake_svc.get_note.return_value = fake_note
 
+    def _fake_extract(src, dst, duration):
+        from pathlib import Path as _P
+        p = _P(dst)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(b"FAKE_OPUS")
+
     with patch(
         "backend.app.services.notes.batch_scan.probe_duration_seconds",
         return_value=10.0,
@@ -72,6 +78,9 @@ def test_batch_endpoint_returns_sse_stream(tmp_path):
     ), patch(
         "backend.app.api.routers.v1.notes.NotesService",
         return_value=fake_svc,
+    ), patch(
+        "backend.app.services.notes.batch_runner.extract_audio_to_opus",
+        side_effect=_fake_extract,
     ):
         from backend.main import app
         client = TestClient(app)

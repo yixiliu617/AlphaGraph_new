@@ -11,10 +11,30 @@ import asyncio
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
+import pytest
+
 from backend.app.services.notes.batch_scan import ScanResult, ScanFile, ScanSkip
 from backend.app.services.notes.batch_runner import (
     BatchOptions, run_batch, EventKind,
 )
+
+
+@pytest.fixture(autouse=True)
+def _stub_extract_audio_to_opus():
+    """Bypass real ffmpeg -- test fixture files are 1KB of zeros which
+    ffmpeg can't process. We just touch the destination path so the
+    runner sees the opus file as 'extracted'."""
+    from unittest.mock import patch
+    def _fake_extract(src, dst, duration):
+        from pathlib import Path as _P
+        p = _P(dst)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(b"FAKE_OPUS")
+    with patch(
+        "backend.app.services.notes.batch_runner.extract_audio_to_opus",
+        side_effect=_fake_extract,
+    ):
+        yield
 
 
 def _make_scan(tmp_path: Path, *names: str) -> ScanResult:
@@ -99,6 +119,38 @@ def test_writes_docx_to_transcripts_subdir(tmp_path):
     out = tmp_path / "transcripts" / "a_transcript.docx"
     assert out.exists()
     assert out.stat().st_size > 1000  # any real docx is > 1KB
+
+
+def test_writes_opus_to_audio_subdir(tmp_path):
+    """The runner pre-extracts the audio track to <folder>/audio/<stem>.opus
+    before transcribing. Both the docx AND the opus persist after the run."""
+    scan = _make_scan(tmp_path, "a.mp3")
+    options = BatchOptions(translation_language="en", note_type="meeting", language=None, concurrency=1)
+    save_fn, _ = _make_save_fn()
+    asyncio.run(_drain(run_batch(scan, options, transcribe_fn=_fake_transcribe_ok, save_note_fn=save_fn)))
+    opus = tmp_path / "audio" / "a.opus"
+    assert opus.exists(), "opus audio file should be persisted next to the source"
+
+
+def test_skips_extraction_if_opus_already_exists(tmp_path):
+    """If <folder>/audio/<stem>.opus already exists (e.g. resumed batch),
+    we don't re-extract -- saves the ffmpeg pass and matches user intent
+    of using the cached file."""
+    from unittest.mock import patch
+    scan = _make_scan(tmp_path, "a.mp3")
+    options = BatchOptions(translation_language="en", note_type="meeting", language=None, concurrency=1)
+    save_fn, _ = _make_save_fn()
+
+    # Pre-create the opus file so the runner finds it on first try.
+    audio_dir = tmp_path / "audio"
+    audio_dir.mkdir()
+    (audio_dir / "a.opus").write_bytes(b"PRE_EXISTING")
+
+    with patch(
+        "backend.app.services.notes.batch_runner.extract_audio_to_opus",
+    ) as extract_mock:
+        asyncio.run(_drain(run_batch(scan, options, transcribe_fn=_fake_transcribe_ok, save_note_fn=save_fn)))
+        extract_mock.assert_not_called()
 
 
 def test_failure_in_one_file_does_not_abort_batch(tmp_path):

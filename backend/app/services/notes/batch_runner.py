@@ -18,6 +18,7 @@ from typing import Any, AsyncIterator, Callable, Optional
 
 from backend.app.services.notes.batch_scan import ScanResult, ScanFile
 from backend.app.services.notes.docx_builder import build_note_docx
+from backend.app.services.notes.audio_probe import extract_audio_to_opus
 
 
 class EventKind(str, Enum):
@@ -202,14 +203,29 @@ async def _process_one(
     file_started = time.monotonic()
 
     try:
-        # Stage: transcription. The existing pipeline blocks the calling
-        # thread, so we run it in the default executor to keep the event
-        # loop responsive (other generators / SSE writers).
+        # Stage 1: pre-extract audio track to <folder>/audio/<stem>.opus.
+        # We persist the opus file (rather than letting Gemini's pipeline
+        # discard a temp copy) so the user can verify the extraction and
+        # re-use it for future runs without re-encoding.
+        audio_dir  = Path(sf.path).parent / "audio"
+        opus_path  = audio_dir / f"{Path(sf.name).stem}.opus"
+        if not opus_path.exists():
+            yield Event(EventKind.FILE_PROGRESS, {
+                "index": index, "name": sf.name, "percent": 5, "stage": "extracting_audio",
+            })
+            await asyncio.to_thread(
+                extract_audio_to_opus, sf.path, opus_path, sf.duration_sec,
+            )
+
+        # Stage 2: Gemini transcription on the opus file. The existing
+        # pipeline still does its own normalization pass (cheap on opus
+        # input -- ~ a few seconds of CPU). asyncio.to_thread keeps the
+        # event loop responsive.
         yield Event(EventKind.FILE_PROGRESS, {
-            "index": index, "name": sf.name, "percent": 5, "stage": "normalizing",
+            "index": index, "name": sf.name, "percent": 25, "stage": "transcribing",
         })
         transcribe_result = await asyncio.to_thread(
-            transcribe_fn, sf.path, options.language, "", options.translation_language,
+            transcribe_fn, str(opus_path), options.language, "", options.translation_language,
         )
         if transcribe_result.get("error"):
             raise RuntimeError(f"transcription error: {transcribe_result['error']}")
