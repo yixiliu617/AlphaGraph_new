@@ -29,7 +29,7 @@ from backend.app.services.calendar.enrichment.press_release_parser import (  # n
     parse_press_release,
 )
 from backend.app.services.calendar.enrichment.url_validator import (  # noqa: E402
-    validate_url,
+    check_url, log_validation,
 )
 from backend.app.services.calendar.storage import (  # noqa: E402
     read_events, upsert_events, _is_empty,
@@ -134,69 +134,91 @@ def main() -> int:
     webcast_failed_validation = 0
     phone_extracted = 0
     pin_extracted = 0
+    counters: dict[str, int] = {}
+    counters_state: dict[str, int] = {}
 
     for _, ev in target.iterrows():
-        ticker = ev["ticker"]
-        source_id = str(ev.get("source_id") or "")
-        accession = _accession_from_source_id(source_id)
-        if not accession:
-            skipped_no_accession += 1
+        try:
+            ticker = ev["ticker"]
+            source_id = str(ev.get("source_id") or "")
+            accession = _accession_from_source_id(source_id)
+            if not accession:
+                skipped_no_accession += 1
+                continue
+            text = _load_release_text(ticker, accession)
+            if not text:
+                skipped_no_text += 1
+                continue
+
+            fields = parse_press_release(text)
+
+            if fields["webcast_url"]:
+                webcast_extracted += 1
+                result = check_url(fields["webcast_url"])
+                log_validation(
+                    result, url=fields["webcast_url"],
+                    ticker=ticker, fiscal_period=ev["fiscal_period"], layer="a",
+                )
+                counters_state[result.state] = counters_state.get(result.state, 0) + 1
+                if not result.valid:
+                    log.info("[%s %s] webcast URL failed validation (state=%s status=%s): %s",
+                             ticker, ev["fiscal_period"], result.state,
+                             result.status_code, fields["webcast_url"])
+                    fields["webcast_url"] = None
+                    webcast_failed_validation += 1
+                else:
+                    webcast_validated += 1
+
+            if fields["dial_in_phone"]:
+                phone_extracted += 1
+            if fields["dial_in_pin"]:
+                pin_extracted += 1
+
+            # Build the upsert row -- only the keys that are populated, plus the
+            # required keying fields. upsert_events skips empty values via _is_empty.
+            upd: dict = {
+                "ticker":        ticker,
+                "market":        ev["market"],
+                "fiscal_period": ev["fiscal_period"],
+                "enrichment_a_attempted_at": now,
+            }
+            if fields["webcast_url"]:
+                upd["webcast_url_a"] = fields["webcast_url"]
+            if fields["dial_in_phone"]:
+                upd["dial_in_phone_a"] = fields["dial_in_phone"]
+            if fields["dial_in_pin"]:
+                upd["dial_in_pin_a"] = fields["dial_in_pin"]
+            # Press release URL: use the SEC filing URL we already have.
+            if not _is_empty(ev.get("filing_url")):
+                upd["press_release_url_a"] = ev["filing_url"]
+            updated_rows.append(upd)
+        except Exception as exc:
+            log.warning("[%s %s] event failed: %s",
+                        ev.get("ticker"), ev.get("fiscal_period"), exc)
+            counters["failed_event"] = counters.get("failed_event", 0) + 1
             continue
-        text = _load_release_text(ticker, accession)
-        if not text:
-            skipped_no_text += 1
-            continue
 
-        fields = parse_press_release(text)
-
-        if fields["webcast_url"]:
-            webcast_extracted += 1
-            if not validate_url(fields["webcast_url"]):
-                log.info("[%s %s] webcast URL failed validation: %s",
-                         ticker, ev["fiscal_period"], fields["webcast_url"])
-                fields["webcast_url"] = None
-                webcast_failed_validation += 1
-            else:
-                webcast_validated += 1
-
-        if fields["dial_in_phone"]:
-            phone_extracted += 1
-        if fields["dial_in_pin"]:
-            pin_extracted += 1
-
-        # Build the upsert row -- only the keys that are populated, plus the
-        # required keying fields. upsert_events skips empty values via _is_empty.
-        upd: dict = {
-            "ticker":        ticker,
-            "market":        ev["market"],
-            "fiscal_period": ev["fiscal_period"],
-            "enrichment_a_attempted_at": now,
-        }
-        if fields["webcast_url"]:
-            upd["webcast_url_a"] = fields["webcast_url"]
-        if fields["dial_in_phone"]:
-            upd["dial_in_phone_a"] = fields["dial_in_phone"]
-        if fields["dial_in_pin"]:
-            upd["dial_in_pin_a"] = fields["dial_in_pin"]
-        # Press release URL: use the SEC filing URL we already have.
-        if not _is_empty(ev.get("filing_url")):
-            upd["press_release_url_a"] = ev["filing_url"]
-        updated_rows.append(upd)
-
+    state_summary = " ".join(
+        f"{k}={v}" for k, v in sorted(counters_state.items(), key=lambda x: -x[1])
+    ) or "(none)"
     log.info(
         "Method A extraction stats: webcast extracted=%d validated=%d failed=%d "
-        "phone=%d pin=%d skipped_no_text=%d skipped_no_accession=%d",
+        "phone=%d pin=%d skipped_no_text=%d skipped_no_accession=%d failed_events=%d",
         webcast_extracted, webcast_validated, webcast_failed_validation,
         phone_extracted, pin_extracted, skipped_no_text, skipped_no_accession,
+        counters.get("failed_event", 0),
     )
+    log.info("webcast states: %s", state_summary)
 
     if not updated_rows:
-        log.info("Method A: no rows to write.")
+        log.info("Method A: no rows to write. | webcast states: %s", state_summary)
         return 0
 
     stats = upsert_events(updated_rows)
-    log.info("Method A done: inserted=%d updated=%d touched=%d",
-             stats.inserted, stats.updated, stats.touched)
+    log.info(
+        "Method A done: inserted=%d updated=%d touched=%d | webcast states: %s",
+        stats.inserted, stats.updated, stats.touched, state_summary,
+    )
     return 0
 
 
