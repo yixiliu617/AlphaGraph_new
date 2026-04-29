@@ -19,6 +19,7 @@ from typing import Any, AsyncIterator, Callable, Optional
 from backend.app.services.notes.batch_scan import ScanResult, ScanFile
 from backend.app.services.notes.docx_builder import build_note_docx
 from backend.app.services.notes.audio_probe import extract_audio_to_opus
+from backend.app.services.live_transcription import gemini_generate_interview_review
 
 
 class EventKind(str, Enum):
@@ -42,6 +43,7 @@ class BatchOptions:
     note_type:            str          # "meeting_transcript" / "earnings_call" / etc.
     language:             Optional[str]   # source language override; None = auto-detect
     concurrency:          int = 2
+    generate_review:      bool = False    # interview-style AI review at top of docx
 
 
 # Type alias: a transcribe function with the same signature as
@@ -281,8 +283,37 @@ async def _process_one(
         if transcribe_result.get("error"):
             raise RuntimeError(f"transcription error: {transcribe_result['error']}")
 
+        # Stage 3 (optional): generate interview-style review. Separate
+        # Gemini call with audio + transcript text -- catches tone /
+        # hesitation that the transcript alone doesn't preserve. Same
+        # ticking pattern as the transcribe phase so the bar keeps moving.
+        if options.generate_review:
+            yield Event(EventKind.FILE_PROGRESS, {
+                "index": index, "name": sf.name, "percent": 88,
+                "stage": "generating interview review (calling Gemini)",
+            })
+            review_eta = max(20.0, sf.duration_sec * 0.012 + 20)
+            transcript_for_review = transcribe_result.get("text") or ""
+            review_task = asyncio.create_task(asyncio.to_thread(
+                gemini_generate_interview_review, str(opus_path), transcript_for_review,
+            ))
+            async for elapsed in _ticking_progress(review_task):
+                ratio = min(0.95, elapsed / review_eta)
+                yield Event(EventKind.FILE_PROGRESS, {
+                    "index": index, "name": sf.name,
+                    "percent": int(88 + ratio * 4),    # 88% -> 92%
+                    "stage":   f"generating review ({_fmt_elapsed(elapsed)} elapsed, ~{_fmt_elapsed(review_eta)} expected)",
+                })
+            review_result = review_task.result()
+            if review_result.get("error"):
+                # Don't fail the whole file if review fails -- log and
+                # ship the docx without it.
+                transcribe_result["interview_review_error"] = review_result["error"]
+            else:
+                transcribe_result["interview_review"] = review_result.get("review_markdown") or ""
+
         yield Event(EventKind.FILE_PROGRESS, {
-            "index": index, "name": sf.name, "percent": 90,
+            "index": index, "name": sf.name, "percent": 93,
             "stage": "saving note + building transcript .docx",
         })
 

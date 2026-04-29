@@ -173,6 +173,100 @@ def test_failure_in_one_file_does_not_abort_batch(tmp_path):
     assert final["failed"]    == 1
 
 
+def test_review_runs_when_generate_review_true(tmp_path):
+    """When options.generate_review is True, the runner calls the review
+    function and merges the markdown into transcribe_result before docx
+    build, so the saved note's meta carries it through to the docx."""
+    from unittest.mock import patch
+
+    scan = _make_scan(tmp_path, "a.mp3")
+    options = BatchOptions(
+        translation_language="en", note_type="meeting", language=None,
+        concurrency=1, generate_review=True,
+    )
+
+    captured = {}
+    def _capture_save(sf, transcribe_result, opts):
+        captured["transcribe_result"] = transcribe_result
+        from unittest.mock import MagicMock
+        n = MagicMock()
+        n.note_id = "n1"; n.title = "t"; n.meeting_date = None; n.company_tickers = []
+        n.polished_transcript_meta = {
+            "language": "en", "is_bilingual": False,
+            "segments": transcribe_result.get("segments") or [],
+            "interview_review": transcribe_result.get("interview_review", ""),
+        }
+        return n
+
+    fake_review = lambda audio_path, transcript_text: {     # noqa: E731
+        "review_markdown": "## Interviewee assessment\nStrong on X.",
+        "input_tokens": 1000, "output_tokens": 500, "gemini_seconds": 5.0,
+    }
+
+    with patch(
+        "backend.app.services.notes.batch_runner.gemini_generate_interview_review",
+        side_effect=fake_review,
+    ) as review_mock:
+        events = asyncio.run(_drain(run_batch(
+            scan, options,
+            transcribe_fn=_fake_transcribe_ok,
+            save_note_fn=_capture_save,
+        )))
+
+    assert review_mock.called
+    assert captured["transcribe_result"].get("interview_review") == \
+        "## Interviewee assessment\nStrong on X."
+    # Saved docx contains the review (read it back).
+    docx_path = tmp_path / "transcripts" / "a_transcript.docx"
+    assert docx_path.exists()
+
+
+def test_review_skipped_when_generate_review_false(tmp_path):
+    """When the option is False, the review function MUST NOT be called."""
+    from unittest.mock import patch
+    scan = _make_scan(tmp_path, "a.mp3")
+    options = BatchOptions(
+        translation_language="en", note_type="meeting", language=None,
+        concurrency=1, generate_review=False,
+    )
+    save_fn, _ = _make_save_fn()
+
+    with patch(
+        "backend.app.services.notes.batch_runner.gemini_generate_interview_review",
+    ) as review_mock:
+        asyncio.run(_drain(run_batch(
+            scan, options, transcribe_fn=_fake_transcribe_ok, save_note_fn=save_fn,
+        )))
+        review_mock.assert_not_called()
+
+
+def test_review_failure_does_not_fail_file(tmp_path):
+    """A review error annotates the result but the file still completes."""
+    from unittest.mock import patch
+    scan = _make_scan(tmp_path, "a.mp3")
+    options = BatchOptions(
+        translation_language="en", note_type="meeting", language=None,
+        concurrency=1, generate_review=True,
+    )
+    save_fn, _ = _make_save_fn()
+
+    failing_review = lambda audio, txt: {     # noqa: E731
+        "error": "Gemini API error: 500",
+        "review_markdown": "",
+        "input_tokens": 0, "output_tokens": 0, "gemini_seconds": 0.5,
+    }
+    with patch(
+        "backend.app.services.notes.batch_runner.gemini_generate_interview_review",
+        side_effect=failing_review,
+    ):
+        events = asyncio.run(_drain(run_batch(
+            scan, options, transcribe_fn=_fake_transcribe_ok, save_note_fn=save_fn,
+        )))
+    kinds = [e.kind for e in events]
+    assert EventKind.FILE_DONE in kinds, f"file should still finish despite review error: {kinds}"
+    assert EventKind.FILE_ERROR not in kinds
+
+
 def test_emits_periodic_ticks_during_long_transcribe(tmp_path):
     """When transcription takes longer than the tick interval, the runner
     should emit multiple FILE_PROGRESS events with monotonically growing

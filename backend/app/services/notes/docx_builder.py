@@ -22,6 +22,75 @@ from docx import Document
 from docx.shared import Pt, Inches
 
 
+def _render_markdown_into_doc(doc: "Document", md: str) -> None:
+    """Render a small subset of markdown (headings, bullets, bold) into the
+    document. Good enough for a Gemini-produced review -- not a full
+    markdown engine. Anything we don't recognise is treated as a paragraph.
+    """
+    import re as _re
+    # Split into lines once; keep blanks so we can detect paragraph breaks.
+    paragraph_buf: list[str] = []
+
+    def flush_paragraph():
+        if paragraph_buf:
+            text = " ".join(paragraph_buf).strip()
+            if text:
+                _add_inline_runs(doc.add_paragraph(), text)
+            paragraph_buf.clear()
+
+    for raw in md.splitlines():
+        line = raw.rstrip()
+        if not line.strip():
+            flush_paragraph()
+            continue
+        # Headings: ##, ###
+        if line.startswith("### "):
+            flush_paragraph()
+            doc.add_heading(line[4:].strip(), level=3)
+            continue
+        if line.startswith("## "):
+            flush_paragraph()
+            doc.add_heading(line[3:].strip(), level=2)
+            continue
+        if line.startswith("# "):
+            flush_paragraph()
+            doc.add_heading(line[2:].strip(), level=1)
+            continue
+        # Bulleted list items
+        m = _re.match(r"^\s*[-*]\s+(.*)$", line)
+        if m:
+            flush_paragraph()
+            p = doc.add_paragraph(style="List Bullet")
+            _add_inline_runs(p, m.group(1).strip())
+            continue
+        # Numbered list items
+        m = _re.match(r"^\s*\d+\.\s+(.*)$", line)
+        if m:
+            flush_paragraph()
+            p = doc.add_paragraph(style="List Number")
+            _add_inline_runs(p, m.group(1).strip())
+            continue
+        # Regular paragraph text -- accumulate and join on flush
+        paragraph_buf.append(line)
+
+    flush_paragraph()
+
+
+def _add_inline_runs(paragraph, text: str) -> None:
+    """Apply **bold** inline formatting to the runs of `paragraph`. Other
+    inline markup (italic, code, links) is left as plain text."""
+    import re as _re
+    parts = _re.split(r"(\*\*[^*]+\*\*)", text)
+    for part in parts:
+        if not part:
+            continue
+        if part.startswith("**") and part.endswith("**"):
+            run = paragraph.add_run(part[2:-2])
+            run.bold = True
+        else:
+            paragraph.add_run(part)
+
+
 def build_note_docx(note: Any) -> bytes:
     meta = note.polished_transcript_meta or {}
     segments = list(meta.get("segments") or [])
@@ -39,6 +108,14 @@ def build_note_docx(note: Any) -> bytes:
         section.right_margin  = Inches(0.7)
         section.top_margin    = Inches(0.7)
         section.bottom_margin = Inches(0.7)
+
+    # Optional: AI-generated interview review at the top of the document.
+    review_md = (meta.get("interview_review") or "").strip()
+    if review_md:
+        doc.add_heading("Interview Review (AI-generated)", level=1)
+        _render_markdown_into_doc(doc, review_md)
+        # Page break so the transcript starts on a fresh page.
+        doc.add_page_break()
 
     doc.add_heading(note.title or f"Transcript {str(note.note_id)[:8]}", level=1)
 

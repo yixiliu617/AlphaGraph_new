@@ -508,6 +508,7 @@ class BatchTranscribeRequest(BaseModel):
     note_type:            str = "meeting_transcript"
     language:             Optional[str] = None
     concurrency:          int = 2
+    generate_review:      bool = False
 
 
 # Imported lazily inside gemini_batch_transcribe_smart to avoid import cycles.
@@ -547,6 +548,7 @@ async def batch_transcribe_folder(
         note_type            = request.note_type,
         language             = request.language,
         concurrency          = request.concurrency,
+        generate_review      = request.generate_review,
     )
 
     svc = NotesService(db)
@@ -595,6 +597,9 @@ async def batch_transcribe_folder(
                 "audio_duration_sec":  transcribe_result.get("audio_duration_sec"),
                 "chunk_count":         transcribe_result.get("chunk_count", 1),
                 "chunk_seconds":       transcribe_result.get("chunk_seconds", []),
+                # Interview-style review (only present when options.generate_review).
+                "interview_review":       transcribe_result.get("interview_review", ""),
+                "interview_review_error": transcribe_result.get("interview_review_error", ""),
             },
         )
         # Return the freshly-loaded note so the runner can hand it to build_note_docx.

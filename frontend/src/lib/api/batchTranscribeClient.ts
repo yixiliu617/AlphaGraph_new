@@ -72,6 +72,7 @@ interface RunBatchTier1Args {
   note_type:            string;
   language:             string | null;
   concurrency:          number;
+  generate_review?:     boolean;
   signal?:              AbortSignal;
   onEvent:              (ev: BatchEvent) => void;
 }
@@ -86,6 +87,7 @@ export async function runBatchTier1(args: RunBatchTier1Args): Promise<void> {
       note_type:            args.note_type,
       language:             args.language,
       concurrency:          args.concurrency,
+      generate_review:      args.generate_review ?? false,
     }),
     signal:  args.signal,
   });

@@ -87,3 +87,52 @@ def test_empty_segments_raises():
     note = _FakeNote(polished_transcript_meta={"segments": []})
     with pytest.raises(ValueError, match="no polished transcript segments"):
         build_note_docx(note)
+
+
+def test_interview_review_renders_at_top():
+    """When meta has interview_review markdown, it appears as a labelled
+    section before the regular title + transcript content."""
+    note = _FakeNote(
+        title="Candidate XYZ",
+        polished_transcript_meta={
+            "language": "en",
+            "is_bilingual": False,
+            "segments": [
+                {"timestamp": "00:01", "speaker": "interviewer", "text_original": "Hi."},
+            ],
+            "interview_review": (
+                "## Interviewee assessment\n"
+                "- **Strengths**: clear on Python.\n"
+                "- **Weaknesses**: vague on systems design.\n\n"
+                "## Interviewer review\n"
+                "- Question on REST APIs worked well.\n"
+            ),
+        },
+    )
+    doc = _read_docx(build_note_docx(note))
+    headings = [p.text for p in doc.paragraphs if p.style.name.startswith("Heading")]
+    # The review heading should come before the transcript title heading.
+    review_idx = next((i for i, h in enumerate(headings) if "Interview Review" in h), -1)
+    title_idx  = next((i for i, h in enumerate(headings) if "Candidate XYZ" in h), -1)
+    assert review_idx >= 0, f"missing review heading in {headings}"
+    assert title_idx  >  review_idx, f"review must precede title (got idx {review_idx}, {title_idx})"
+    # Section subheadings render too
+    body = "\n".join(p.text for p in doc.paragraphs)
+    assert "Interviewee assessment" in body
+    assert "Interviewer review" in body
+    assert "Strengths" in body  # bold tags get rendered as plain text in this minimal renderer
+
+
+def test_no_interview_review_means_no_review_section():
+    """When interview_review is empty/missing, the review heading is NOT added."""
+    note = _FakeNote(
+        title="Plain note",
+        polished_transcript_meta={
+            "language": "en",
+            "is_bilingual": False,
+            "segments": [{"timestamp": "00:01", "speaker": "", "text_original": "x"}],
+        },
+    )
+    doc = _read_docx(build_note_docx(note))
+    headings = [p.text for p in doc.paragraphs if p.style.name.startswith("Heading")]
+    assert not any("Interview Review" in h for h in headings), f"unexpected review heading in {headings}"

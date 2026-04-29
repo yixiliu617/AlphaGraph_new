@@ -71,6 +71,7 @@ export default function BatchTranscribeModal({ onClose, onComplete }: Props) {
   // Whole-batch options
   const [translation, setTranslation] = useState<string>("en");
   const [noteType,    setNoteType]    = useState<string>("meeting_transcript");
+  const [generateReview, setGenerateReview] = useState<boolean>(true);
   const language: string | null = null; // future: expose audio-language picker for batch too
 
   // RUNNING state -- per-file row state keyed by index
@@ -258,6 +259,7 @@ export default function BatchTranscribeModal({ onClose, onComplete }: Props) {
           note_type:            noteType,
           language,
           concurrency:          2,
+          generate_review:      generateReview,
           signal:               abortRef.current.signal,
           onEvent,
         });
@@ -367,6 +369,7 @@ export default function BatchTranscribeModal({ onClose, onComplete }: Props) {
               scanQueued={scanQueued} scanSkipped={scanSkipped} folder={scanFolder}
               translation={translation} setTranslation={setTranslation}
               noteType={noteType} setNoteType={setNoteType}
+              generateReview={generateReview} setGenerateReview={setGenerateReview}
               onStart={handleStart}
             />
           )}
@@ -493,6 +496,8 @@ interface ConfirmStateProps {
   setTranslation: (s: string) => void;
   noteType:    string;
   setNoteType: (s: string) => void;
+  generateReview: boolean;
+  setGenerateReview: (b: boolean) => void;
   onStart:     () => void;
 }
 
@@ -529,6 +534,23 @@ function ConfirmStateUi(props: ConfirmStateProps) {
           </select>
         </label>
       </div>
+      <label className="flex items-start gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={props.generateReview}
+          onChange={(e) => props.setGenerateReview(e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+        />
+        <span className="text-xs text-slate-700">
+          <span className="font-semibold">Generate AI interview review</span>
+          <span className="block text-[10px] text-slate-500">
+            Adds a hedge-fund-PM-style review at the top of each .docx --
+            interviewee strengths/weaknesses with first-principle reliability
+            check, plus interviewer Q&amp;A review with suggested follow-ups.
+            Costs ~30-60s and ~$0.01 extra per file.
+          </span>
+        </span>
+      </label>
       <div className="border border-slate-200 rounded-md max-h-72 overflow-y-auto">
         <table className="w-full text-xs">
           <thead className="bg-slate-50 text-[10px] uppercase text-slate-500">

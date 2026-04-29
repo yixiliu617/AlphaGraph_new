@@ -1575,3 +1575,143 @@ Rules:
         "input_tokens": usage.get("promptTokenCount", 0),
         "output_tokens": usage.get("candidatesTokenCount", 0),
     }
+
+
+def gemini_generate_interview_review(
+    audio_path: str,
+    transcript_text: str,
+) -> dict:
+    """Produce a hedge-fund-PM-style interview review of an audio + transcript.
+
+    Sends both the audio (so the model can pick up tone, hesitation, pauses)
+    AND the polished transcript text (easier scan for content claims) to
+    Gemini in a single call. The output is markdown with two sections:
+    'Interviewee assessment' and 'Interviewer review'.
+
+    Returns:
+      {
+        "review_markdown": str,   # the markdown review (or empty on error)
+        "input_tokens":   int,
+        "output_tokens":  int,
+        "gemini_seconds": float,
+        "error":          str (optional),
+      }
+    """
+    import base64
+    import time as _time
+    from dotenv import load_dotenv
+    load_dotenv(PROJECT_ROOT / ".env")
+
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        return {
+            "error":          "GEMINI_API_KEY not set",
+            "review_markdown": "",
+            "input_tokens":    0,
+            "output_tokens":   0,
+            "gemini_seconds":  0.0,
+        }
+
+    # Bound the transcript text we send. A 2-hour interview can produce
+    # ~30K tokens of transcript, which is fine for Gemini 2.5 Flash but
+    # can balloon the prompt. Cap at ~80K characters (still gives the
+    # model the full picture for nearly any interview length).
+    if len(transcript_text) > 80_000:
+        transcript_text = transcript_text[:80_000] + "\n... [transcript truncated for review]"
+
+    audio_b64 = base64.b64encode(Path(audio_path).read_bytes()).decode("ascii")
+    ext = Path(audio_path).suffix.lower()
+    mime = {".opus": "audio/ogg", ".wav": "audio/wav",
+            ".mp3":  "audio/mpeg", ".m4a": "audio/mp4"}.get(ext, "audio/ogg")
+
+    prompt = (
+        "You are a very professional, honest, and experienced hedge fund "
+        "manager reviewing an interview. You have screened many candidates "
+        "and know how to spot real depth versus surface-level claims.\n\n"
+        "Inputs:\n"
+        "  1. The interview AUDIO (use it to detect tone, hesitation, pauses, "
+        "confidence vs uncertainty).\n"
+        "  2. The polished TRANSCRIPT (use it to scan for the candidate's "
+        "specific claims and the interviewer's questions).\n\n"
+        "Produce a markdown document with TWO sections.\n\n"
+        "## Interviewee assessment\n"
+        "- **Strengths**: where the candidate sounds confident, knowledgeable, "
+        "and specific. Cite examples from the audio/transcript.\n"
+        "- **Weaknesses / hesitation**: where the candidate shows shyness, "
+        "hedging, lack of depth, or repetition. Note the timestamps or "
+        "moments where you hear it.\n"
+        "- **Reliability check (first principles)**: do NOT take claims at "
+        "face value. Apply common-sense skepticism to scope-of-work claims. "
+        "For example: an intern claiming they 'helped accelerate an IPO' is "
+        "almost certainly overstating -- interns rarely move IPO timelines. "
+        "Flag specific claims you doubt and explain why in plain language. "
+        "Be direct but fair.\n\n"
+        "## Interviewer review\n"
+        "- **What worked**: questions that elicited specific, substantive "
+        "answers. Quote the question and explain why it worked.\n"
+        "- **What didn't work**: questions that were too open, leading, or "
+        "superficial. Quote the question and explain why it fell flat.\n"
+        "- **Recommended follow-up questions**: 5-10 specific questions that "
+        "would push the candidate to demonstrate the depth they claim. Tie "
+        "each question to a specific moment in the interview.\n\n"
+        "Be direct and concrete. Use the candidate's actual words where "
+        "helpful. Be honest, not flattering. Output ONLY the markdown -- no "
+        "preamble, no JSON wrapper.\n\n"
+        "===== TRANSCRIPT =====\n"
+        f"{transcript_text}\n"
+        "===== END TRANSCRIPT ====="
+    )
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    _t0 = _time.perf_counter()
+    resp = requests.post(
+        url,
+        json={
+            "contents": [{"parts": [
+                {"text": prompt},
+                {"inline_data": {"mime_type": mime, "data": audio_b64}},
+            ]}],
+            "generationConfig": {
+                "temperature":     0.4,    # a touch of variability for the prose
+                "maxOutputTokens": 16384,  # plenty for a thorough review
+            },
+        },
+        timeout=600,
+    )
+    gemini_seconds = round(_time.perf_counter() - _t0, 2)
+
+    if resp.status_code != 200:
+        logger.warning(
+            "gemini_generate_interview_review: status=%s after %.1fs (file=%s)",
+            resp.status_code, gemini_seconds, Path(audio_path).name,
+        )
+        return {
+            "error":           f"Gemini API error: {resp.status_code}",
+            "review_markdown": "",
+            "input_tokens":    0,
+            "output_tokens":   0,
+            "gemini_seconds":  gemini_seconds,
+        }
+
+    result = resp.json()
+    raw_text, extract_err = _extract_gemini_text(result)
+    usage = result.get("usageMetadata", {})
+    if extract_err is not None:
+        logger.warning(
+            "gemini_generate_interview_review: %s (file=%s)",
+            extract_err, Path(audio_path).name,
+        )
+        return {
+            "error":           f"Gemini response had no usable text: {extract_err}",
+            "review_markdown": "",
+            "input_tokens":    usage.get("promptTokenCount", 0),
+            "output_tokens":   usage.get("candidatesTokenCount", 0),
+            "gemini_seconds":  gemini_seconds,
+        }
+
+    return {
+        "review_markdown": raw_text.strip(),
+        "input_tokens":    usage.get("promptTokenCount", 0),
+        "output_tokens":   usage.get("candidatesTokenCount", 0),
+        "gemini_seconds":  gemini_seconds,
+    }
