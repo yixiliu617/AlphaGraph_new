@@ -267,7 +267,14 @@ export default function BatchTranscribeModal({ onClose, onComplete }: Props) {
   }
 
   function handleCancel() {
+    // Fire the abort first so the SSE fetch starts winding down.
     abortRef.current?.abort();
+    // Flip the UI immediately so the user sees their click landed --
+    // don't wait for the abort to round-trip through the network.
+    const succeeded = Object.values(rows).filter((r) => r.status === "done").length;
+    const failed    = Object.values(rows).filter((r) => r.status === "error").length;
+    setSummary({ succeeded, failed, skipped: 0, total_elapsed_sec: 0 });
+    setState("DONE");
   }
 
   // ---------- Render ----------

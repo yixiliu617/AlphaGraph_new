@@ -114,40 +114,65 @@ async def run_batch(
         finally:
             await release_slot(sf)
 
+    # Track all spawned worker tasks so we can cancel them on early exit
+    # (client disconnect / generator aclose).
+    worker_tasks: list[asyncio.Task] = []
+
     async def dispatcher():
-        tasks: list[asyncio.Task] = []
         for index, sf in enumerate(scan.queued):
             # Reserve atomically before spawning the worker. Avoids the
             # race where the dispatcher checks "slot available" before the
             # previous worker has claimed its slot.
             while not await reserve_slot(sf):
                 await asyncio.sleep(0.05)
-            tasks.append(asyncio.create_task(worker(index, sf)))
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+            worker_tasks.append(asyncio.create_task(worker(index, sf)))
+        if worker_tasks:
+            await asyncio.gather(*worker_tasks, return_exceptions=True)
         await out_q.put(None)   # sentinel: dispatcher done
 
     dispatcher_task = asyncio.create_task(dispatcher())
 
-    while True:
-        ev = await out_q.get()
-        if ev is None:
-            break
-        yield ev
-        if ev.kind == EventKind.FILE_DONE:
-            succeeded += 1
-        elif ev.kind == EventKind.FILE_ERROR:
-            failed += 1
+    try:
+        while True:
+            ev = await out_q.get()
+            if ev is None:
+                break
+            yield ev
+            if ev.kind == EventKind.FILE_DONE:
+                succeeded += 1
+            elif ev.kind == EventKind.FILE_ERROR:
+                failed += 1
 
-    await dispatcher_task
+        await dispatcher_task
 
-    yield Event(EventKind.BATCH_DONE, {
-        "total":             len(scan.queued),
-        "succeeded":         succeeded,
-        "failed":            failed,
-        "skipped":           len(scan.skipped),
-        "total_elapsed_sec": time.monotonic() - started,
-    })
+        yield Event(EventKind.BATCH_DONE, {
+            "total":             len(scan.queued),
+            "succeeded":         succeeded,
+            "failed":            failed,
+            "skipped":           len(scan.skipped),
+            "total_elapsed_sec": time.monotonic() - started,
+        })
+    finally:
+        # Either we finished normally, OR the consumer (HTTP layer) closed
+        # the generator due to client disconnect. Either way, cancel any
+        # still-pending workers so their Gemini calls stop wasting tokens.
+        # NB: an in-flight asyncio.to_thread'd Gemini call won't be killed
+        # mid-flight (Python threads aren't cancellable), but the asyncio
+        # task waiting on it gets cancelled and the next file in queue
+        # never starts.
+        for t in worker_tasks:
+            if not t.done():
+                t.cancel()
+        if not dispatcher_task.done():
+            dispatcher_task.cancel()
+        # Wait briefly for cancellations to settle. Any task that swallows
+        # cancellation just gets its result discarded.
+        if worker_tasks:
+            await asyncio.gather(*worker_tasks, return_exceptions=True)
+        try:
+            await dispatcher_task
+        except (asyncio.CancelledError, Exception):
+            pass
 
 
 def _pack_scan_file(f: ScanFile) -> dict:
