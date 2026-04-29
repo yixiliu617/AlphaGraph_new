@@ -437,6 +437,66 @@ async def upload_audio_and_transcribe(
 
 
 # ---------------------------------------------------------------------------
+# /probe-audio -- ffprobe duration + ETA. Used by the BatchTranscribeModal
+# to populate per-file ETA before the user confirms a batch.
+# ---------------------------------------------------------------------------
+
+@router.post("/probe-audio", response_model=APIResponse)
+async def probe_audio_endpoint(
+    audio: Optional[UploadFile] = File(None, description="Audio/video file (Tier 2/3)"),
+    path:  Optional[str]        = Form(None, description="Server-side path (Tier 1)"),
+):
+    """Return duration_seconds and ETA for an audio/video file.
+
+    Two modes:
+      - Multipart upload via the `audio` field   (Tier 2/3 -- browser uploads each file)
+      - Form `path`                              (Tier 1 -- backend reads from disk directly)
+
+    Tier-1 mode does NOT load the bytes through the HTTP body; it just
+    runs ffprobe on the on-disk path. This is why the same endpoint covers
+    both cases without a memory blowup on multi-GB videos.
+    """
+    import uuid as _uuid
+
+    from backend.app.services.notes.audio_probe import (
+        probe_duration_seconds, estimate_transcribe_seconds,
+    )
+
+    if path:
+        # Tier 1: probe server-side path directly
+        p = Path(path)
+        if not p.exists() or not p.is_file():
+            raise HTTPException(status_code=404, detail=f"Path not found or not a file: {path}")
+        try:
+            duration = await asyncio.to_thread(probe_duration_seconds, str(p))
+        except (RuntimeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+    elif audio is not None and audio.filename:
+        # Tier 2/3: write to a temp file, probe, delete
+        ext = Path(audio.filename).suffix.lower()
+        tmp = AUDIO_UPLOADS_DIR / f"_probe_{_uuid.uuid4().hex[:12]}{ext}"
+        try:
+            tmp.write_bytes(await audio.read())
+            duration = await asyncio.to_thread(probe_duration_seconds, str(tmp))
+        except (RuntimeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        finally:
+            tmp.unlink(missing_ok=True)
+    else:
+        raise HTTPException(status_code=400, detail="Provide either `audio` upload or `path`.")
+
+    eta = estimate_transcribe_seconds(duration)
+    return APIResponse(
+        success=True,
+        data={
+            "duration_seconds":             duration,
+            "estimated_transcribe_seconds": eta,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
 # Retranscribe a portion of an existing note's audio. Used to recover from
 # Gemini repetition loops or partial chunk failures without re-paying for
 # the already-good earlier segments.
