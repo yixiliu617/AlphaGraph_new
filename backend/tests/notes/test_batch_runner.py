@@ -130,3 +130,115 @@ def test_batch_done_includes_skipped_count(tmp_path):
     final = events[-1]
     assert final.kind == EventKind.BATCH_DONE
     assert final.data["skipped"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Concurrency + auto-throttle (Task 6)
+# ---------------------------------------------------------------------------
+
+import threading
+import time
+
+
+def test_concurrency_two_runs_two_at_once(tmp_path):
+    """With concurrency=2 and 4 short files, at least 2 should be in flight
+    at the same time."""
+    scan = _make_scan(tmp_path, "a.mp3", "b.mp3", "c.mp3", "d.mp3")
+    options = BatchOptions(translation_language="en", note_type="meeting", language=None, concurrency=2)
+    save_fn, _ = _make_save_fn()
+
+    inflight_now = {"v": 0}
+    inflight_max = {"v": 0}
+    lock = threading.Lock()
+
+    def slow_fake(path, lang, _g, t):
+        with lock:
+            inflight_now["v"] += 1
+            inflight_max["v"] = max(inflight_max["v"], inflight_now["v"])
+        # asyncio.to_thread runs us on a worker thread; time.sleep lets
+        # other workers proceed in parallel.
+        time.sleep(0.05)
+        with lock:
+            inflight_now["v"] -= 1
+        return _fake_transcribe_ok(path, lang, _g, t)
+
+    asyncio.run(_drain(run_batch(scan, options,
+                                 transcribe_fn=slow_fake,
+                                 save_note_fn=save_fn)))
+    assert inflight_max["v"] >= 2, f"expected >=2 in flight, saw {inflight_max['v']}"
+
+
+def test_big_file_blocks_new_starts(tmp_path):
+    """While a >90 min file is in flight, no NEW file starts. Files that
+    were already in flight when the big file started can finish; that's
+    the pragmatic semantic (killing in-flight work would be wasteful)."""
+    # Put the huge file FIRST so nothing else has started yet when it does.
+    scan = _make_scan(tmp_path, "huge.mp3", "small1.mp3", "small2.mp3")
+    for f in scan.queued:
+        if f.name == "huge.mp3":
+            f.duration_sec = 95 * 60   # > 90 min threshold
+    options = BatchOptions(translation_language="en", note_type="meeting", language=None, concurrency=2)
+    save_fn, _ = _make_save_fn()
+
+    huge_running = {"v": False}
+    other_started_during_huge = {"v": False}
+    lock = threading.Lock()
+
+    def fake(path, lang, _g, t):
+        with lock:
+            if "huge" in path:
+                huge_running["v"] = True
+            elif huge_running["v"]:
+                other_started_during_huge["v"] = True
+        time.sleep(0.05)
+        with lock:
+            if "huge" in path:
+                huge_running["v"] = False
+        return _fake_transcribe_ok(path, lang, _g, t)
+
+    asyncio.run(_drain(run_batch(scan, options,
+                                 transcribe_fn=fake,
+                                 save_note_fn=save_fn)))
+    assert not other_started_during_huge["v"], (
+        "no non-huge file should start while huge is in flight"
+    )
+
+
+def test_429_halves_concurrency_for_remaining_files(tmp_path):
+    """A '429' error on file 1 halves the cap; remaining files run with the lower cap."""
+    scan = _make_scan(tmp_path, "a.mp3", "b.mp3", "c.mp3", "d.mp3", "e.mp3")
+    options = BatchOptions(translation_language="en", note_type="meeting", language=None, concurrency=4)
+    save_fn, _ = _make_save_fn()
+
+    inflight_now = {"v": 0}
+    max_after_429 = {"v": 0}
+    saw_429 = {"v": False}
+    lock = threading.Lock()
+
+    def fake(path, lang, _g, t):
+        if "a.mp3" in path:
+            raise RuntimeError("HTTP 429 too many requests")
+        with lock:
+            inflight_now["v"] += 1
+            if saw_429["v"]:
+                max_after_429["v"] = max(max_after_429["v"], inflight_now["v"])
+        time.sleep(0.04)
+        with lock:
+            inflight_now["v"] -= 1
+        return _fake_transcribe_ok(path, lang, _g, t)
+
+    async def _drain_with_flag(agen):
+        out = []
+        async for ev in agen:
+            if ev.kind == EventKind.FILE_ERROR and "429" in ev.data["error"]:
+                saw_429["v"] = True
+            out.append(ev)
+        return out
+
+    asyncio.run(_drain_with_flag(run_batch(scan, options,
+                                            transcribe_fn=fake,
+                                            save_note_fn=save_fn)))
+    # Cap was 4; after 429 it should drop to 2 -> at most 2 concurrent.
+    assert max_after_429["v"] <= 2, (
+        f"expected cap halved after 429, saw {max_after_429['v']}"
+    )

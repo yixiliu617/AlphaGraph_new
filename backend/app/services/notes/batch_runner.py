@@ -48,24 +48,26 @@ class BatchOptions:
 TranscribeFn = Callable[[str, Optional[str], str, str], dict]
 
 
+_BIG_FILE_SECONDS = 90 * 60       # 90 minutes -- drop concurrency to 1
+
+
 async def run_batch(
     scan:          ScanResult,
     options:       BatchOptions,
     transcribe_fn: TranscribeFn,
     save_note_fn:  Callable[[ScanFile, dict, BatchOptions], Any],
 ) -> AsyncIterator[Event]:
-    """Yield events for an entire batch (sequential -- Task 6 adds bounded
-    concurrency + auto-throttle).
+    """Yield events for an entire batch with bounded concurrency + auto-throttle.
 
-    Args:
-      scan:          ScanResult from batch_scan.scan_folder
-      options:       BatchOptions
-      transcribe_fn: callable(path, lang, glossary, translation_lang) -> dict
-                     (matches gemini_batch_transcribe_smart's signature)
-      save_note_fn:  callable(scan_file, transcribe_result, options) -> note
-                     The runner uses note.note_id and the duck-typed shape
-                     build_note_docx expects.
+    Concurrency policy:
+      - cap starts at options.concurrency (clamped to [1, 4])
+      - if any in-flight file has duration_sec > 90 min, the cap is
+        effectively 1 (no new file starts until the big one finishes)
+      - if any file errors with a 429-flavored message, cap halves (min 1)
+        for the rest of the batch
     """
+    cap = max(1, min(4, options.concurrency))
+
     yield Event(EventKind.SCAN_COMPLETE, {
         "folder":        scan.folder,
         "queued_count":  len(scan.queued),
@@ -78,13 +80,66 @@ async def run_batch(
     failed    = 0
     started   = time.monotonic()
 
-    for index, sf in enumerate(scan.queued):
-        async for ev in _process_one(index, sf, options, transcribe_fn, save_note_fn):
-            yield ev
-            if ev.kind == EventKind.FILE_DONE:
-                succeeded += 1
-            elif ev.kind == EventKind.FILE_ERROR:
-                failed += 1
+    out_q: asyncio.Queue = asyncio.Queue()
+    inflight_durations: list[float] = []
+    cap_box = {"value": cap}
+    inflight_lock = asyncio.Lock()
+
+    async def reserve_slot(sf: ScanFile) -> bool:
+        """Atomically check capacity + record this file's duration. Caller
+        must call release_slot when done. Returns False if no slot available."""
+        async with inflight_lock:
+            if len(inflight_durations) >= cap_box["value"]:
+                return False
+            if any(d > _BIG_FILE_SECONDS for d in inflight_durations):
+                return False
+            inflight_durations.append(sf.duration_sec)
+            return True
+
+    async def release_slot(sf: ScanFile):
+        async with inflight_lock:
+            inflight_durations.remove(sf.duration_sec)
+
+    async def worker(index: int, sf: ScanFile):
+        # Slot has already been reserved by the dispatcher.
+        try:
+            async for ev in _process_one(index, sf, options, transcribe_fn, save_note_fn):
+                await out_q.put(ev)
+                # Auto-throttle on 429
+                if ev.kind == EventKind.FILE_ERROR:
+                    err = (ev.data.get("error") or "").lower()
+                    if "429" in err or "rate" in err:
+                        async with inflight_lock:
+                            cap_box["value"] = max(1, cap_box["value"] // 2)
+        finally:
+            await release_slot(sf)
+
+    async def dispatcher():
+        tasks: list[asyncio.Task] = []
+        for index, sf in enumerate(scan.queued):
+            # Reserve atomically before spawning the worker. Avoids the
+            # race where the dispatcher checks "slot available" before the
+            # previous worker has claimed its slot.
+            while not await reserve_slot(sf):
+                await asyncio.sleep(0.05)
+            tasks.append(asyncio.create_task(worker(index, sf)))
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        await out_q.put(None)   # sentinel: dispatcher done
+
+    dispatcher_task = asyncio.create_task(dispatcher())
+
+    while True:
+        ev = await out_q.get()
+        if ev is None:
+            break
+        yield ev
+        if ev.kind == EventKind.FILE_DONE:
+            succeeded += 1
+        elif ev.kind == EventKind.FILE_ERROR:
+            failed += 1
+
+    await dispatcher_task
 
     yield Event(EventKind.BATCH_DONE, {
         "total":             len(scan.queued),
