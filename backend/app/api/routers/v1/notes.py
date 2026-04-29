@@ -600,18 +600,49 @@ async def batch_transcribe_folder(
         # Return the freshly-loaded note so the runner can hand it to build_note_docx.
         return svc.get_note(note.note_id, TENANT_ID)
 
-    async def event_stream():
+    _KEEPALIVE_INTERVAL_SEC = 10.0
+    _STOP = object()
+
+    async def _next_or_stop(agen):
         try:
-            async for ev in run_batch(
-                scan, options,
-                transcribe_fn = gemini_batch_transcribe_smart,
-                save_note_fn  = _save_note,
-            ):
-                payload = _json.dumps(ev.data, default=str)
-                yield f"event: {ev.kind.value}\ndata: {payload}\n\n".encode("utf-8")
+            return await agen.__anext__()
+        except StopAsyncIteration:
+            return _STOP
+
+    async def event_stream():
+        # Wrap run_batch with a keepalive: if no event arrives within
+        # _KEEPALIVE_INTERVAL_SEC, emit an SSE comment line. Comments
+        # (starting with `:`) are ignored by clients but keep the TCP
+        # connection alive past browser/proxy idle timeouts (typically
+        # 60s). Long Gemini chunk calls can run silently for 2-4 min;
+        # without keepalive the browser drops the fetch as a network error.
+        gen = run_batch(
+            scan, options,
+            transcribe_fn = gemini_batch_transcribe_smart,
+            save_note_fn  = _save_note,
+        )
+        next_task = asyncio.create_task(_next_or_stop(gen))
+        try:
+            while True:
+                done, _pending = await asyncio.wait(
+                    {next_task}, timeout=_KEEPALIVE_INTERVAL_SEC,
+                )
+                if not done:
+                    yield b": keepalive\n\n"
+                    continue
+                result = next_task.result()
+                if result is _STOP:
+                    break
+                payload = _json.dumps(result.data, default=str)
+                yield f"event: {result.kind.value}\ndata: {payload}\n\n".encode("utf-8")
+                next_task = asyncio.create_task(_next_or_stop(gen))
         except Exception as exc:    # noqa: BLE001
             err = _json.dumps({"error": f"{type(exc).__name__}: {exc}"})
             yield f"event: batch_error\ndata: {err}\n\n".encode("utf-8")
+        finally:
+            if not next_task.done():
+                next_task.cancel()
+            await gen.aclose()
 
     return StreamingResponse(
         event_stream(),

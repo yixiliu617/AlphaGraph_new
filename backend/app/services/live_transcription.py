@@ -1025,8 +1025,25 @@ Rules:
         }
 
     result = resp.json()
-    raw_text = result["candidates"][0]["content"]["parts"][0]["text"]
+    raw_text, extract_err = _extract_gemini_text(result)
     usage = result.get("usageMetadata", {})
+    if extract_err is not None:
+        logger.warning(
+            "gemini_batch_transcribe: %s (file=%s, lang=%s, gemini_seconds=%.1fs)",
+            extract_err, Path(audio_path).name, language, gemini_seconds,
+        )
+        return {
+            "error":          f"Gemini response had no usable text: {extract_err}",
+            "language":       language,
+            "is_bilingual":   False,
+            "key_topics":     [],
+            "segments":       [],
+            "summary":        _empty_summary(),
+            "text":           "",
+            "input_tokens":   usage.get("promptTokenCount", 0),
+            "output_tokens":  usage.get("candidatesTokenCount", 0),
+            "gemini_seconds": gemini_seconds,
+        }
 
     parsed = _parse_polish_response(raw_text)
     # Fill in the fallback markdown if parsing failed so downstream still has *something* to show.
@@ -1061,6 +1078,47 @@ Rules:
         "gemini_seconds": gemini_seconds,
         "audio_size_mb": audio_size_mb,
     }
+
+
+def _extract_gemini_text(result: dict) -> tuple[str, str | None]:
+    """Extract the generated text from a Gemini API response.
+
+    Returns (text, None) on success, ("", error_msg) when no usable text is
+    available. Surfaces the actual `finishReason` so callers know whether
+    a content-less response came from a safety filter (SAFETY), recitation
+    filter (RECITATION), output truncation (MAX_TOKENS, but text usually
+    still present), or unspecified causes (OTHER).
+
+    Common failure modes seen in the wild:
+      - prompt-level block: result has `promptFeedback.blockReason` and no candidates
+      - per-candidate safety/recitation: candidates[0] has finishReason but no `content`
+      - empty parts: `content.parts` is missing or empty (rare; usually MAX_TOKENS)
+    """
+    pf = (result.get("promptFeedback") or {})
+    block_reason = pf.get("blockReason")
+    if block_reason:
+        return "", f"prompt blocked: {block_reason}"
+
+    candidates = result.get("candidates") or []
+    if not candidates:
+        keys = sorted(result.keys())
+        return "", f"no candidates in response (top-level keys: {keys})"
+
+    cand = candidates[0]
+    finish_reason = cand.get("finishReason")
+    content = cand.get("content")
+    if not content:
+        return "", f"candidate has no content (finishReason={finish_reason})"
+
+    parts = content.get("parts") or []
+    if not parts:
+        return "", f"candidate content has no parts (finishReason={finish_reason})"
+
+    text = "".join((p.get("text") or "") for p in parts)
+    if not text.strip():
+        return "", f"candidate text is empty (finishReason={finish_reason})"
+
+    return text, None
 
 
 def _parse_polish_response(raw_text: str) -> dict:
@@ -1490,8 +1548,16 @@ Rules:
         }
 
     result = resp.json()
-    raw_text = result["candidates"][0]["content"]["parts"][0]["text"]
+    raw_text, extract_err = _extract_gemini_text(result)
     usage = result.get("usageMetadata", {})
+    if extract_err is not None:
+        logger.warning("gemini_summarize_transcript: %s", extract_err)
+        return {
+            "error":         f"Gemini response had no usable text: {extract_err}",
+            "summary":       _empty_summary(),
+            "input_tokens":  usage.get("promptTokenCount", 0),
+            "output_tokens": usage.get("candidatesTokenCount", 0),
+        }
 
     # Re-use the hardened parser — it knows how to repair truncated JSON and
     # dedupe loops. We wrap the raw summary body so it parses through the same

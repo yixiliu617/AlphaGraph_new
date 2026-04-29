@@ -9,7 +9,100 @@ import pytest
 from backend.app.services.live_transcription import (
     _parse_polish_response,
     _flatten_segments_to_markdown,
+    _extract_gemini_text,
 )
+
+
+# ---------------------------------------------------------------------------
+# _extract_gemini_text -- guards against `KeyError: 'content'` in the wild
+# ---------------------------------------------------------------------------
+
+def test_extract_text_happy_path():
+    result = {
+        "candidates": [
+            {"content": {"parts": [{"text": "hello world"}]},
+             "finishReason": "STOP"}
+        ],
+        "usageMetadata": {"promptTokenCount": 100, "candidatesTokenCount": 50},
+    }
+    text, err = _extract_gemini_text(result)
+    assert text == "hello world"
+    assert err is None
+
+
+def test_extract_text_concatenates_multiple_parts():
+    result = {
+        "candidates": [
+            {"content": {"parts": [{"text": "foo "}, {"text": "bar"}]},
+             "finishReason": "STOP"}
+        ],
+    }
+    text, err = _extract_gemini_text(result)
+    assert text == "foo bar"
+    assert err is None
+
+
+def test_extract_text_safety_block_no_content():
+    """Gemini SAFETY filter: candidate has finishReason but no content key."""
+    result = {
+        "candidates": [
+            {"finishReason": "SAFETY", "safetyRatings": [{"category": "HARM_CATEGORY_DANGEROUS", "probability": "HIGH"}]}
+        ],
+    }
+    text, err = _extract_gemini_text(result)
+    assert text == ""
+    assert err is not None
+    assert "SAFETY" in err
+    assert "no content" in err.lower()
+
+
+def test_extract_text_recitation_block_no_content():
+    """Gemini RECITATION filter: same shape as SAFETY -- finishReason without content."""
+    result = {
+        "candidates": [{"finishReason": "RECITATION"}],
+    }
+    text, err = _extract_gemini_text(result)
+    assert text == ""
+    assert err is not None
+    assert "RECITATION" in err
+
+
+def test_extract_text_prompt_block():
+    """Prompt-level block: top-level promptFeedback.blockReason, no candidates at all."""
+    result = {
+        "promptFeedback": {"blockReason": "OTHER"},
+    }
+    text, err = _extract_gemini_text(result)
+    assert text == ""
+    assert err is not None
+    assert "OTHER" in err
+
+
+def test_extract_text_no_candidates():
+    """Empty response shape: no candidates and no promptFeedback."""
+    result = {"usageMetadata": {"promptTokenCount": 100}}
+    text, err = _extract_gemini_text(result)
+    assert text == ""
+    assert err is not None
+    assert "no candidates" in err.lower()
+
+
+def test_extract_text_empty_parts():
+    """content present but parts is an empty list (rare; usually MAX_TOKENS at budget=0)."""
+    result = {"candidates": [{"content": {"parts": []}, "finishReason": "MAX_TOKENS"}]}
+    text, err = _extract_gemini_text(result)
+    assert text == ""
+    assert err is not None
+    assert "MAX_TOKENS" in err
+
+
+def test_extract_text_whitespace_only():
+    """If text is just whitespace it's effectively empty."""
+    result = {"candidates": [{"content": {"parts": [{"text": "   \n"}]}, "finishReason": "STOP"}]}
+    text, err = _extract_gemini_text(result)
+    assert text == ""
+    assert err is not None
+    assert "empty" in err.lower()
 
 
 SAMPLE_JA_JSON = {
