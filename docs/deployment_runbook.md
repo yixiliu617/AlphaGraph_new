@@ -236,6 +236,7 @@ Add Sentry (free tier covers 5k errors/mo):
 | `vector type does not exist` (Pillar A) | pgvector not enabled | Phase 1.1 step 6 |
 | Worker doesn't fire jobs | Worker service crashed; check Render logs. Common cause: missing env var that the web service has. | render.yaml uses `fromService` to share env; verify both services have all needed secrets |
 | Frontend says "Loading..." forever | CORS reject — check browser console; CORS_ORIGINS doesn't include Vercel host | Update `CORS_ORIGINS` env var on Render |
+| `seed CSV not found: /app/backend/data/universe/...` ★ | **Render Disk mounts at `/app/backend/data/` and overlays anything baked into the image at that path.** Image had the seed file; the disk mount made it invisible. | Resolved permanently — seed files moved to `backend/scripts/seed_data/universe/` (outside the disk-mount path) so they're always visible. Same trap applies to AWS EFS, Fargate volumes, any disk mount over a directory with bundled assets. |
 
 ---
 

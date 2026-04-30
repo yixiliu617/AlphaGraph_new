@@ -55,7 +55,13 @@ from backend.app.models.orm.universe_v2_orm import (
 # Configuration
 # ---------------------------------------------------------------------------
 
-UNIVERSE_DIR = Path(__file__).resolve().parents[1] / "data" / "universe"
+# Seed files live UNDER scripts/, not under backend/data/. Why:
+# Render Disks mount over the existing backend/data/ contents at runtime,
+# masking anything baked into the image at that path. Keeping seeds at
+# backend/scripts/seed_data/universe/ — outside the mount — means the
+# image's bundled seeds are always visible to the loader.
+# Same pattern works on AWS EFS / Fargate volume / any disk-mounted host.
+UNIVERSE_DIR = Path(__file__).resolve().parent / "seed_data" / "universe"
 SEED_CSV     = UNIVERSE_DIR / "broad_universe_seed_v1.csv"
 PRE_IPO_JSON = UNIVERSE_DIR / "pre_ipo_watchlist_v1.json"
 
