@@ -201,7 +201,7 @@ function fmtDateInTz(iso: string, tz: string): { date: string; time: string } {
 }
 
 function TimeOfDayBadge({ code }: { code: CalendarEvent["time_of_day_code"] }) {
-  if (!code || code === "") return null;
+  if (!code) return null;
   const cfg = {
     BMO: { color: "bg-sky-50 text-sky-700 border-sky-200",
             tip: "Before-Market-Open: ~08:00 US Eastern" },
