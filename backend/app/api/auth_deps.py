@@ -76,3 +76,10 @@ def require_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user
+
+
+def require_admin(current_user=Depends(require_user)):
+    """403 unless the user has admin_role='admin'."""
+    if getattr(current_user, "admin_role", "user") != "admin":
+        raise HTTPException(status_code=403, detail="admin access required")
+    return current_user
