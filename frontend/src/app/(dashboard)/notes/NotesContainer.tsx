@@ -66,14 +66,12 @@ export default function NotesContainer() {
       .finally(() => setEarningsLoading(false));
   }, [setNotes, setLoading]);
 
-  const handleOpenRelease = async (releaseId: string) => {
-    setOpenReleaseLoading(true);
-    try {
-      const res = await earningsClient.get(releaseId);
-      if (res.success && res.data) setOpenRelease(res.data);
-    } finally {
-      setOpenReleaseLoading(false);
-    }
+  // Press release click -> navigate to /press-release/[id] (full-page view)
+  // instead of opening the older popup modal. The new page has its own
+  // dashboard shell, larger reading column, and re-paragraphs the EDGAR
+  // text dump for readability.
+  const handleOpenRelease = (releaseId: string) => {
+    router.push(`/press-release/${encodeURIComponent(releaseId)}`);
   };
 
   // Research query state — the question box at the top of the Notes tab.

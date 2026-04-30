@@ -908,13 +908,11 @@ export default function NotesView({
         <BatchTranscribeModal onClose={onCloseBatch} onComplete={onBatchComplete} />
       )}
 
-      {/* Earnings release detail modal — opened when a row in the
-          earnings section is clicked. */}
-      <ReleaseDetailModal
-        release={openRelease}
-        loading={openReleaseLoading}
-        onClose={onCloseRelease}
-      />
+      {/* Earnings release detail used to open in a popup ReleaseDetailModal;
+          now press-release clicks navigate to /press-release/[id] for a
+          full-page reader. The modal component is kept in this file as
+          dead code for the moment in case we want to revert -- but it is
+          intentionally not mounted here. */}
     </div>
   );
 }
