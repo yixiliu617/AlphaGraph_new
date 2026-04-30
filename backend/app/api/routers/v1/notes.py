@@ -606,13 +606,8 @@ async def batch_transcribe_folder(
         return svc.get_note(note.note_id, TENANT_ID)
 
     _KEEPALIVE_INTERVAL_SEC = 10.0
-    _STOP = object()
-
-    async def _next_or_stop(agen):
-        try:
-            return await agen.__anext__()
-        except StopAsyncIteration:
-            return _STOP
+    _STOP = object()      # sentinel for clean producer termination
+    _ERR  = object()      # sentinel marker; producer pushes (_ERR, exc)
 
     async def event_stream():
         # Wrap run_batch with a keepalive: if no event arrives within
@@ -621,33 +616,62 @@ async def batch_transcribe_folder(
         # connection alive past browser/proxy idle timeouts (typically
         # 60s). Long Gemini chunk calls can run silently for 2-4 min;
         # without keepalive the browser drops the fetch as a network error.
-        gen = run_batch(
-            scan, options,
-            transcribe_fn = gemini_batch_transcribe_smart,
-            save_note_fn  = _save_note,
-        )
-        next_task = asyncio.create_task(_next_or_stop(gen))
+        #
+        # Architecture: a producer task drives the run_batch generator
+        # and pushes events into a Queue. The consumer (this generator)
+        # `wait_for`s the queue with the keepalive timeout. The generator
+        # is owned by exactly one place (the producer task), so
+        # gen.aclose() is only ever called from the producer's finally,
+        # never racing with an in-flight __anext__ call.
+        out_q: asyncio.Queue = asyncio.Queue()
+
+        async def producer():
+            gen = run_batch(
+                scan, options,
+                transcribe_fn = gemini_batch_transcribe_smart,
+                save_note_fn  = _save_note,
+            )
+            try:
+                async for ev in gen:
+                    await out_q.put(ev)
+            except Exception as exc:    # noqa: BLE001
+                await out_q.put((_ERR, exc))
+            finally:
+                # gen.aclose() runs once the async-for loop ends or is
+                # cancelled. Async-for's own cleanup handles aclose
+                # implicitly when the loop exits, so no manual aclose
+                # is needed here.
+                await out_q.put(_STOP)
+
+        producer_task = asyncio.create_task(producer())
         try:
             while True:
-                done, _pending = await asyncio.wait(
-                    {next_task}, timeout=_KEEPALIVE_INTERVAL_SEC,
-                )
-                if not done:
+                try:
+                    item = await asyncio.wait_for(
+                        out_q.get(), timeout=_KEEPALIVE_INTERVAL_SEC,
+                    )
+                except asyncio.TimeoutError:
                     yield b": keepalive\n\n"
                     continue
-                result = next_task.result()
-                if result is _STOP:
+                if item is _STOP:
                     break
-                payload = _json.dumps(result.data, default=str)
-                yield f"event: {result.kind.value}\ndata: {payload}\n\n".encode("utf-8")
-                next_task = asyncio.create_task(_next_or_stop(gen))
-        except Exception as exc:    # noqa: BLE001
-            err = _json.dumps({"error": f"{type(exc).__name__}: {exc}"})
-            yield f"event: batch_error\ndata: {err}\n\n".encode("utf-8")
+                if isinstance(item, tuple) and item and item[0] is _ERR:
+                    exc = item[1]
+                    err = _json.dumps({"error": f"{type(exc).__name__}: {exc}"})
+                    yield f"event: batch_error\ndata: {err}\n\n".encode("utf-8")
+                    break
+                # Normal event
+                payload = _json.dumps(item.data, default=str)
+                yield f"event: {item.kind.value}\ndata: {payload}\n\n".encode("utf-8")
         finally:
-            if not next_task.done():
-                next_task.cancel()
-            await gen.aclose()
+            # Client disconnected (or we exited normally). Cancel the
+            # producer; its async-for unwinds gen safely.
+            if not producer_task.done():
+                producer_task.cancel()
+                try:
+                    await producer_task
+                except (asyncio.CancelledError, Exception):    # noqa: BLE001
+                    pass
 
     return StreamingResponse(
         event_stream(),
