@@ -8,7 +8,8 @@ class GicsSector(Phase2Base):
 
     id                = Column(String(64),  primary_key=True)
     parent_sector_id  = Column(String(64),
-                               ForeignKey("gics_sector.id", ondelete="SET NULL"),
+                               ForeignKey("gics_sector.id", ondelete="SET NULL",
+                                          name="fk_gics_sector_parent"),
                                nullable=True)
     display_name      = Column(String(128), nullable=False)
     is_industry_group = Column(Boolean,     nullable=False, server_default=text("false"))

@@ -8,10 +8,12 @@ class UserSector(Phase2Base):
     __tablename__ = "user_sector"
 
     user_id      = Column(UUID(as_uuid=True),
-                          ForeignKey("app_user.id", ondelete="CASCADE"),
+                          ForeignKey("app_user.id", ondelete="CASCADE",
+                                     name="fk_user_sector_user"),
                           primary_key=True)
     sector_id    = Column(String(64),
-                          ForeignKey("gics_sector.id"),
+                          ForeignKey("gics_sector.id", ondelete="CASCADE",
+                                     name="fk_user_sector_gics"),
                           primary_key=True)
     custom_label = Column(String(255), nullable=True)  # for sector_id='other'
     selected_at  = Column(DateTime(timezone=True), nullable=False,

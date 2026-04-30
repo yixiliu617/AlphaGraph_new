@@ -8,7 +8,8 @@ class UserCountry(Phase2Base):
     __tablename__ = "user_country"
 
     user_id      = Column(UUID(as_uuid=True),
-                          ForeignKey("app_user.id", ondelete="CASCADE"),
+                          ForeignKey("app_user.id", ondelete="CASCADE",
+                                     name="fk_user_country_user"),
                           primary_key=True)
     country_code = Column(String(8), primary_key=True)
     custom_label = Column(String(255), nullable=True)

@@ -10,7 +10,8 @@ class UserProfile(Phase2Base):
     __tablename__ = "user_profile"
 
     user_id              = Column(UUID(as_uuid=True),
-                                  ForeignKey("app_user.id", ondelete="CASCADE"),
+                                  ForeignKey("app_user.id", ondelete="CASCADE",
+                                             name="fk_user_profile_user"),
                                   primary_key=True)
     role                 = Column(String(32),  nullable=True)
     role_other           = Column(String(255), nullable=True)

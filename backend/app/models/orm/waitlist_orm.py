@@ -24,7 +24,8 @@ class WaitlistEntry(Phase2Base):
     note                    = Column(Text,        nullable=True)
     referrer                = Column(String(255), nullable=True)
     referred_by_user_id     = Column(UUID(as_uuid=True),
-                                     ForeignKey("app_user.id", ondelete="SET NULL"),
+                                     ForeignKey("app_user.id", ondelete="SET NULL",
+                                                name="fk_waitlist_referred_by"),
                                      nullable=True)
     status                  = Column(String(32),  nullable=False,
                                      server_default=text("'pending'"))
@@ -32,7 +33,8 @@ class WaitlistEntry(Phase2Base):
                                      server_default=text("CURRENT_TIMESTAMP"))
     approved_at             = Column(DateTime(timezone=True), nullable=True)
     approved_by_user_id     = Column(UUID(as_uuid=True),
-                                     ForeignKey("app_user.id", ondelete="SET NULL"),
+                                     ForeignKey("app_user.id", ondelete="SET NULL",
+                                                name="fk_waitlist_approved_by"),
                                      nullable=True)
     rejected_reason         = Column(Text, nullable=True)
     invite_email_sent_at    = Column(DateTime(timezone=True), nullable=True)

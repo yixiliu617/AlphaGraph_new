@@ -12,10 +12,12 @@ class UserTheme(Phase2Base):
     id         = Column(UUID(as_uuid=True), primary_key=True,
                         server_default=text("gen_random_uuid()"), default=uuid.uuid4)
     user_id    = Column(UUID(as_uuid=True),
-                        ForeignKey("app_user.id", ondelete="CASCADE"),
+                        ForeignKey("app_user.id", ondelete="CASCADE",
+                                   name="fk_user_theme_user"),
                         nullable=False)
     sector_id  = Column(String(64),
-                        ForeignKey("gics_sector.id", ondelete="SET NULL"),
+                        ForeignKey("gics_sector.id", ondelete="SET NULL",
+                                   name="fk_user_theme_gics"),
                         nullable=True)
     theme_text = Column(Text,    nullable=False)
     sort_order = Column(Integer, nullable=False, server_default=text("0"))
