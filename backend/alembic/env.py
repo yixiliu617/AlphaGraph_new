@@ -35,6 +35,12 @@ import backend.app.models.orm.credential_orm       # noqa: F401, E402
 import backend.app.models.orm.calendar_event_orm   # noqa: F401, E402
 import backend.app.models.orm.note_synced_orm      # noqa: F401, E402
 import backend.app.models.orm.universe_v2_orm      # noqa: F401, E402
+import backend.app.models.orm.waitlist_orm         # noqa: F401, E402
+import backend.app.models.orm.user_profile_orm     # noqa: F401, E402
+import backend.app.models.orm.gics_sector_orm      # noqa: F401, E402
+import backend.app.models.orm.user_sector_orm      # noqa: F401, E402
+import backend.app.models.orm.user_country_orm     # noqa: F401, E402
+import backend.app.models.orm.user_theme_orm       # noqa: F401, E402
 
 # Legacy ORMs — kept here so a future migration can pick them up if/when
 # we consolidate everything onto Postgres. They are NOT in target_metadata

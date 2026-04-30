@@ -37,6 +37,7 @@ class AppUser(Phase2Base):
     oauth_provider   = Column(String(32),  nullable=False)
     oauth_subject_id = Column(String(255), nullable=False)
     tier             = Column(String(32),  nullable=False, server_default=text("'free'"))
+    admin_role       = Column(String(16),  nullable=False, server_default=text("'user'"))
     is_active        = Column(Boolean,     nullable=False, server_default=text("true"))
     created_at       = Column(DateTime(timezone=True), nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     last_seen_at     = Column(DateTime(timezone=True), nullable=True)

@@ -67,3 +67,9 @@ from backend.app.models.orm import credential_orm       # noqa: F401, E402
 from backend.app.models.orm import calendar_event_orm   # noqa: F401, E402
 from backend.app.models.orm import note_synced_orm      # noqa: F401, E402
 from backend.app.models.orm import universe_v2_orm      # noqa: F401, E402
+from backend.app.models.orm import waitlist_orm        # noqa: F401, E402
+from backend.app.models.orm import user_profile_orm    # noqa: F401, E402
+from backend.app.models.orm import gics_sector_orm     # noqa: F401, E402
+from backend.app.models.orm import user_sector_orm     # noqa: F401, E402
+from backend.app.models.orm import user_country_orm    # noqa: F401, E402
+from backend.app.models.orm import user_theme_orm      # noqa: F401, E402
