@@ -49,3 +49,4 @@ itsdangerous>=2.2.0
 pandas_market_calendars>=4.4.0
 # Optional: standalone OHLC charting tools (not used by the dashboard)
 mplfinance>=0.12.10b0
+resend>=2.0.0  # transactional email; used by waitlist + onboarding flow

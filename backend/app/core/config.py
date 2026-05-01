@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     OPENAI_API_KEY:    Optional[str] = None
     ANTHROPIC_API_KEY: Optional[str] = None
 
+    # ---- Email (Resend) ----
+    # Set RESEND_API_KEY for prod. Dev: leave blank → emails are logged not sent.
+    RESEND_API_KEY: Optional[str] = None
+    EMAIL_FROM: str = "AlphaGraph <noreply@alphagraph.com>"
+    ADMIN_EMAIL_BCC: Optional[str] = None  # Sharon's email; BCC'd on every waitlist email
+
     # Vector Database
     PINECONE_API_KEY: Optional[str] = None
     PINECONE_INDEX_NAME: str = "alphagraph-v1"
