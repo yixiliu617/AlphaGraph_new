@@ -25,7 +25,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from starlette.middleware.sessions import SessionMiddleware
-from backend.app.api.routers.v1 import ingest, chat, ledger, topology, insights, notes, data, earnings, research, pricing, prices, social, taiwan, tsmc, umc, mediatek, admin, calendar, auth, connections, me_calendar, me_notes
+from backend.app.api.routers.v1 import ingest, chat, ledger, topology, insights, notes, data, earnings, research, pricing, prices, social, taiwan, tsmc, umc, mediatek, admin, calendar, auth, connections, me_calendar, me_notes, public_waitlist
 from backend.app.core.config import settings
 from backend.app.db.session import init_db
 
@@ -102,6 +102,9 @@ app.include_router(auth.router,        prefix=f"{settings.API_V1_STR}/auth",    
 app.include_router(connections.router, prefix=f"{settings.API_V1_STR}/connections", tags=["connections"])
 app.include_router(me_calendar.router, prefix=f"{settings.API_V1_STR}/me/calendar", tags=["me-calendar"])
 app.include_router(me_notes.router,    prefix=f"{settings.API_V1_STR}/me/notes",    tags=["me-notes"])
+app.include_router(public_waitlist.router,
+                   prefix=f"{settings.API_V1_STR}/public/waitlist",
+                   tags=["public-waitlist"])
 
 
 @app.on_event("startup")
